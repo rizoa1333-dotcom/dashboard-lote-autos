@@ -1,13 +1,13 @@
 const express = require('express');
-const app = express();
 const path = require('path');
+const app = express();
 
-// Esto servirá los archivos desde la misma carpeta donde está el server.js
-app.use(express.static(__dirname)); // Sirve todo lo que esté en la carpeta raíz 
+// Servir archivos estáticos desde la carpeta actual
+app.use(express.static(path.resolve(__dirname)));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor activo en el puerto ${PORT}`));
