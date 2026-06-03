@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyecto360 - Panel de Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <button id="mobile-menu-btn">☰ Opciones</button>
+
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <span class="brand-icon">⚡</span>
+                <div>
+                    <h2>Proyecto360</h2>
+                    <p id="user-email">Cargando usuario...</p>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>🛠️ Operaciones</h3>
+                
+                <button id="btn-alertas" class="btn-primary" style="background: var(--accent-green); color: #000; width: 100%; margin-bottom: 10px;">
+                    🔔 Activar Alertas
+                </button>
+                
+                <button class="btn-primary" style="width: 100%; margin-bottom: 10px;" onclick="document.getElementById('form-nuevo-auto').style.display='flex'">
+                    + Nuevo Vehículo
+                </button>
+                <button id="btn-logout" class="btn-primary" style="background: var(--danger); width: 100%;">
+                    Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-title">
+                    <h1>Administración de Inventario y Citas</h1>
+                    <p>Gestión en tiempo real del lote de autos</p>
+                </div>
+            </header>
+
+            <div class="dashboard-grid">
+                
+                <div class="panel-card" style="grid-column: span 1;">
+                    <form id="form-nuevo-auto" class="sidebar-section" style="display: none; background: #1A1F2C; margin-bottom: 20px;">
+                        <h3 style="color: white; margin-bottom: 10px;">Registrar Nueva Unidad</h3>
+                        <div class="input-group">
+                            <input type="text" id="auto-marca" placeholder="Marca (ej. MG, Mazda)" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="text" id="auto-modelo" placeholder="Modelo (ej. GT Trophy)" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" id="auto-ano" placeholder="Año (ej. 2024)" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" id="auto-precio" placeholder="Precio MXN" required>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button type="submit" class="btn-primary" style="flex: 1;">Guardar</button>
+                            <button type="button" class="btn-primary" style="background: var(--border-color); flex: 1;" onclick="document.getElementById('form-nuevo-auto').style.display='none'">Cancelar</button>
+                        </div>
+                    </form>
+
+                    <div class="card-header">
+                        <h2>🚗 Inventario Actual</h2>
+                        <span class="counter-pill" id="total-autos">0</span>
+                    </div>
+                    <div class="inventory-grid" id="contenedor-autos" style="margin-top: 15px;">
+                        <p class="empty-state">Cargando inventario...</p>
+                    </div>
+                </div>
+
+                <div class="panel-card" style="grid-column: span 1;">
+                    <div class="card-header">
+                        <h2>📅 Citas (Nuevos Leads)</h2>
+                        <span class="pulse-dot"></span>
+                    </div>
+                    <div class="citas-container" id="contenedor-citas" style="margin-top: 15px;">
+                        <p class="empty-state">Cargando citas...</p>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="./dashboard.js"></script>
+</body>
+</html>
