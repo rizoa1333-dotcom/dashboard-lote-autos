@@ -3,6 +3,7 @@ const SUPABASE_KEY = "sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 document.addEventListener("DOMContentLoaded", async () => {
+    // 1. VERIFICAR SESIÓN
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
         window.location.href = "/index.html";
@@ -10,6 +11,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     document.getElementById('user-email').innerText = session.user.email;
 
+    // 2. INICIAR ECOSISTEMA
     cargarInventario();
     cargarCitas();
     escucharTiempoReal();
@@ -31,7 +33,7 @@ window.cambiarVista = (idVista, idTab) => {
     }
 };
 
-// --- CONFIGURACIÓN TÁCTIL Y DESLIZAMIENTO (SWIPE) ---
+// --- CONFIGURACIÓN TÁCTIL, SWIPE Y NOTIFICACIONES ---
 function configurarMenuMovil() {
     const btnMenu = document.getElementById('mobile-menu-btn');
     const sidebar = document.getElementById('sidebar');
@@ -44,6 +46,7 @@ function configurarMenuMovil() {
         });
     }
 
+    // Lógica Swipe (Deslizar dedo)
     let touchstartX = 0;
     let touchendX = 0;
 
@@ -53,24 +56,41 @@ function configurarMenuMovil() {
 
     document.addEventListener('touchend', e => {
         touchendX = e.changedTouches[0].screenX;
-        // Swipe Derecha: Abrir desde el borde izquierdo
         if (touchendX > touchstartX + 65 && touchstartX < 50) {
             sidebar.classList.add('active');
             if (btnMenu) btnMenu.textContent = '✕ Cerrar';
         }
-        // Swipe Izquierda: Ocultar panel
         if (touchendX < touchstartX - 65) {
             sidebar.classList.remove('active');
             if (btnMenu) btnMenu.textContent = '☰ Menú';
         }
     }, { passive: true });
 
+    // --- LÓGICA DE NOTIFICACIONES CORREGIDA ---
     const btnAlertas = document.getElementById('btn-alertas');
-    if (btnAlertas && Notification.permission === 'granted') btnAlertas.style.display = 'none';
+    
+    // Si ya tiene permiso desde antes, ocultamos el botón
+    if (btnAlertas && Notification.permission === 'granted') {
+        btnAlertas.style.display = 'none';
+    }
+
     if (btnAlertas) {
         btnAlertas.addEventListener('click', async () => {
-            const res = await Notification.requestPermission();
-            if (res === 'granted') btnAlertas.style.display = 'none';
+            try {
+                const res = await Notification.requestPermission();
+                
+                if (res === 'granted') {
+                    alert("¡Alertas activadas! El sistema te avisará cuando llegue un lead.");
+                    btnAlertas.style.display = 'none';
+                } else if (res === 'denied') {
+                    alert("⚠️ Permiso denegado por el navegador. Debes activarlo manualmente en el candadito junto a la URL.");
+                } else {
+                    alert("La solicitud fue ignorada. Intenta de nuevo.");
+                }
+            } catch (error) {
+                alert("Las notificaciones requieren que la página esté subida a Railway (HTTPS).");
+                console.error("Error de notificaciones:", error);
+            }
         });
     }
 }
@@ -96,6 +116,9 @@ document.getElementById('form-nuevo-auto').addEventListener('submit', async (e) 
         document.getElementById('form-nuevo-auto').reset();
         document.getElementById('form-nuevo-auto').style.display = 'none';
         cargarInventario();
+    } else {
+        alert("Error al guardar el vehículo.");
+        console.error(error);
     }
 });
 
@@ -130,7 +153,7 @@ async function cargarInventario() {
                 <div style="flex:1;">
                     <div style="display:flex; align-items:center;">
                         <h4>${a.brand} ${a.model}</h4>
-                        <span style="font-size:11px; margin-left:8px; background:var(--bg-main); padding:2px 6px; border-radius:4px; font-weight:600;">${a.year}</span>
+                        <span style="font-size:11px; margin-left:8px; background:var(--bg-main); padding:2px 6px; border-radius:4px; font-weight:600; color:var(--text-muted);">${a.year}</span>
                     </div>
                     <div class="auto-price">$${Number(a.price).toLocaleString('es-MX')} MXN</div>
                     ${a.image_url ? `<a href="${a.image_url}" target="_blank" style="display:inline-block; margin-top:4px; font-size:11px; color:var(--text-pure); text-decoration:underline;">Ver Fotos</a>` : ''}
@@ -141,6 +164,7 @@ async function cargarInventario() {
         `;
     }).join('') : `<p class="empty-state">No hay registros.</p>`;
 
+    // Actualizar tableros superiores
     document.getElementById('kpi-disponibles').innerText = disponibles;
     document.getElementById('kpi-valor').innerText = `$${valorTotal.toLocaleString('es-MX')} MXN`;
     document.getElementById('kpi-vendidos').innerText = vendidos;
@@ -179,6 +203,7 @@ async function cargarCitas() {
     }).join('') : `<p class="empty-state">No hay prospectos registrados.</p>`;
 }
 
+// --- ESCUCHAR TIEMPO REAL ---
 function escucharTiempoReal() {
     supabaseClient.channel('dashboard-realtime').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'citas' }, async (p) => {
         if (Notification.permission === "granted") {
