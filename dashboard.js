@@ -33,7 +33,7 @@ window.cambiarVista = (idVista, idTab) => {
     }
 };
 
-// --- CONFIGURACIÓN TÁCTIL, SWIPE Y NOTIFICACIONES ---
+// --- CONFIGURACIÓN TÁCTIL Y NOTIFICACIONES ---
 function configurarMenuMovil() {
     const btnMenu = document.getElementById('mobile-menu-btn');
     const sidebar = document.getElementById('sidebar');
@@ -46,50 +46,16 @@ function configurarMenuMovil() {
         });
     }
 
-    // Lógica Swipe (Deslizar dedo)
-    let touchstartX = 0;
-    let touchendX = 0;
-
-    document.addEventListener('touchstart', e => {
-        touchstartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-
-    document.addEventListener('touchend', e => {
-        touchendX = e.changedTouches[0].screenX;
-        if (touchendX > touchstartX + 65 && touchstartX < 50) {
-            sidebar.classList.add('active');
-            if (btnMenu) btnMenu.textContent = '✕ Cerrar';
-        }
-        if (touchendX < touchstartX - 65) {
-            sidebar.classList.remove('active');
-            if (btnMenu) btnMenu.textContent = '☰ Menú';
-        }
-    }, { passive: true });
-
-    // --- LÓGICA DE NOTIFICACIONES CORREGIDA ---
+    // Lógica de notificaciones
     const btnAlertas = document.getElementById('btn-alertas');
-    
-    // Si ya tiene permiso desde antes, ocultamos el botón
-    if (btnAlertas && Notification.permission === 'granted') {
-        btnAlertas.style.display = 'none';
-    }
+    if (btnAlertas && Notification.permission === 'granted') btnAlertas.style.display = 'none';
 
     if (btnAlertas) {
         btnAlertas.addEventListener('click', async () => {
-            try {
-                const res = await Notification.requestPermission();
-                
-                if (res === 'granted') {
-                    alert("¡Alertas activadas! El sistema te avisará cuando llegue un lead.");
-                    btnAlertas.style.display = 'none';
-                } else if (res === 'denied') {
-                    alert("⚠️ Permiso denegado por el navegador. Debes activarlo manualmente en el candadito junto a la URL.");
-                } else {
-                    alert("La solicitud fue ignorada. Intenta de nuevo.");
-                }
-            } catch (error) {
-                alert("Las notificaciones requieren que la página esté subida a Railway (HTTPS).");
-                console.error("Error de notificaciones:", error);
+            const res = await Notification.requestPermission();
+            if (res === 'granted') {
+                alert("¡Alertas activadas!");
+                btnAlertas.style.display = 'none';
             }
         });
     }
@@ -101,7 +67,7 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
     window.location.href = "/index.html";
 });
 
-// --- CRUD: INSERTAR VEHÍCULO ---
+// --- CRUD: INSERTAR VEHÍCULO + DISPARADOR AUTOMÁTICO ---
 document.getElementById('form-nuevo-auto').addEventListener('submit', async (e) => {
     e.preventDefault();
     const brand = document.getElementById('auto-marca').value.trim();
@@ -110,21 +76,37 @@ document.getElementById('form-nuevo-auto').addEventListener('submit', async (e) 
     const price = document.getElementById('auto-precio').value;
     const url = document.getElementById('auto-foto').value.trim();
 
-    const { error } = await supabaseClient.from('cars').insert([{ brand, model, year, price, status: 'Disponible', image_url: url }]);
+    const { error } = await supabaseClient.from('cars').insert([{ 
+        brand, model, year, price, status: 'Disponible', image_url: url 
+    }]);
 
     if (!error) {
         document.getElementById('form-nuevo-auto').reset();
         document.getElementById('form-nuevo-auto').style.display = 'none';
         cargarInventario();
+
+        // Disparador del flujo de Broadcast en n8n
+        try {
+            await fetch('https://n8n-production-97a4.up.railway.app/webhook/b171893b-1b1c-4ee6-9b92-970a1a849b7c', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    modelo: `${brand} ${model}`,
+                    mensaje: "¡Ha llegado un nuevo inventario!" 
+                })
+            });
+            console.log("Broadcast iniciado automáticamente.");
+        } catch (err) {
+            console.error("Error al disparar el broadcast:", err);
+        }
     } else {
         alert("Error al guardar el vehículo.");
-        console.error(error);
     }
 });
 
 // --- CRUD: ACTUALIZAR ESTADO A VENDIDO ---
 window.marcarVendido = async (id) => {
-    if (confirm("¿Confirmar venta de la unidad?")) {
+    if (confirm("¿Confirmar venta?")) {
         const { error } = await supabaseClient.from('cars').update({ status: 'Vendido' }).eq('id', id);
         if (!error) cargarInventario();
     }
@@ -151,20 +133,15 @@ async function cargarInventario() {
         return `
             <div class="auto-block" style="${a.status === 'Vendido' ? 'opacity: 0.4;' : ''}">
                 <div style="flex:1;">
-                    <div style="display:flex; align-items:center;">
-                        <h4>${a.brand} ${a.model}</h4>
-                        <span style="font-size:11px; margin-left:8px; background:var(--bg-main); padding:2px 6px; border-radius:4px; font-weight:600; color:var(--text-muted);">${a.year}</span>
-                    </div>
+                    <h4>${a.brand} ${a.model}</h4>
                     <div class="auto-price">$${Number(a.price).toLocaleString('es-MX')} MXN</div>
-                    ${a.image_url ? `<a href="${a.image_url}" target="_blank" style="display:inline-block; margin-top:4px; font-size:11px; color:var(--text-pure); text-decoration:underline;">Ver Fotos</a>` : ''}
                     <div style="margin-top:6px;"><span class="auto-status-badge">${a.status}</span></div>
                 </div>
-                ${a.status !== 'Vendido' ? `<button onclick="marcarVendido('${a.id}')" class="btn-primary" style="background:transparent; color:var(--text-pure); border:1px solid var(--border-color); padding:6px 12px; font-size:11px;">Vendido</button>` : ''}
+                ${a.status !== 'Vendido' ? `<button onclick="marcarVendido('${a.id}')" class="btn-primary">Vendido</button>` : ''}
             </div>
         `;
     }).join('') : `<p class="empty-state">No hay registros.</p>`;
 
-    // Actualizar tableros superiores
     document.getElementById('kpi-disponibles').innerText = disponibles;
     document.getElementById('kpi-valor').innerText = `$${valorTotal.toLocaleString('es-MX')} MXN`;
     document.getElementById('kpi-vendidos').innerText = vendidos;
@@ -176,8 +153,7 @@ async function cargarCitas() {
     const cont = document.getElementById("contenedor-citas");
 
     cont.innerHTML = citas?.length > 0 ? citas.map(c => {
-        const rawTel = c.telefono_cliente || c.telefono || '';
-        const cleanTel = rawTel.replace(/\D/g, '');
+        const cleanTel = (c.telefono_cliente || c.telefono || '').replace(/\D/g, '');
         const estado = c.estado_lead || 'Nuevo Lead';
 
         return `
@@ -185,22 +161,18 @@ async function cargarCitas() {
                 <div style="flex:1;">
                     <h4>Vehículo: ${c.auto_interes}</h4>
                     <p>👤 Cliente: ${c.nombre_cliente}</p>
-                    <span class="cita-tag">⏰ Agenda: ${c.fecha_hora_cita || 'En proceso por la IA'}</span>
                     <div class="crm-actions">
                         ${cleanTel ? `<a href="https://wa.me/${cleanTel}" target="_blank" class="btn-whatsapp">💬 WhatsApp</a>` : ''}
                         <select onchange="cambiarEstadoCita('${c.id}', this.value)" class="select-crm">
                             <option value="Nuevo Lead" ${estado === 'Nuevo Lead' ? 'selected' : ''}>Nuevo Lead</option>
                             <option value="Contactado" ${estado === 'Contactado' ? 'selected' : ''}>Contactado</option>
-                            <option value="Prueba de Manejo" ${estado === 'Prueba de Manejo' ? 'selected' : ''}>Prueba de Manejo</option>
-                            <option value="En Negociación" ${estado === 'En Negociación' ? 'selected' : ''}>En Negociación</option>
                             <option value="Vendido" ${estado === 'Vendido' ? 'selected' : ''}>Vendido</option>
-                            <option value="Perdido" ${estado === 'Perdido' ? 'selected' : ''}>Perdido</option>
                         </select>
                     </div>
                 </div>
             </div>
         `;
-    }).join('') : `<p class="empty-state">No hay prospectos registrados.</p>`;
+    }).join('') : `<p class="empty-state">No hay prospectos.</p>`;
 }
 
 // --- ESCUCHAR TIEMPO REAL ---
