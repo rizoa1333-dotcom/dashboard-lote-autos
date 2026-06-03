@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyecto360 - Panel de Control Inteligente</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Supabase Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="dashboard-layout">
+        <!-- BARRA LATERAL DE CONFIGURACIÓN -->
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="brand-icon">⚡</span>
+                <div>
+                    <h2>Proyecto360</h2>
+                    <p>Ecosistema IA</p>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>🔌 Conexión Base de Datos</h3>
+                <div class="input-group">
+                    <label>Supabase URL</label>
+                    <input type="text" id="db-url" value="https://deljncdcddfghfihuumd.supabase.co">
+                </div>
+                <div class="input-group">
+                    <label>Anon Key</label>
+                    <input type="password" id="db-key" value="sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-">
+                </div>
+                <button id="btn-conectar" class="btn-primary">Conectar Sistema</button>
+                <div id="conn-status" class="status-badge status-disconnected">No conectado</div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>🤖 Estado del Servidor</h3>
+                <div class="server-box">
+                    <div class="server-item">
+                        <span>n8n Core</span>
+                        <span class="badge badge-online">Online</span>
+                    </div>
+                    <div class="server-item">
+                        <span>Evolution API</span>
+                        <span class="badge badge-online">Online</span>
+                    </div>
+                    <div class="server-item">
+                        <span>Hosting</span>
+                        <span class="badge badge-railway">Railway</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="main-content">
+            <!-- HEADER -->
+            <header class="main-header">
+                <div class="header-title">
+                    <h1>Panel de Control Automotriz</h1>
+                    <p>Monitoreo de leads, citas e inventario en tiempo real</p>
+                </div>
+                <div class="agent-profile">
+                    <span class="agent-avatar">🤖</span>
+                    <div>
+                        <h4>Agente Carlos</h4>
+                        <p>Vendedor Activo 24/7</p>
+                    </div>
+                </div>
+            </header>
+
+            <!-- CONTENEDORES DE DATOS -->
+            <div class="dashboard-grid">
+                <!-- COLUMNA CITAS -->
+                <div class="panel-card">
+                    <div class="card-header">
+                        <h2>📅 Citas Agendadas por la IA</h2>
+                        <span class="pulse-dot"></span>
+                    </div>
+                    <div class="citas-container" id="contenedor-citas">
+                        <p class="empty-state">Conecta la base de datos para cargar la agenda...</p>
+                    </div>
+                </div>
+
+                <!-- COLUMNA INVENTARIO -->
+                <div class="panel-card">
+                    <div class="card-header">
+                        <h2>🚗 Inventario en Lote (Supabase)</h2>
+                        <span class="counter-pill" id="total-autos">0</span>
+                    </div>
+                    <div class="inventory-grid" id="contenedor-autos">
+                        <p class="empty-state">Conecta la base de datos para cargar los autos...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
