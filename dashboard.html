@@ -3,99 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proyecto360 - Centro de Control</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="./styles.css">
+    <title>PROYECTO360 - Administración del Lote</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-    <button id="mobile-menu-btn">☰ Menú</button>
+<body class="bg-gray-100 font-sans antialiased">
 
-    <div class="dashboard-layout">
-        <aside class="sidebar" id="sidebar">
-            <div class="brand">
-                <h2>Proyecto360</h2>
-                <p id="user-email">Cargando...</p>
+    <div class="flex min-h-screen">
+        
+        <!-- SIDEBAR (Navegación Izquierda) -->
+        <aside class="w-64 bg-white shadow-md p-6 flex flex-col justify-between border-r border-gray-200">
+            <div>
+                <div class="mb-8">
+                    <h1 class="text-xl font-extrabold text-gray-900 tracking-wider">PROYECTO360</h1>
+                    <p class="text-xs text-gray-400 mt-1">rizoa1333@gmail.com</p>
+                </div>
+                <nav class="space-y-1">
+                    <a href="#" class="block py-2.5 px-4 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm transition-all">Inventario</a>
+                    <a href="#" class="block py-2.5 px-4 bg-gray-900 text-white rounded-lg font-semibold text-sm transition-all shadow-xs">Seguimiento CRM</a>
+                </nav>
             </div>
-
-            <div class="sidebar-section">
-                <h3>Navegación</h3>
-                <button id="tab-inventario" class="btn-primary btn-tab active-tab" onclick="cambiarVista('vista-inventario', 'tab-inventario')">Inventario</button>
-                <button id="tab-citas" class="btn-primary btn-tab" onclick="cambiarVista('vista-citas', 'tab-citas')">Seguimiento CRM</button>
-            </div>
-
-            <div class="sidebar-section">
-                <h3>Operaciones</h3>
-                <button id="btn-alertas" class="btn-primary" style="background: var(--success); color:#FFF; border:none;">Activar Alertas</button>
-                <button class="btn-primary" onclick="document.getElementById('form-nuevo-auto').style.display='block'">+ Nuevo Vehículo</button>
-                <button id="btn-logout" class="btn-primary" style="background:var(--danger); color:#FFF; border:none;">Cerrar Sesión</button>
+            <div class="space-y-2">
+                <button class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-all cursor-pointer">Activar Alertas</button>
+                <button class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2.5 px-4 rounded-lg text-sm transition-all cursor-pointer">+ Nuevo Vehículo</button>
+                <button class="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-all cursor-pointer">Cerrar Sesión</button>
             </div>
         </aside>
 
-        <main class="main-content">
-            <header class="main-header">
-                <div class="header-title">
-                    <h1>Administración del Lote</h1>
-                    <p>Monitoreo y gestión en tiempo real</p>
-                </div>
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="flex-1 p-8">
+            <header class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Administración del Lote</h2>
+                <p class="text-sm text-gray-500">Monitoreo y gestión de leads en tiempo real</p>
             </header>
 
-            <section class="kpi-row">
-                <div class="kpi-card">
-                    <h4>Unidades Disponibles</h4>
-                    <div class="kpi-value" id="kpi-disponibles">0</div>
+            <!-- TARJETAS DE MÉTRICAS -->
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-xs border border-gray-200">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Unidades Disponibles</span>
+                    <p class="text-3xl font-extrabold text-gray-900 mt-2">0</p>
                 </div>
-                <div class="kpi-card">
-                    <h4>Valor de Inventario</h4>
-                    <div class="kpi-value" id="kpi-valor">$0 MXN</div>
+                <div class="bg-white p-6 rounded-xl shadow-xs border border-gray-200">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Valor de Inventario</span>
+                    <p class="text-3xl font-extrabold text-gray-900 mt-2">$0 MXN</p>
                 </div>
-                <div class="kpi-card">
-                    <h4>Unidades Vendidas</h4>
-                    <div class="kpi-value" id="kpi-vendidos">0</div>
+                <div class="bg-white p-6 rounded-xl shadow-xs border border-gray-200">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Unidades Vendidas</span>
+                    <p class="text-3xl font-extrabold text-gray-900 mt-2">0</p>
                 </div>
             </section>
 
-            <div id="vista-inventario" class="view-section active-view">
-                <div class="panel-card">
-                    <form id="form-nuevo-auto" style="display: none; border: 1px solid var(--border-color); padding: 20px; border-radius: 6px; margin-bottom: 10px;">
-                        <h3 style="margin-bottom: 16px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Registrar Nueva Unidad</h3>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                            <div class="input-group"><input type="text" id="auto-marca" placeholder="Marca" required></div>
-                            <div class="input-group"><input type="text" id="auto-modelo" placeholder="Modelo" required></div>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                            <div class="input-group"><input type="number" id="auto-ano" placeholder="Año" required></div>
-                            <div class="input-group"><input type="number" id="auto-precio" placeholder="Precio" required></div>
-                        </div>
-                        <div class="input-group" style="margin-bottom: 16px;">
-                            <input type="url" id="auto-foto" placeholder="URL de la galería de fotos" required>
-                        </div>
-                        <div style="display: flex; gap: 10px;">
-                            <button type="submit" class="btn-primary" style="flex: 1;">Guardar</button>
-                            <button type="button" class="btn-primary" style="background:var(--bg-main); color:var(--text-pure); border-color:var(--border-color); flex: 1;" onclick="document.getElementById('form-nuevo-auto').style.display='none'">Cancelar</button>
-                        </div>
-                    </form>
-
-                    <div class="card-header">
-                        <h2>Inventario Activo</h2>
-                        <span class="counter-pill" id="total-autos">0</span>
+            <!-- SECCIÓN: FLUJO DE PROSPECTOS DINÁMICO -->
+            <section class="bg-white p-6 rounded-xl shadow-xs border border-gray-200">
+                <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                    <h3 class="text-sm font-bold text-gray-800 tracking-wider uppercase">Flujo de Prospectos</h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-400 font-medium">Sincronizado en vivo</span>
+                        <span class="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></span>
                     </div>
-                    <div class="inventory-grid" id="contenedor-autos"></div>
                 </div>
-            </div>
 
-            <div id="vista-citas" class="view-section">
-                <div class="panel-card">
-                    <div class="card-header">
-                        <h2>Flujo de Prospectos</h2>
-                        <span class="pulse-dot"></span>
-                    </div>
-                    <div class="citas-container" id="contenedor-citas"></div>
+                <!-- Aquí el Javascript inyectará las tarjetas de cada cliente -->
+                <div id="contenedor-prospectos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <p class="text-gray-400 text-sm italic col-span-full py-4 text-center">Conectando con el servidor de base de datos...</p>
                 </div>
-            </div>
+            </section>
         </main>
+
     </div>
 
-    <script src="./dashboard.js"></script>
+    <!-- Vinculación del archivo lógico de Javascript -->
+    <script src="dashboard.js"></script>
 </body>
 </html>

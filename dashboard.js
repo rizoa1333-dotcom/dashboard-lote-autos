@@ -1,186 +1,101 @@
-const SUPABASE_URL = "https://deljncdcddfghfihuumd.supabase.co";
-const SUPABASE_KEY = "sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-"; 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-document.addEventListener("DOMContentLoaded", async () => {
-    // 1. VERIFICAR SESIÓN
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) {
-        window.location.href = "/index.html";
-        return;
-    }
-    document.getElementById('user-email').innerText = session.user.email;
-
-    // 2. INICIAR ECOSISTEMA
-    cargarInventario();
-    cargarCitas();
-    escucharTiempoReal();
-    configurarMenuMovil();
-});
-
-// --- ENRUTADOR INTERNO SPA (TABS) ---
-window.cambiarVista = (idVista, idTab) => {
-    document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active-view'));
-    document.querySelectorAll('.btn-tab').forEach(t => t.classList.remove('active-tab'));
+document.addEventListener('DOMContentLoaded', () => {
+    // Carga inicial nada más abrir el panel
+    cargarFlujoProspectos();
     
-    document.getElementById(idVista).classList.add('active-view');
-    document.getElementById(idTab).classList.add('active-tab');
-
-    const sidebar = document.getElementById('sidebar');
-    if (window.innerWidth <= 900) {
-        sidebar.classList.remove('active');
-        document.getElementById('mobile-menu-btn').textContent = '☰ Menú';
-    }
-};
-
-// --- CONFIGURACIÓN TÁCTIL Y NOTIFICACIONES ---
-function configurarMenuMovil() {
-    const btnMenu = document.getElementById('mobile-menu-btn');
-    const sidebar = document.getElementById('sidebar');
-
-    if (btnMenu) {
-        btnMenu.addEventListener('click', (e) => {
-            e.stopPropagation();
-            sidebar.classList.toggle('active');
-            btnMenu.textContent = sidebar.classList.contains('active') ? '✕ Cerrar' : '☰ Menú';
-        });
-    }
-
-    // Lógica de notificaciones
-    const btnAlertas = document.getElementById('btn-alertas');
-    if (btnAlertas && Notification.permission === 'granted') btnAlertas.style.display = 'none';
-
-    if (btnAlertas) {
-        btnAlertas.addEventListener('click', async () => {
-            const res = await Notification.requestPermission();
-            if (res === 'granted') {
-                alert("¡Alertas activadas!");
-                btnAlertas.style.display = 'none';
-            }
-        });
-    }
-}
-
-// --- LOGOUT ---
-document.getElementById('btn-logout').addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    window.location.href = "/index.html";
+    // Polling activo: Consulta cambios en la base de datos de manera transparente cada 10 segundos
+    setInterval(cargarFlujoProspectos, 10000);
 });
 
-// --- CRUD: INSERTAR VEHÍCULO + DISPARADOR AUTOMÁTICO ---
-document.getElementById('form-nuevo-auto').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const brand = document.getElementById('auto-marca').value.trim();
-    const model = document.getElementById('auto-modelo').value.trim();
-    const year = document.getElementById('auto-ano').value;
-    const price = document.getElementById('auto-precio').value;
-    const url = document.getElementById('auto-foto').value.trim();
+async function cargarFlujoProspectos() {
+    const contenedor = document.getElementById('contenedor-prospectos');
+    if (!contenedor) return;
 
-    const { error } = await supabaseClient.from('cars').insert([{ 
-        brand, model, year, price, status: 'Disponible', image_url: url 
-    }]);
+    try {
+        const respuesta = await fetch('/api/leads');
+        if (!respuesta.ok) throw new Error('Error al conectar con la API de prospectos');
+        
+        const prospectos = await respuesta.json();
 
-    if (!error) {
-        document.getElementById('form-nuevo-auto').reset();
-        document.getElementById('form-nuevo-auto').style.display = 'none';
-        cargarInventario();
-
-        // Disparador del flujo de Broadcast en n8n
-        try {
-            await fetch('https://n8n-production-97a4.up.railway.app/webhook/b171893b-1b1c-4ee6-9b92-970a1a849b7c', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    modelo: `${brand} ${model}`,
-                    mensaje: "¡Ha llegado un nuevo inventario!" 
-                })
-            });
-            console.log("Broadcast iniciado automáticamente.");
-        } catch (err) {
-            console.error("Error al disparar el broadcast:", err);
+        // Validar si la tabla de Supabase está vacía
+        if (prospectos.length === 0) {
+            contenedor.innerHTML = `
+                <div class="col-span-full text-center py-8">
+                    <p class="text-gray-400 text-sm italic">No hay prospectos registrados actualmente en el sistema.</p>
+                </div>`;
+            return;
         }
-    } else {
-        alert("Error al guardar el vehículo.");
-    }
-});
 
-// --- CRUD: ACTUALIZAR ESTADO A VENDIDO ---
-window.marcarVendido = async (id) => {
-    if (confirm("¿Confirmar venta?")) {
-        const { error } = await supabaseClient.from('cars').update({ status: 'Vendido' }).eq('id', id);
-        if (!error) cargarInventario();
-    }
-};
+        contenedor.innerHTML = ''; // Limpiar placeholders o estados de carga previos
 
-// --- CRM: ACTUALIZAR SEGUIMIENTO DE CITAS ---
-window.cambiarEstadoCita = async (id, estado_lead) => {
-    const { error } = await supabaseClient.from('citas').update({ estado_lead }).eq('id', id);
-    if (!error) cargarCitas();
-};
+        prospectos.forEach(lead => {
+            const esPerfilado = lead.status === 'perfilado';
+            
+            // Asignación estética del color del badge según el estado del Lead
+            const badgeClase = esPerfilado 
+                ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                : 'bg-amber-50 text-amber-700 border-amber-200';
+            
+            // Formatear la visualización del enganche y la situación laboral dinámicamente
+            const mostrarEnganche = lead.enganche 
+                ? `<span class="font-bold text-purple-700">$${Number(lead.enganche).toLocaleString('es-MX')} MXN</span>` 
+                : '<span class="text-gray-400 italic">Sin rellenar formulario</span>';
+                
+            const mostrarTrabajo = lead.situacion_laboral 
+                ? `<span class="font-semibold text-gray-800">${lead.situacion_laboral}</span>` 
+                : '<span class="text-gray-400 italic">Pendiente</span>';
 
-// --- CRUD: LEER INVENTARIO + CÁLCULO DE KPIs ---
-async function cargarInventario() {
-    const { data: autos } = await supabaseClient.from('cars').select('*').order('status', { ascending: true });
-    const cont = document.getElementById("contenedor-autos");
-    document.getElementById("total-autos").innerText = autos ? autos.length : 0;
+            // Construcción modular de la tarjeta en formato de cadena HTML
+            const tarjetaHTML = `
+                <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-xs flex flex-col justify-between transition-all duration-200 hover:shadow-md hover:border-gray-300">
+                    <div>
+                        <!-- Fila Superior: Nombre y Estatus -->
+                        <div class="flex justify-between items-start gap-2 mb-3">
+                            <h4 class="font-bold text-gray-900 text-base truncate pr-2" title="${lead.nombre || 'Interesado'}">
+                                ${lead.nombre || 'Prospecto por WhatsApp'}
+                            </h4>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full border ${badgeClase} font-bold tracking-wider uppercase whitespace-nowrap">
+                                ${lead.status || 'nuevo'}
+                            </span>
+                        </div>
 
-    let disponibles = 0, valorTotal = 0, vendidos = 0;
+                        <!-- Información de Contacto -->
+                        <p class="text-xs text-gray-500 mb-4 flex items-center gap-1.5">
+                            <span>📱</span> <span class="font-semibold text-gray-700">${lead.phone_number}</span>
+                        </p>
 
-    cont.innerHTML = autos?.length > 0 ? autos.map(a => {
-        if (a.status === 'Disponible') { disponibles++; valorTotal += Number(a.price || 0); }
-        else if (a.status === 'Vendido') { vendidos++; }
+                        <!-- Bloque de Atributos de Perfilación Extraídos de n8n -->
+                        <div class="bg-gray-50 rounded-lg p-3 space-y-2 text-xs border border-gray-100">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-500">🚙 Auto de Interés:</span>
+                                <span class="font-bold text-gray-800">${lead.auto_interes || 'No definido'}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-500">💰 Enganche Dispuesto:</span>
+                                ${mostrarEnganche}
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-500">💼 Situación Laboral:</span>
+                                ${mostrarTrabajo}
+                            </div>
+                        </div>
+                    </div>
 
-        return `
-            <div class="auto-block" style="${a.status === 'Vendido' ? 'opacity: 0.4;' : ''}">
-                <div style="flex:1;">
-                    <h4>${a.brand} ${a.model}</h4>
-                    <div class="auto-price">$${Number(a.price).toLocaleString('es-MX')} MXN</div>
-                    <div style="margin-top:6px;"><span class="auto-status-badge">${a.status}</span></div>
-                </div>
-                ${a.status !== 'Vendido' ? `<button onclick="marcarVendido('${a.id}')" class="btn-primary">Vendido</button>` : ''}
-            </div>
-        `;
-    }).join('') : `<p class="empty-state">No hay registros.</p>`;
-
-    document.getElementById('kpi-disponibles').innerText = disponibles;
-    document.getElementById('kpi-valor').innerText = `$${valorTotal.toLocaleString('es-MX')} MXN`;
-    document.getElementById('kpi-vendidos').innerText = vendidos;
-}
-
-// --- LEER CITAS + BOTÓN DIRECTO DE WHATSAPP ---
-async function cargarCitas() {
-    const { data: citas } = await supabaseClient.from('citas').select('*').order('id', { ascending: false });
-    const cont = document.getElementById("contenedor-citas");
-
-    cont.innerHTML = citas?.length > 0 ? citas.map(c => {
-        const cleanTel = (c.telefono_cliente || c.telefono || '').replace(/\D/g, '');
-        const estado = c.estado_lead || 'Nuevo Lead';
-
-        return `
-            <div class="cita-block">
-                <div style="flex:1;">
-                    <h4>Vehículo: ${c.auto_interes}</h4>
-                    <p>👤 Cliente: ${c.nombre_cliente}</p>
-                    <div class="crm-actions">
-                        ${cleanTel ? `<a href="https://wa.me/${cleanTel}" target="_blank" class="btn-whatsapp">💬 WhatsApp</a>` : ''}
-                        <select onchange="cambiarEstadoCita('${c.id}', this.value)" class="select-crm">
-                            <option value="Nuevo Lead" ${estado === 'Nuevo Lead' ? 'selected' : ''}>Nuevo Lead</option>
-                            <option value="Contactado" ${estado === 'Contactado' ? 'selected' : ''}>Contactado</option>
-                            <option value="Vendido" ${estado === 'Vendido' ? 'selected' : ''}>Vendido</option>
-                        </select>
+                    <!-- Metadatos Inferiores de Registro -->
+                    <div class="mt-4 pt-3 border-t border-gray-100 text-[10px] text-gray-400 flex justify-between items-center">
+                        <span>Lead ID: #${lead.id}</span>
+                        <span>${new Date(lead.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' })}</span>
                     </div>
                 </div>
-            </div>
-        `;
-    }).join('') : `<p class="empty-state">No hay prospectos.</p>`;
-}
+            `;
 
-// --- ESCUCHAR TIEMPO REAL ---
-function escucharTiempoReal() {
-    supabaseClient.channel('dashboard-realtime').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'citas' }, async (p) => {
-        if (Notification.permission === "granted") {
-            new Notification("¡Cita Agendada por la IA! 🏎️", { body: `${p.new.nombre_cliente} - ${p.new.auto_interes}` });
-        }
-        await cargarCitas();
-    }).subscribe();
+            contenedor.insertAdjacentHTML('beforeend', tarjetaHTML);
+        });
+
+    } catch (error) {
+        console.error('Error al renderizar el flujo de prospectos:', error);
+        contenedor.innerHTML = `
+            <div class="col-span-full text-center py-6">
+                <p class="text-red-500 text-sm font-semibold">⚠️ Ocurrió un error al sincronizar el flujo de prospectos con Supabase.</p>
+            </div>`;
+    }
 }
