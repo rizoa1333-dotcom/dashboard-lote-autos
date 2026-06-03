@@ -9,34 +9,34 @@
     <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-    <button id="mobile-menu-btn">☰ Opciones</button>
+    <button id="mobile-menu-btn">☰ Menú</button>
 
     <div class="dashboard-layout">
         <aside class="sidebar" id="sidebar">
             <div class="brand">
                 <h2>Proyecto360</h2>
-                <p id="user-email">Cargando usuario...</p>
+                <p id="user-email">Cargando...</p>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Navegación</h3>
+                <button id="tab-inventario" class="btn-primary btn-tab active-tab" onclick="cambiarVista('vista-inventario', 'tab-inventario')">Inventario</button>
+                <button id="tab-citas" class="btn-primary btn-tab" onclick="cambiarVista('vista-citas', 'tab-citas')">Seguimiento CRM</button>
             </div>
 
             <div class="sidebar-section">
                 <h3>Operaciones</h3>
-                <button id="btn-alertas" class="btn-primary" style="background: var(--success); color: #FFFFFF; width: 100%; border: none; margin-bottom: 4px;">
-                    Activar Alertas
-                </button>
-                <button class="btn-primary" style="width: 100%; margin-bottom: 4px;" onclick="document.getElementById('form-nuevo-auto').style.display='block'">
-                    Nuevo Vehículo
-                </button>
-                <button id="btn-logout" class="btn-primary" style="background: var(--danger); color: #FFFFFF; width: 100%; border: none;">
-                    Cerrar Sesión
-                </button>
+                <button id="btn-alertas" class="btn-primary" style="background: var(--success); color:#FFF; border:none;">Activar Alertas</button>
+                <button class="btn-primary" onclick="document.getElementById('form-nuevo-auto').style.display='block'">+ Nuevo Vehículo</button>
+                <button id="btn-logout" class="btn-primary" style="background:var(--danger); color:#FFF; border:none;">Cerrar Sesión</button>
             </div>
         </aside>
 
         <main class="main-content">
             <header class="main-header">
                 <div class="header-title">
-                    <h1>Administración de Inventario y Citas</h1>
-                    <p>Gestión en tiempo real del lote de autos</p>
+                    <h1>Administración del Lote</h1>
+                    <p>Monitoreo y gestión en tiempo real</p>
                 </div>
             </header>
 
@@ -46,7 +46,7 @@
                     <div class="kpi-value" id="kpi-disponibles">0</div>
                 </div>
                 <div class="kpi-card">
-                    <h4>Valor Total de Inventario</h4>
+                    <h4>Valor de Inventario</h4>
                     <div class="kpi-value" id="kpi-valor">$0 MXN</div>
                 </div>
                 <div class="kpi-card">
@@ -55,46 +55,42 @@
                 </div>
             </section>
 
-            <div class="dashboard-grid">
+            <div id="vista-inventario" class="view-section active-view">
                 <div class="panel-card">
-                    <form id="form-nuevo-auto" style="display: none; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <h3 style="color: var(--text-pure); margin-bottom: 16px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Registrar Nueva Unidad</h3>
-                        
+                    <form id="form-nuevo-auto" style="display: none; border: 1px solid var(--border-color); padding: 20px; border-radius: 6px; margin-bottom: 10px;">
+                        <h3 style="margin-bottom: 16px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Registrar Nueva Unidad</h3>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                            <div class="input-group"><input type="text" id="auto-marca" placeholder="Marca (ej. MG)" required></div>
-                            <div class="input-group"><input type="text" id="auto-modelo" placeholder="Modelo (ej. MG7 Trophy)" required></div>
+                            <div class="input-group"><input type="text" id="auto-marca" placeholder="Marca" required></div>
+                            <div class="input-group"><input type="text" id="auto-modelo" placeholder="Modelo" required></div>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                            <div class="input-group"><input type="number" id="auto-ano" placeholder="Año (ej. 2026)" required></div>
-                            <div class="input-group"><input type="number" id="auto-precio" placeholder="Precio MXN" required></div>
+                            <div class="input-group"><input type="number" id="auto-ano" placeholder="Año" required></div>
+                            <div class="input-group"><input type="number" id="auto-precio" placeholder="Precio" required></div>
                         </div>
                         <div class="input-group" style="margin-bottom: 16px;">
-                            <input type="url" id="auto-foto" placeholder="Link de fotos (Drive, Imgur, etc.)" required>
+                            <input type="url" id="auto-foto" placeholder="URL de la galería de fotos" required>
                         </div>
-                        
                         <div style="display: flex; gap: 10px;">
-                            <button type="submit" class="btn-primary" style="flex: 1;">Guardar Unidad</button>
-                            <button type="button" class="btn-primary" style="background: var(--bg-main); color: var(--text-pure); border-color: var(--border-color); flex: 1;" onclick="document.getElementById('form-nuevo-auto').style.display='none'">Cancelar</button>
+                            <button type="submit" class="btn-primary" style="flex: 1;">Guardar</button>
+                            <button type="button" class="btn-primary" style="background:var(--bg-main); color:var(--text-pure); border-color:var(--border-color); flex: 1;" onclick="document.getElementById('form-nuevo-auto').style.display='none'">Cancelar</button>
                         </div>
                     </form>
 
                     <div class="card-header">
-                        <h2>Inventario</h2>
+                        <h2>Inventario Activo</h2>
                         <span class="counter-pill" id="total-autos">0</span>
                     </div>
-                    <div class="inventory-grid" id="contenedor-autos">
-                        <p class="empty-state">Cargando inventario...</p>
-                    </div>
+                    <div class="inventory-grid" id="contenedor-autos"></div>
                 </div>
+            </div>
 
+            <div id="vista-citas" class="view-section">
                 <div class="panel-card">
                     <div class="card-header">
-                        <h2>Seguimiento de Leads (Citas)</h2>
+                        <h2>Flujo de Prospectos</h2>
                         <span class="pulse-dot"></span>
                     </div>
-                    <div class="citas-container" id="contenedor-citas">
-                        <p class="empty-state">Cargando citas...</p>
-                    </div>
+                    <div class="citas-container" id="contenedor-citas"></div>
                 </div>
             </div>
         </main>
