@@ -83,7 +83,12 @@ body { background-color: var(--bg-main); color: var(--text-pure); min-height: 10
 .auto-price { font-size: 16px; font-weight: 700; color: white; margin-top: 4px; }
 .auto-status-badge { font-size: 11px; background: rgba(74, 222, 128, 0.1); color: var(--accent-green); padding: 4px 8px; border-radius: 4px; font-weight: 600; }
 
-/* --- ADAPTACIÓN MÓVIL (DRAWER) --- */
+/* --- 1. POR DEFECTO: OCULTAMOS EL BOTÓN EN ESCRITORIO --- */
+#mobile-menu-btn { 
+    display: none; 
+}
+
+/* --- 2. ADAPTACIÓN MÓVIL (DRAWER) --- */
 @media (max-width: 900px) {
     .dashboard-grid { grid-template-columns: 1fr; } 
     
@@ -96,16 +101,18 @@ body { background-color: var(--bg-main); color: var(--text-pure); min-height: 10
         z-index: 1000;
         transition: left 0.3s ease-in-out;
         box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+        background-color: var(--bg-sidebar);
     }
 
     .sidebar.active { left: 0; }
 
     .main-content { padding: 20px; }
 
+    /* AQUÍ EL BOTÓN SÍ SE MUESTRA EN MÓVILES */
     #mobile-menu-btn {
         display: block;
         position: fixed;
-        bottom: 20px;
+        bottom: 80px; /* Más arriba para que Safari no lo tape */
         right: 20px;
         background: var(--accent-blue);
         color: white;
@@ -117,5 +124,3 @@ body { background-color: var(--bg-main); color: var(--text-pure); min-height: 10
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
 }
-
-#mobile-menu-btn { display: none; }
