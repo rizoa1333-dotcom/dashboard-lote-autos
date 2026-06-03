@@ -1,6 +1,17 @@
 let supabaseClient = null;
 
-// Inicializador del botón de conectar
+// --- LÓGICA DEL MENÚ RETRÁCTIL (DRAWER) ---
+const btnMenu = document.getElementById('mobile-menu-btn');
+const sidebar = document.getElementById('sidebar');
+
+if (btnMenu) {
+    btnMenu.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+        btnMenu.textContent = sidebar.classList.contains('active') ? '✕ Cerrar' : '☰ Opciones';
+    });
+}
+
+// --- CONEXIÓN SUPABASE ---
 document.getElementById("btn-conectar").addEventListener("click", () => {
     const url = document.getElementById("db-url").value.trim();
     const key = document.getElementById("db-key").value.trim();
@@ -12,14 +23,9 @@ document.getElementById("btn-conectar").addEventListener("click", () => {
     }
 
     try {
-        // Inicializar cliente dinámicamente
         supabaseClient = supabase.createClient(url, key);
-        
-        // Cambiar interfaz a conectado
         statusBadge.innerText = "Conectado en Vivo";
         statusBadge.className = "status-badge status-connected";
-        
-        // Cargar los datos y activar el Realtime
         conectarEcosistema();
     } catch (error) {
         console.error(error);
@@ -28,48 +34,45 @@ document.getElementById("btn-conectar").addEventListener("click", () => {
     }
 });
 
-// Arrancar las consultas y suscripciones en tiempo real
+// --- LÓGICA DE TIEMPO REAL Y NOTIFICACIONES ---
 async function conectarEcosistema() {
     if (!supabaseClient) return;
 
-    // Carga inicial
-    await Promise.all([
-        cargarInventario(),
-        cargarCitas()
-    ]);
+    // Pedir permiso para notificaciones una sola vez
+    if (Notification.permission !== "denied") {
+        Notification.requestPermission();
+    }
 
-    // Suscribirse en tiempo real a tus dos tablas
+    await Promise.all([cargarInventario(), cargarCitas()]);
+
     supabaseClient
         .channel('dashboard-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'citas' }, async () => {
-            console.log("⚡ Cambio en citas!");
+        // Alerta solo cuando entra una cita NUEVA (INSERT)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'citas' }, async (payload) => {
+            console.log("⚡ Nueva cita detectada!");
+            if (Notification.permission === "granted") {
+                new Notification("¡Nueva Cita Agendada! 🏎️", {
+                    body: `${payload.new.nombre_cliente} quiere ver el ${payload.new.auto_interes}`,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/3062/3062634.png'
+                });
+            }
             await cargarCitas();
         })
+        // Actualización general para cambios
         .on('postgres_changes', { event: '*', schema: 'public', table: 'cars' }, async () => {
-            console.log("⚡ Cambio en inventario!");
             await cargarInventario();
         })
         .subscribe();
 }
 
-// Jalar los carros de la tabla 'cars'
+// --- CARGA DE DATOS ---
 async function cargarInventario() {
     const { data: autos, error } = await supabaseClient.from('cars').select('*');
     const contenedor = document.getElementById("contenedor-autos");
-    
-    if (error || !autos) {
-        contenedor.innerHTML = `<p style="color:var(--danger); text-align:center;">Error al leer tabla 'cars'</p>`;
-        return;
-    }
+    if (error || !autos) return;
 
     document.getElementById("total-autos").innerText = autos.length;
-
-    if (autos.length === 0) {
-        contenedor.innerHTML = `<p class="empty-state">No hay unidades registradas en 'cars'.</p>`;
-        return;
-    }
-
-    contenedor.innerHTML = autos.map(auto => `
+    contenedor.innerHTML = autos.length > 0 ? autos.map(auto => `
         <div class="auto-block">
             <div>
                 <div style="display:flex; align-items:center;">
@@ -80,25 +83,15 @@ async function cargarInventario() {
             </div>
             <span class="auto-status-badge">${auto.status || 'Disponible'}</span>
         </div>
-    `).join('');
+    `).join('') : `<p class="empty-state">No hay unidades registradas.</p>`;
 }
 
-// Jalar las citas de tu tabla original 'citas'
 async function cargarCitas() {
     const { data: citas, error } = await supabaseClient.from('citas').select('*');
     const contenedor = document.getElementById("contenedor-citas");
+    if (error || !citas) return;
 
-    if (error || !citas) {
-        contenedor.innerHTML = `<p style="color:var(--danger); text-align:center;">Error al leer tabla 'citas'</p>`;
-        return;
-    }
-
-    if (citas.length === 0) {
-        contenedor.innerHTML = `<p class="empty-state">No hay citas agendadas en la tabla.</p>`;
-        return;
-    }
-
-    contenedor.innerHTML = citas.map(cita => `
+    contenedor.innerHTML = citas.length > 0 ? citas.map(cita => `
         <div class="cita-block">
             <div class="cita-main">
                 <h4>Prueba de Manejo: ${cita.auto_interes || 'Unidad'}</h4>
@@ -107,5 +100,5 @@ async function cargarCitas() {
             </div>
             <span class="cita-status-live">Confirmada</span>
         </div>
-    `).join('');
+    `).join('') : `<p class="empty-state">No hay citas agendadas.</p>`;
 }

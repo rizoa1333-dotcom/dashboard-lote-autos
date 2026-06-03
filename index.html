@@ -13,9 +13,12 @@
 </head>
 <body>
 
+    <!-- Botón de menú para móvil (aparecerá solo en pantallas pequeñas) -->
+    <button id="mobile-menu-btn">☰ Opciones</button>
+
     <div class="dashboard-layout">
         <!-- BARRA LATERAL DE CONFIGURACIÓN -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="brand">
                 <span class="brand-icon">⚡</span>
                 <div>
@@ -59,7 +62,6 @@
 
         <!-- CONTENIDO PRINCIPAL -->
         <main class="main-content">
-            <!-- HEADER -->
             <header class="main-header">
                 <div class="header-title">
                     <h1>Panel de Control Automotriz</h1>
@@ -74,9 +76,7 @@
                 </div>
             </header>
 
-            <!-- CONTENEDORES DE DATOS -->
             <div class="dashboard-grid">
-                <!-- COLUMNA CITAS -->
                 <div class="panel-card">
                     <div class="card-header">
                         <h2>📅 Citas Agendadas por la IA</h2>
@@ -87,7 +87,6 @@
                     </div>
                 </div>
 
-                <!-- COLUMNA INVENTARIO -->
                 <div class="panel-card">
                     <div class="card-header">
                         <h2>🚗 Inventario en Lote (Supabase)</h2>
