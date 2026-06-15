@@ -6,9 +6,7 @@
   <title>PROJECT 360 - Panel Operativo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="styles.css">
-  
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
   <script src="dashboard.js" defer></script>
 </head>
 <body class="bg-[#F8FAFC] text-slate-900 min-h-screen flex">
@@ -53,8 +51,8 @@
     <div class="flex items-center gap-3 px-2">
       <div class="w-8 h-8 rounded-full bg-[#0F172A] flex items-center justify-center text-white text-xs font-semibold">AM</div>
       <div class="text-xs">
-        <p class="font-medium">Automotriz Manzanillo</p>
-        <p class="text-slate-400">MNZ-9876</p>
+        <p id="loteSidebarName" class="font-medium">Automotriz Manzanillo</p>
+        <p class="text-slate-400">Panel Operativo Activo</p>
       </div>
     </div>
   </div>
@@ -67,13 +65,13 @@
       <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
 
-    <div class="min-w-0">
-      <p class="font-semibold text-sm md:text-base truncate">Automotriz Manzanillo <span class="text-slate-400 font-normal">• ID: MNZ-9876</span></p>
+    <div class="min-w-0 flex-1">
+      <p id="loteHeaderName" class="font-semibold text-sm md:text-base truncate">Cargando lote...</p>
     </div>
 
     <span class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-[#10B981] bg-[#ECFDF5] border border-[#D1FAE5] px-2.5 py-1 rounded-full ml-2">
       <span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
-      Operación Activa (25 Lotes)
+      Operación Activa (SaaS)
     </span>
 
     <div class="ml-auto flex items-center gap-2">
@@ -81,26 +79,25 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
       </button>
-      <div class="w-9 h-9 rounded-lg bg-[#0F172A] flex items-center justify-center text-white text-xs font-semibold">JL</div>
+      <div class="w-9 h-9 rounded-lg bg-[#0F172A] flex items-center justify-center text-white text-xs font-semibold">SAAS</div>
     </div>
   </header>
 
   <main class="p-4 md:p-8 space-y-6">
 
     <section id="section-panel" class="space-y-6 section-panel">
-
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="card-flat p-5">
+        <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
           <p class="text-sm text-slate-500">Citas Agendadas Hoy</p>
           <p id="citasCount" class="text-3xl font-semibold mt-2">0</p>
           <p class="text-xs text-slate-400 mt-1">tabla: leads (con cita)</p>
         </div>
-        <div class="card-flat p-5">
+        <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
           <p class="text-sm text-slate-500">Prospectos Calificados</p>
           <p id="leadsCount" class="text-3xl font-semibold mt-2">0</p>
           <p class="text-xs text-slate-400 mt-1">tabla: leads (Pendientes)</p>
         </div>
-        <div class="card-flat p-5">
+        <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
           <p class="text-sm text-slate-500">Autos en Exhibición</p>
           <p id="carsCount" class="text-3xl font-semibold mt-2">0</p>
           <p class="text-xs text-slate-400 mt-1">tabla: cars</p>
@@ -108,17 +105,15 @@
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-        <div class="card-flat p-5">
+        <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
           <div class="mb-4">
             <h3 class="font-semibold text-sm">Monitor de Leads Precalificados</h3>
             <p class="text-xs text-slate-400 mt-0.5">Filtro Automático • status = 'Pendiente'</p>
           </div>
-          <div class="space-y-2" id="leadsList">
-            </div>
+          <div class="space-y-2" id="leadsList"></div>
         </div>
 
-        <div class="card-flat p-5">
+        <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
           <div class="mb-4">
             <h3 class="font-semibold text-sm">Pipeline de Ventas</h3>
             <p class="text-xs text-slate-400 mt-0.5">El Embudo del Dinero por Estatus</p>
@@ -145,7 +140,7 @@
     </section>
 
     <section id="section-inventario" class="space-y-6 section-panel hidden">
-      <div class="card-flat p-5">
+      <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
         <div class="mb-4">
           <h3 class="font-semibold text-sm">Control de Inventario</h3>
           <p class="text-xs text-slate-400 mt-0.5">tabla: cars</p>
@@ -161,46 +156,43 @@
                 <th class="py-2 pr-4 font-medium">status</th>
               </tr>
             </thead>
-            <tbody id="carsTableBody">
-               </tbody>
+            <tbody id="carsTableBody"></tbody>
           </table>
         </div>
       </div>
     </section>
 
     <section id="section-citas" class="space-y-6 section-panel hidden">
-      <div class="card-flat p-5">
+      <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
         <div class="mb-4">
           <h3 class="font-semibold text-sm">Citas Agendadas</h3>
           <p class="text-xs text-slate-400 mt-0.5">Leads con fecha_cita asignada</p>
         </div>
-        <div class="space-y-2" id="citasListContainer">
-          </div>
+        <div class="space-y-2" id="citasListContainer"></div>
       </div>
     </section>
 
     <section id="section-mensajes" class="space-y-6 section-panel hidden">
-      <div class="card-flat p-5">
+      <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
         <div class="mb-4">
           <h3 class="font-semibold text-sm">Módulo de Mensajes</h3>
           <p class="text-xs text-slate-400 mt-0.5">Historial de Conversaciones Recientes</p>
         </div>
-        <div class="space-y-2" id="monitorMensajesContainer">
-          </div>
+        <div class="space-y-2" id="monitorMensajesContainer"></div>
       </div>
     </section>
 
     <section id="section-configuracion" class="space-y-6 section-panel hidden">
-      <div class="card-flat p-5 max-w-md">
+      <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm max-w-md">
         <h3 class="font-semibold text-sm mb-4">Configuración del Lote</h3>
         <div class="space-y-3">
           <div>
             <label class="text-xs font-medium text-slate-500">Nombre del lote</label>
-            <input type="text" value="Automotriz Manzanillo" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A] transition-colors">
+            <input type="text" id="configNombreLote" value="" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A] transition-colors">
           </div>
           <div>
             <label class="text-xs font-medium text-slate-500">Número de contacto</label>
-            <input type="text" value="+52 314 000 0000" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A] transition-colors">
+            <input type="text" id="configPhoneLote" value="" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A] transition-colors">
           </div>
         </div>
       </div>
@@ -221,8 +213,7 @@
     </button>
   </div>
   
-  <div id="drawerExpandedData" class="p-5 border-b border-[#E2E8F0] space-y-3 bg-slate-50 text-sm">
-     </div>
+  <div id="drawerExpandedData" class="p-5 border-b border-[#E2E8F0] space-y-3 bg-slate-50 text-sm"></div>
 
   <div id="drawerMessages" class="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
      <p class="text-xs text-slate-400 text-center">Registro de control interno activo</p>
