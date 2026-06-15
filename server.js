@@ -13,7 +13,7 @@ app.use(express.static(__dirname));
 // Configura que cuando un usuario entre a la URL principal de tu app, 
 // lo mande directo a la pantalla de Inicio de Sesión (Login)
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'login.html'));
+    res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
 // Enciende el servidor para escuchar las peticiones de Railway
