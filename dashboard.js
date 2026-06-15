@@ -43,102 +43,82 @@ function showView(viewName) {
 // ============================================================
 document.addEventListener("DOMContentLoaded", async () => {
   
-  // --- ASIGNACIÓN DE EVENTOS ULTRA SEGURA CON VERIFICACIÓN ---
-  
-  // Botones de cambio de pestaña Onboarding
-  const toLoginBtn = document.getElementById("to-login-btn");
-  if (toLoginBtn) {
-    toLoginBtn.addEventListener("click", () => showView('login'));
-  }
+  // 1. Alternadores visuales con navegación segura (?.)
+  document.getElementById("to-login-btn")?.addEventListener("click", () => showView('login'));
+  document.getElementById("to-registro-btn")?.addEventListener("click", () => showView('registro'));
 
-  const toRegistroBtn = document.getElementById("to-registro-btn");
-  if (toRegistroBtn) {
-    toRegistroBtn.addEventListener("click", () => showView('registro'));
-  }
+  // 2. Escuchar Formulario de Registro
+  document.getElementById("form-registro")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const nombreLote = document.getElementById('nombre-lote').value.trim();
+    const ciudad = document.getElementById('ciudad').value.trim();
+    const telefono = document.getElementById('telefono').value.trim();
+    const btn = document.getElementById('btn-registrar');
 
-  // Botón Cerrar Sesión (Aquí es donde tronaba la línea 85)
-  const btnLogout = document.getElementById("btn-logout");
-  if (btnLogout) {
-    btnLogout.addEventListener("click", async () => {
-      await supabase.auth.signOut();
+    if (btn) {
+      btn.textContent = "Configurando Empresa...";
+      btn.disabled = true;
+    }
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+      if (authError) throw authError;
+
+      const { error: loteError } = await supabase.from('lotes').insert([
+        { nombre: nombreLote, ciudad: ciudad, whatsapp_number: telefono, profile_id: authData.user.id }
+      ]);
+      if (loteError) throw loteError;
+
+      alert('¡Cuenta Creada! Inicializando panel...');
+      location.reload(); 
+    } catch (err) {
+      alert("Error al registrar: " + err.message);
+      if (btn) {
+        btn.textContent = "Registrar Lote e Ingresar";
+        btn.disabled = false;
+      }
+    }
+  });
+
+  // 3. Escuchar Formulario de Inicio de Sesión
+  document.getElementById("form-login")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const btn = document.getElementById('btn-login-submit');
+    const errorDiv = document.getElementById('login-error');
+
+    if (btn) {
+      btn.textContent = "Validando...";
+      btn.disabled = true;
+    }
+    if (errorDiv) errorDiv.style.display = "none";
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       location.reload();
-    });
-  }
-
-  // Formulario Registro
-  const formRegistro = document.getElementById("form-registro");
-  if (formRegistro) {
-    formRegistro.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('reg-email').value.trim();
-      const password = document.getElementById('reg-password').value;
-      const nombreLote = document.getElementById('nombre-lote').value.trim();
-      const ciudad = document.getElementById('ciudad').value.trim();
-      const telefono = document.getElementById('telefono').value.trim();
-      const btn = document.getElementById('btn-registrar');
-
+    } catch (err) {
+      if (errorDiv) {
+        errorDiv.textContent = "Credenciales incorrectas.";
+        errorDiv.style.display = "block";
+      }
       if (btn) {
-        btn.textContent = "Configurando Empresa...";
-        btn.disabled = true;
+        btn.textContent = "Iniciar Sesión";
+        btn.disabled = false;
       }
+    }
+  });
 
-      try {
-        const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-        if (authError) throw authError;
+  // 4. Escuchar el Botón de Cerrar Sesión con navegación segura (?.)
+  document.getElementById("btn-logout")?.addEventListener("click", async () => {
+    await supabase.auth.signOut();
+    location.reload();
+  });
 
-        const { error: loteError } = await supabase.from('lotes').insert([
-          { nombre: nombreLote, ciudad: ciudad, whatsapp_number: telefono, profile_id: authData.user.id }
-        ]);
-        if (loteError) throw loteError;
-
-        alert('¡Cuenta Creada! Inicializando panel...');
-        location.reload(); 
-      } catch (err) {
-        alert("Error al registrar: " + err.message);
-        if (btn) {
-          btn.textContent = "Registrar Lote e Ingresar";
-          btn.disabled = false;
-        }
-      }
-    });
-  }
-
-  // Formulario Login
-  const formLogin = document.getElementById("form-login");
-  if (formLogin) {
-    formLogin.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value.trim();
-      const password = document.getElementById('login-password').value;
-      const btn = document.getElementById('btn-login-submit');
-      const errorDiv = document.getElementById('login-error');
-
-      if (btn) {
-        btn.textContent = "Validando...";
-        btn.disabled = true;
-      }
-      if (errorDiv) errorDiv.style.display = "none";
-
-      try {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        location.reload();
-      } catch (err) {
-        if (errorDiv) {
-          errorDiv.textContent = "Credenciales incorrectas.";
-          errorDiv.style.display = "block";
-        }
-        if (btn) {
-          btn.textContent = "Iniciar Sesión";
-          btn.disabled = false;
-        }
-      }
-    });
-  }
-
-  // ============================================================
   // 5. VALIDACIÓN DE RUTA INTERNA
-  // ============================================================
   const { data: authData } = await supabase.auth.getUser();
   const user = authData?.user;
 
@@ -185,7 +165,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 // ORQUESTADOR DE RENDERIZADO EN VIVO (CON FILTRO ANTIBUCLE)
 // ============================================================
 async function fetchAndRenderAll() {
-  // ESCUDO SUPREMO: Si no hay lote logueado, cancela cualquier petición de fondo
+  // 🔥 PROTECCIÓN SUPREMA: Si no hay lote logueado, cancela cualquier petición de fondo
+  // para evitar colgar o congelar el navegador del cliente en las pantallas de registro/login
   if (!currentLote || currentLote === null) {
     console.log("Modo Onboarding: Peticiones de fondo en pausa.");
     return;
@@ -287,17 +268,11 @@ async function renderLeadsAndCounters() {
     }
   });
 
-  const leadsCountEl = document.getElementById("leadsCount");
-  const citasCountEl = document.getElementById("citasCount");
-  if (leadsCountEl) leadsCountEl.textContent = totalCalificadosPendientes;
-  if (citasCountEl) citasCountEl.textContent = totalCitasHoy;
-
-  const pNuevo = document.getElementById("pipeNuevo");
-  const pPendiente = document.getElementById("pipePendiente");
-  const pCita = document.getElementById("pipeCita");
-  if (pNuevo) pNuevo.textContent = `${countNuevo} conversaciones en proceso`;
-  if (pPendiente) pPendiente.textContent = `${countPendiente} leads listos en Dashboard`;
-  if (pCita) pCita.textContent = `${countCita} citas registradas`;
+  if (leadsCountEl = document.getElementById("leadsCount")) leadsCountEl.textContent = totalCalificadosPendientes;
+  if (citasCountEl = document.getElementById("citasCount")) citasCountEl.textContent = totalCitasHoy;
+  if (pNuevo = document.getElementById("pipeNuevo")) pNuevo.textContent = `${countNuevo} conversaciones en proceso`;
+  if (pPendiente = document.getElementById("pipePendiente")) pPendiente.textContent = `${countPendiente} leads listos en Dashboard`;
+  if (pCita = document.getElementById("pipeCita")) pCita.textContent = `${countCita} citas registradas`;
 
   containerLeadsList?.querySelectorAll("[data-lead-id]").forEach(b => b.addEventListener("click", () => openDrawer(b.dataset.leadId)));
 }
