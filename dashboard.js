@@ -216,6 +216,7 @@ function renderCarsCounter() {
   }
 }
 
+// Métricas de inventario basadas en la columna 'price' de la base de datos
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
@@ -433,7 +434,7 @@ function initSidebarNav() {
 }
 
 // ------------------------------------------------------------
-// 🛡️ AUTENTICACIÓN (PARCHE CORREGIDO ANTI-REBOTES)
+// 🛡️ AUTENTICACIÓN (PARCHE DEFINITIVO SINCRO-BLINDADO)
 // ------------------------------------------------------------
 async function checkSessionAndLote() {
   const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -443,7 +444,7 @@ async function checkSessionAndLote() {
     if (userError || !userData || !userData.user) {
       currentUser = null;
       currentLote = null;
-      showView('view-login'); // 🌟 Si no hay token, que se quede en Login, no en Registro
+      showView('view-login'); // Si no hay token, forzamos Login siempre
       return;
     }
     currentUser = userData.user;
@@ -451,6 +452,7 @@ async function checkSessionAndLote() {
     currentUser = sessionData.session.user;
   }
 
+  // Buscamos si este profile_id ya tiene un lote en la base de datos
   const { data: loteData, error: loteError } = await supabaseClient
     .from('lotes')
     .select('*')
@@ -461,18 +463,17 @@ async function checkSessionAndLote() {
     console.error('[checkSessionAndLote] Error consultando lote:', loteError);
   }
 
-  // Si el usuario existe pero no tiene lote asignado, va a la de registro
-  if (!loteData) {
-    currentLote = null;
-    showView('view-registro');
+  // 🛡️ CONTROL CLAVE: Si ya existe un lote asociado, vamos DIRECTO al dashboard
+  if (loteData) {
+    currentLote = loteData;
+    renderConfigLote();
+    showView('view-dashboard');
+    startSync();
     return;
   }
 
-  // Si todo está chido, ingresa directo al Dashboard
-  currentLote = loteData;
-  renderConfigLote();
-  showView('view-dashboard');
-  startSync();
+  // Si de verdad es una cuenta virgen sin lote registrado en la tabla, lo mandamos a Onboarding
+  showView('view-registro');
 }
 
 async function handleLoginSubmit(e) {
@@ -497,7 +498,7 @@ async function handleLoginSubmit(e) {
     return;
   }
 
-  // 🔥 Seteamos el usuario global inmediatamente antes de validar
+  // Seteamos el estado global e invocamos la validación inmediata del lote existente
   currentUser = data.user;
   await checkSessionAndLote();
 }
@@ -505,6 +506,7 @@ async function handleLoginSubmit(e) {
 async function handleRegistroSubmit(e) {
   e.preventDefault();
 
+  // 🔥 SINCRONIZACIÓN DE IDs EXACTOS CON TU HTML
   const emailInput = document.getElementById('registroEmail');
   const passwordInput = document.getElementById('registroPassword');
   const nombreLoteInput = document.getElementById('registroNombreLote');
@@ -520,6 +522,7 @@ async function handleRegistroSubmit(e) {
 
   if (errorEl) errorEl.textContent = '';
 
+  // 1. Validar si ya existe el usuario de Auth para evitar colisiones
   const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
     email,
     password
@@ -533,10 +536,11 @@ async function handleRegistroSubmit(e) {
 
   const userId = signUpData.user ? signUpData.user.id : null;
   if (!userId) {
-    if (errorEl) errorEl.textContent = 'No se pudo crear el usuario.';
+    if (errorEl) errorEl.textContent = 'No se pudo procesar la credencial de acceso.';
     return;
   }
 
+  // 2. Inserción controlada vinculando de forma limpia el profile_id
   const { data: loteData, error: loteError } = await supabaseClient
     .from('lotes')
     .insert({
@@ -548,7 +552,7 @@ async function handleRegistroSubmit(e) {
     .single();
 
   if (loteError) {
-    if (errorEl) errorEl.textContent = 'Error al crear el lote: ' + loteError.message;
+    if (errorEl) errorEl.textContent = 'Error al instanciar el lote: ' + loteError.message;
     console.error('[handleRegistroSubmit] lote Error:', loteError);
     return;
   }
@@ -584,6 +588,7 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+// Formateador de moneda nacional en Pesos Mexicanos (MXN)
 function formatCurrency(value) {
   const num = Number(value) || 0;
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
@@ -627,7 +632,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ------------------------------------------------------------
-  // MODAL CONTROL DE INVENTARIO
+  // MODAL CONTROL DE INVENTARIO (CON CAMPOS DE TELEMETRÍA)
   // ------------------------------------------------------------
   const modalCar = document.getElementById('modalCarOverlay');
   const btnAbrirModal = document.getElementById('btnAbrirModalCar');
