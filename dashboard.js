@@ -68,7 +68,7 @@ async function fetchAndRenderAll() {
 }
 
 // ------------------------------------------------------------
-// LEADS
+// LEADS / PROSPECTOS
 // ------------------------------------------------------------
 async function fetchLeads() {
   const { data, error } = await supabaseClient
@@ -188,7 +188,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// CARS / INVENTARIO (CORREGIDO SIN COMISIONES)
+// CARS / INVENTARIO (CON MAPPING REAL A TU POSTGRES)
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -224,13 +224,11 @@ function calcularMetricasInventario() {
   let gananciasTotales = 0;
 
   carsCache.forEach(car => {
-    const precioFinal = Number(car.price || car.precio) || 0;
+    const precioFinal = Number(car.precio) || 0;
 
     if (car.status === 'Vendido') {
-      // Ventas totales acumuladas
       gananciasTotales += precioFinal;
     } else {
-      // Valor activo en patio
       valorTotal += precioFinal;
     }
   });
@@ -250,9 +248,9 @@ function renderCars() {
 
   tbody.innerHTML = carsCache.map(car => {
     const shortId = car.id ? String(car.id).slice(0, 8) : '---';
-    const brandModel = car.brand_model || `${car.marca || ''} ${car.modelo || ''}`.trim() || 'Unidad sin nombre';
-    const year = car.year || car.anio || '—';
-    const precioFinal = Number(car.price || car.precio) || 0;
+    const nombreCompleto = `${car.marca || ''} ${car.modelo || ''}`.trim() || 'Unidad sin nombre';
+    const anioAuto = car.anio || '—';
+    const precioAuto = Number(car.precio) || 0;
     
     const botonVendido = car.status !== 'Vendido' 
       ? `<button data-action-id="${car.id}" class="btn-marcar-vendido bg-emerald-600 text-white text-[11px] px-2.5 py-1 rounded-md font-medium hover:bg-emerald-700 transition">Marcar Vendido</button>`
@@ -263,12 +261,12 @@ function renderCars() {
         <td class="px-4 py-3 text-xs text-gray-500 font-mono">${shortId}</td>
         <td class="px-4 py-3 text-sm font-medium text-slate-800">
           <div class="flex items-center gap-2">
-            ${car.image_url || car.imagen_url ? `<a href="${car.image_url || car.imagen_url}" target="_blank" class="text-indigo-500 hover:underline">🖼️</a>` : ''}
-            <span>${escapeHtml(brandModel)}</span>
+            ${car.imagen_url ? `<a href="${car.imagen_url}" target="_blank" class="text-indigo-500 hover:underline">🖼️</a>` : ''}
+            <span>${escapeHtml(nombreCompleto)}</span>
           </div>
         </td>
-        <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(String(year))}</td>
-        <td class="px-4 py-3 text-sm font-semibold text-gray-800">${formatCurrency(precioFinal)}</td>
+        <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(String(anioAuto))}</td>
+        <td class="px-4 py-3 text-sm font-semibold text-gray-800">${formatCurrency(precioAuto)}</td>
         <td class="px-4 py-3">
           <span class="inline-block text-xs px-2 py-0.5 rounded-full ${carStatusBadgeClass(car.status)}">${escapeHtml(car.status || 'Disponible')}</span>
         </td>
@@ -385,7 +383,7 @@ function openDrawer(leadId) {
     drawerFechaCita: formatDate(lead.fecha_cita),
     drawerUltimoMensaje: lead.ultimo_mensaje,
     drawerInteres: lead.interes || lead.auto_interes,
-    drawerNotas: lead.notas || (lead.enganche ? `Enganche propuesto: ${lead.enganche}` : '')
+    drawerNotas: lead.notas || (lead.enganche ? `Enganche: ${lead.enganche}` : '')
   };
 
   Object.entries(fields).forEach(([id, value]) => {
@@ -602,7 +600,7 @@ function formatDate(dateStr) {
 }
 
 // ------------------------------------------------------------
-// INICIALIZACIÓN
+// INICIALIZACIÓN DEL DOM
 // ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
   const loginForm = document.getElementById('loginForm');
@@ -636,7 +634,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ------------------------------------------------------------
-  // MODAL CONTROL DE INVENTARIO (LIMPIO SIN COMISIÓN)
+  // MODAL CONTROL DE INVENTARIO (CON MAPPING REAL)
   // ------------------------------------------------------------
   const modalCar = document.getElementById('modalCarOverlay');
   const btnAbrirModal = document.getElementById('btnAbrirModalCar');
@@ -662,15 +660,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       const imageUrl = document.getElementById('carImageUrl').value.trim();
       const status = document.getElementById('carStatus').value;
 
+      const palabras = brandModel.split(' ');
+      const marcaAuto = palabras[0] || '';
+      const modeloAuto = palabras.slice(1).join(' ') || '';
+
       const { error } = await supabaseClient
         .from('cars')
         .insert({
           lote_id: currentLote.id,
-          brand_model: brandModel,
-          year: year,
-          price: price,
-          image_url: imageUrl,
-          status: status
+          marca: marcaAuto,
+          modelo: modeloAuto,
+          precio: price,
+          imagen_url: imageUrl,
+          status: status,
+          anio: year
         });
 
       if (error) {
