@@ -4,19 +4,16 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Servir archivos estáticos de forma limpia
+// Servir archivos estáticos desde el directorio actual (o 'public' si decides moverlos)
 app.use(express.static(path.join(__dirname)));
 
-// Enrutamiento SPA tradicional: Si el archivo existe lo sirve, si no va a la raíz
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dashboard.html'));
-});
-
-// Comodín para interceptar recargas de página accidentales
+// Ruteador comodín: SPA Routing Catch-All
+// Sirve dashboard.html sin redirecciones HTTP que puedan destruir los hashes de la URL (#)
 app.get('*', (req, res) => {
-  res.slice ? res.redirect('/') : res.sendFile(path.join(__dirname, 'dashboard.html'));
+    res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`PROJECT 360 server running on port ${PORT}`);
+    console.log(`🚀 PROJECT 360 Server corriendo en el puerto ${PORT}`);
+    console.log(`➡️  Accede a http://localhost:${PORT}`);
 });
