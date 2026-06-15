@@ -1,308 +1,551 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (SPA UNIFICADA INTEGRAL OPTIMIZADA)
+// PROJECT 360 - dashboard.js
+// SPA: registro / login / dashboard
 // ============================================================
 
+// 🔥 CREDENCIALES DE PRODUCCIÓN INTEGRADAS
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let localLeadsCache = [];
+// Identificador único seguro para evitar colisiones sintácticas con el CDN global
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ------------------------------------------------------------
+// Estado global
+// ------------------------------------------------------------
+let currentUser = null;
 let currentLote = null;
+let syncIntervalId = null;
 
-// ============================================================
-// ORQUESTADOR DE VISTAS (SPA)
-// ============================================================
-function showView(viewName) {
-  const viewRegistro = document.getElementById("view-registro");
-  const viewLogin = document.getElementById("view-login");
-  const viewDashboard = document.getElementById("view-dashboard");
-  const body = document.body;
+let leadsCache = [];
+let carsCache = [];
 
-  body.className = "bg-[#F8FAFC] text-slate-900 min-h-screen flex";
+// ------------------------------------------------------------
+// Helpers de vistas
+// ------------------------------------------------------------
+function showView(viewId) {
+  ['view-registro', 'view-login', 'view-dashboard'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+  const target = document.getElementById(viewId);
+  if (target) target.classList.remove('hidden');
+}
 
-  if (viewName === 'dashboard') {
-    if (viewRegistro) viewRegistro.classList.add("hidden");
-    if (viewLogin) viewLogin.classList.add("hidden");
-    if (viewDashboard) viewDashboard.classList.remove("hidden");
-    body.classList.add("flex-col", "md:flex-row", "justify-start", "items-stretch");
-  } else if (viewName === 'login') {
-    if (viewRegistro) viewRegistro.classList.add("hidden");
-    if (viewDashboard) viewDashboard.classList.add("hidden");
-    if (viewLogin) viewLogin.classList.remove("hidden");
-    body.classList.add("items-center", "justify-center", "p-4");
-  } else {
-    if (viewLogin) viewLogin.classList.add("hidden");
-    if (viewDashboard) viewDashboard.classList.add("hidden");
-    if (viewRegistro) viewRegistro.classList.remove("hidden");
-    body.classList.add("items-center", "justify-center", "p-4");
+function stopSync() {
+  if (syncIntervalId) {
+    clearInterval(syncIntervalId);
+    syncIntervalId = null;
   }
 }
 
-// ============================================================
-// INICIALIZACIÓN DE LA APLICACIÓN
-// ============================================================
-document.addEventListener("DOMContentLoaded", async () => {
-  
-  // 1. Alternadores visuales con navegación segura (?.)
-  document.getElementById("to-login-btn")?.addEventListener("click", () => showView('login'));
-  document.getElementById("to-registro-btn")?.addEventListener("click", () => showView('registro'));
+function startSync() {
+  stopSync();
+  fetchAndRenderAll();
+  syncIntervalId = setInterval(fetchAndRenderAll, 10000);
+}
 
-  // 2. Escuchar Formulario de Registro
-  document.getElementById("form-registro")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('reg-email').value.trim();
-    const password = document.getElementById('reg-password').value;
-    const nombreLote = document.getElementById('nombre-lote').value.trim();
-    const ciudad = document.getElementById('ciudad').value.trim();
-    const telefono = document.getElementById('telefono').value.trim();
-    const btn = document.getElementById('btn-registrar');
-
-    if (btn) {
-      btn.textContent = "Configurando Empresa...";
-      btn.disabled = true;
-    }
-
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-      if (authError) throw authError;
-
-      const { error: loteError } = await supabase.from('lotes').insert([
-        { nombre: nombreLote, ciudad: ciudad, whatsapp_number: telefono, profile_id: authData.user.id }
-      ]);
-      if (loteError) throw loteError;
-
-      alert('¡Cuenta Creada! Inicializando panel...');
-      location.reload(); 
-    } catch (err) {
-      alert("Error al registrar: " + err.message);
-      if (btn) {
-        btn.textContent = "Registrar Lote e Ingresar";
-        btn.disabled = false;
-      }
-    }
-  });
-
-  // 3. Escuchar Formulario de Inicio de Sesión
-  document.getElementById("form-login")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-    const btn = document.getElementById('btn-login-submit');
-    const errorDiv = document.getElementById('login-error');
-
-    if (btn) {
-      btn.textContent = "Validando...";
-      btn.disabled = true;
-    }
-    if (errorDiv) errorDiv.style.display = "none";
-
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      location.reload();
-    } catch (err) {
-      if (errorDiv) {
-        errorDiv.textContent = "Credenciales incorrectas.";
-        errorDiv.style.display = "block";
-      }
-      if (btn) {
-        btn.textContent = "Iniciar Sesión";
-        btn.disabled = false;
-      }
-    }
-  });
-
-  // 4. Escuchar el Botón de Cerrar Sesión con navegación segura (?.)
-  document.getElementById("btn-logout")?.addEventListener("click", async () => {
-    await supabase.auth.signOut();
-    location.reload();
-  });
-
-  // 5. VALIDACIÓN DE RUTA INTERNA
-  const { data: authData } = await supabase.auth.getUser();
-  const user = authData?.user;
-
-  if (!user) {
-    showView('registro'); 
-    return; 
-  }
-
-  const { data: lote, error: loteError } = await supabase
-    .from('lotes')
-    .select('*')
-    .eq('profile_id', user.id)
-    .single();
-
-  if (loteError || !lote) {
-    showView('registro');
-    return;
-  }
-
-  currentLote = lote;
-  showView('dashboard');
-  
-  const headerText = document.getElementById("loteHeaderName");
-  if (headerText) {
-    headerText.innerHTML = `${lote.nombre} <span class="text-slate-400 font-normal text-xs">• ID Lote: ${lote.id.slice(0,8)}...</span>`;
-  }
-  const sidebarText = document.getElementById("loteSidebarName");
-  if (sidebarText) sidebarText.textContent = lote.nombre;
-
-  const configNombre = document.getElementById("configNombreLote");
-  const configPhone = document.getElementById("configPhoneLote");
-  if (configNombre) configNombre.value = lote.nombre;
-  if (configPhone) configPhone.value = lote.whatsapp_number || '';
-
-  initSidebar();
-  initNavigation();
-  initDrawer();
-  
-  await fetchAndRenderAll();
-  setInterval(fetchAndRenderAll, 10000);
-});
-
-// ============================================================
-// ORQUESTADOR DE RENDERIZADO EN VIVO (CON FILTRO ANTIBUCLE)
-// ============================================================
+// ------------------------------------------------------------
+// Sincronización principal (con escudo anti-crash)
+// ------------------------------------------------------------
 async function fetchAndRenderAll() {
-  // 🔥 PROTECCIÓN SUPREMA: Si no hay lote logueado, cancela cualquier petición de fondo
-  // para evitar colgar o congelar el navegador del cliente en las pantallas de registro/login
-  if (!currentLote || currentLote === null) {
-    console.log("Modo Onboarding: Peticiones de fondo en pausa.");
+  // ESCUDO TOTAL: Si el usuario o el lote no están listos, frena peticiones para no saturar
+  if (!currentUser || !currentLote) {
+    stopSync();
     return;
   }
-  
-  await renderLeadsAndCounters();
-  await renderCars();
+
+  try {
+    await Promise.all([
+      fetchLeads(),
+      fetchCars()
+    ]);
+  } catch (err) {
+    console.error('[fetchAndRenderAll] Error de sincronización:', err);
+  }
 }
 
-// ============================================================
-// FUNCIONES DE CONTROL DE INTERFAZ INTERNA
-// ============================================================
-function initSidebar() {
-  const sidebar = document.getElementById("sidebar");
-  const overlay = document.getElementById("overlay");
-  const openBtn = document.getElementById("openSidebar");
-  const closeBtn = document.getElementById("closeSidebar");
-  if (!sidebar) return; 
+// ------------------------------------------------------------
+// LEADS
+// ------------------------------------------------------------
+async function fetchLeads() {
+  const { data, error } = await supabaseClient
+    .from('leads')
+    .select('*')
+    .eq('lote_id', currentLote.id)
+    .order('created_at', { ascending: false });
 
-  const open = () => { sidebar.classList.remove("-translate-x-full"); overlay?.classList.remove("hidden"); };
-  const close = () => { sidebar.classList.add("-translate-x-full"); overlay?.classList.add("hidden"); };
+  if (error) {
+    console.error('[fetchLeads] Error:', error);
+    return;
+  }
 
-  if (openBtn) openBtn.addEventListener("click", open);
-  if (closeBtn) closeBtn.addEventListener("click", close);
-  if (overlay) overlay.addEventListener("click", close);
-  window._closeSidebar = close;
+  leadsCache = data || [];
+  renderLeads();
+  renderCitas();
+  renderMonitorMensajes();
+  renderLeadsCounters();
 }
 
-function initNavigation() {
-  const navItems = document.querySelectorAll(".nav-item");
-  const sections = document.querySelectorAll(".section-panel");
+function renderLeadsCounters() {
+  const leadsCountEl = document.getElementById('leadsCount');
+  const citasCountEl = document.getElementById('citasCount');
 
-  navItems.forEach((item) => {
-    item.addEventListener("click", () => {
-      navItems.forEach((i) => i.classList.remove("active", "bg-[#F1F5F9]"));
-      item.classList.add("active");
+  const pendientes = leadsCache.filter(l => l.status === 'Pendiente').length;
+  const citas = leadsCache.filter(l => !!l.fecha_cita).length;
 
-      const target = item.dataset.section;
-      sections.forEach((sec) => {
-        sec.classList.toggle("hidden", sec.id !== `section-${target}`);
-      });
-      if (window.innerWidth < 768 && window._closeSidebar) window._closeSidebar();
+  if (leadsCountEl) leadsCountEl.textContent = pendientes;
+  if (citasCountEl) citasCountEl.textContent = citas;
+}
+
+function renderLeads() {
+  const container = document.getElementById('leadsList');
+  if (!container) return;
+
+  if (leadsCache.length === 0) {
+    container.innerHTML = '<p class="text-sm text-gray-400 p-4">No hay leads registrados.</p>';
+    return;
+  }
+
+  container.innerHTML = leadsCache.map(lead => `
+    <div class="flex items-center justify-between p-3 border-b border-gray-100 hover:bg-gray-50 transition">
+      <div>
+        <p class="font-semibold text-sm text-gray-800">${escapeHtml(lead.nombre || 'Sin nombre')}</p>
+        <p class="text-xs text-gray-500">${escapeHtml(lead.telefono || '')}</p>
+        <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Pendiente')}</span>
+      </div>
+      <button data-lead-id="${lead.id}" class="btn-ver-perfil text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition">
+        Ver Perfil Pro
+      </button>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.btn-ver-perfil').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const leadId = btn.getAttribute('data-lead-id');
+      openDrawer(leadId);
     });
   });
 }
 
-async function renderLeadsAndCounters() {
-  const { data: leads, error } = await supabase.from('leads').select('*').eq('lote_id', currentLote.id);
-  if (error) return;
-  localLeadsCache = leads || [];
+function renderCitas() {
+  const container = document.getElementById('citasListContainer');
+  if (!container) return;
 
-  const containerLeadsList = document.getElementById("leadsList");
-  const containerCitasList = document.getElementById("citasListContainer");
-  const containerMonitorMensajes = document.getElementById("monitorMensajesContainer");
+  const citas = leadsCache.filter(l => !!l.fecha_cita);
 
-  if (containerLeadsList) containerLeadsList.innerHTML = "";
-  if (containerCitasList) containerCitasList.innerHTML = "";
-  if (containerMonitorMensajes) containerMonitorMensajes.innerHTML = "";
+  if (citas.length === 0) {
+    container.innerHTML = '<p class="text-sm text-gray-400 p-4">No hay citas programadas.</p>';
+    return;
+  }
 
-  let totalCalificadosPendientes = 0, totalCitasHoy = 0, countNuevo = 0, countPendiente = 0, countCita = 0;
-
-  localLeadsCache.forEach((lead) => {
-    if (lead.fecha_cita) { countCita++; totalCitasHoy++; }
-    else if (lead.status === 'Pendiente') countPendiente++;
-    else countNuevo++;
-
-    if (lead.status === 'Pendiente' && containerLeadsList) {
-      totalCalificadosPendientes++;
-      const row = document.createElement("div");
-      row.className = "flex items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#E2E8F0]";
-      row.innerHTML = `
-        <div class="flex items-center gap-3 min-w-0">
-          <span class="text-amber-500">★</span>
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-slate-900 truncate">${lead.name || 'Prospecto Anónimo'}</p>
-            <p class="text-xs text-slate-400 truncate">${lead.auto_interes || 'Sin especificar'} • Enganche: ${lead.enganche || '—'}</p>
-          </div>
-        </div>
-        <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1.5 rounded-md font-medium" data-lead-id="${lead.id}">Ver Perfil Pro</button>
-      `;
-      containerLeadsList.appendChild(row);
-    }
-
-    if (lead.fecha_cita && containerCitasList) {
-      const rowCita = document.createElement("div");
-      rowCita.className = "flex items-center justify-between bg-white p-3 rounded-lg border border-[#E2E8F0]";
-      rowCita.innerHTML = `
-        <div><p class="text-sm font-medium text-slate-900">${lead.name || 'Interesado'}</p><p class="text-xs text-slate-400">${lead.auto_interes || 'Unidad'} • Horario: <strong>${lead.fecha_cita}</strong></p></div>
-        <span class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">Agendada</span>
-      `;
-      containerCitasList.appendChild(rowCita);
-    }
-
-    if (containerMonitorMensajes) {
-      const rowMsg = document.createElement("div");
-      rowMsg.className = "bg-white p-3 rounded-lg border border-[#E2E8F0]";
-      rowMsg.innerHTML = `<p class="text-sm text-slate-800"><span class="font-medium">${lead.phone_number || 'Sin número'}</span> — <span class="text-xs text-slate-400">Paso: ${lead.encuesta_step || 0}</span></p>`;
-      containerMonitorMensajes.appendChild(rowMsg);
-    }
-  });
-
-  if (leadsCountEl = document.getElementById("leadsCount")) leadsCountEl.textContent = totalCalificadosPendientes;
-  if (citasCountEl = document.getElementById("citasCount")) citasCountEl.textContent = totalCitasHoy;
-  if (pNuevo = document.getElementById("pipeNuevo")) pNuevo.textContent = `${countNuevo} conversaciones en proceso`;
-  if (pPendiente = document.getElementById("pipePendiente")) pPendiente.textContent = `${countPendiente} leads listos en Dashboard`;
-  if (pCita = document.getElementById("pipeCita")) pCita.textContent = `${countCita} citas registradas`;
-
-  containerLeadsList?.querySelectorAll("[data-lead-id]").forEach(b => b.addEventListener("click", () => openDrawer(b.dataset.leadId)));
+  container.innerHTML = citas.map(lead => `
+    <div class="flex items-center justify-between p-3 border-b border-gray-100">
+      <div>
+        <p class="font-semibold text-sm text-gray-800">${escapeHtml(lead.nombre || 'Sin nombre')}</p>
+        <p class="text-xs text-gray-500">${escapeHtml(lead.telefono || '')}</p>
+      </div>
+      <span class="text-xs font-medium text-indigo-600">${formatDate(lead.fecha_cita)}</span>
+    </div>
+  `).join('');
 }
 
-async function renderCars() {
-  const { data: cars, error } = await supabase.from('cars').select('*').eq('lote_id', currentLote.id);
-  if (error) return;
-  const tbody = document.getElementById("carsTableBody");
-  if (!tbody) return; tbody.innerHTML = "";
+function renderMonitorMensajes() {
+  const container = document.getElementById('monitorMensajesContainer');
+  if (!container) return;
 
-  if (document.getElementById("carsCount")) document.getElementById("carsCount").textContent = cars ? cars.length : 0;
-  if (!cars || cars.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-center text-xs text-slate-400 py-6">Sin autos.</td></tr>`; return; }
+  const conMensajes = leadsCache.filter(l => l.ultimo_mensaje);
 
-  cars.forEach((car) => {
-    const tr = document.createElement("tr"); tr.className = "border-b border-slate-100 text-slate-700";
-    tr.innerHTML = `<td class="py-3 font-mono text-xs">${car.id.slice(0,5)}...</td><td class="font-medium text-slate-900 py-3">${car.brand_model}</td><td>${car.year}</td><td>$${car.price.toLocaleString()}</td><td>${car.status}</td>`;
-    tbody.appendChild(tr);
+  if (conMensajes.length === 0) {
+    container.innerHTML = '<p class="text-sm text-gray-400 p-4">Sin mensajes recientes.</p>';
+    return;
+  }
+
+  container.innerHTML = conMensajes.map(lead => `
+    <div class="p-3 border-b border-gray-100">
+      <p class="text-xs font-semibold text-gray-700">${escapeHtml(lead.nombre || 'Sin nombre')}</p>
+      <p class="text-xs text-gray-500 truncate">${escapeHtml(lead.ultimo_mensaje || '')}</p>
+    </div>
+  `).join('');
+}
+
+function statusBadgeClass(status) {
+  switch (status) {
+    case 'Pendiente': return 'bg-yellow-100 text-yellow-700';
+    case 'Calificado': return 'bg-green-100 text-green-700';
+    case 'Descartado': return 'bg-red-100 text-red-700';
+    default: return 'bg-gray-100 text-gray-700';
+  }
+}
+
+// ------------------------------------------------------------
+// CARS / INVENTARIO
+// ------------------------------------------------------------
+async function fetchCars() {
+  const { data, error } = await supabaseClient
+    .from('cars')
+    .select('*')
+    .eq('lote_id', currentLote.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[fetchCars] Error:', error);
+    return;
+  }
+
+  carsCache = data || [];
+  renderCars();
+}
+
+function renderCars() {
+  const tbody = document.getElementById('carsTableBody');
+  if (!tbody) return;
+
+  if (carsCache.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-sm text-gray-400 p-4">No hay unidades en inventario.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = carsCache.map(car => {
+    const shortId = car.id ? String(car.id).slice(0, 8) : '---';
+    const precioFinal = calcularPrecioConComision(car.precio, car.comision);
+
+    return `
+      <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
+        <td class="px-4 py-2 text-xs text-gray-500 font-mono">${shortId}</td>
+        <td class="px-4 py-2 text-sm text-gray-800">${escapeHtml(car.marca || '')} ${escapeHtml(car.modelo || '')}</td>
+        <td class="px-4 py-2 text-sm text-gray-600">${escapeHtml(car.anio || '')}</td>
+        <td class="px-4 py-2 text-sm font-semibold text-gray-800">${formatCurrency(precioFinal)}</td>
+        <td class="px-4 py-2">
+          <span class="inline-block text-xs px-2 py-0.5 rounded-full ${carStatusBadgeClass(car.status)}">${escapeHtml(car.status || 'Disponible')}</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function calcularPrecioConComision(precio, comision) {
+  const p = Number(precio) || 0;
+  const c = Number(comision) || 0;
+  return p + (p * (c / 100));
+}
+
+function carStatusBadgeClass(status) {
+  switch (status) {
+    case 'Disponible': return 'bg-green-100 text-green-700';
+    case 'Vendido': return 'bg-gray-200 text-gray-700';
+    case 'Apartado': return 'bg-yellow-100 text-yellow-700';
+    default: return 'bg-gray-100 text-gray-700';
+  }
+}
+
+// ------------------------------------------------------------
+// CONFIGURACIÓN DE LOTE
+// ------------------------------------------------------------
+function renderConfigLote() {
+  if (!currentLote) return;
+
+  const nombreInput = document.getElementById('configNombreLote');
+  const phoneInput = document.getElementById('configPhoneLote');
+
+  if (nombreInput) nombreInput.value = currentLote.nombre || '';
+  if (phoneInput) phoneInput.value = currentLote.phone || '';
+
+  document.querySelectorAll('.lote-nombre-display').forEach(el => {
+    el.textContent = currentLote.nombre || 'Mi Lote';
   });
 }
 
+async function handleConfigSubmit(e) {
+  e.preventDefault();
+  if (!currentLote) return;
+
+  const nombreInput = document.getElementById('configNombreLote');
+  const phoneInput = document.getElementById('configPhoneLote');
+
+  const updates = {
+    nombre: nombreInput ? nombreInput.value.trim() : currentLote.nombre,
+    phone: phoneInput ? phoneInput.value.trim() : currentLote.phone
+  };
+
+  const { data, error } = await supabaseClient
+    .from('lotes')
+    .update(updates)
+    .eq('id', currentLote.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[handleConfigSubmit] Error:', error);
+    alert('Error al guardar la configuración.');
+    return;
+  }
+
+  currentLote = data;
+  renderConfigLote();
+}
+
+// ------------------------------------------------------------
+// DRAWER PRO
+// ------------------------------------------------------------
 function initDrawer() {
-  const closeBtn = document.getElementById("closeDrawer"), overlay = document.getElementById("drawerOverlay");
-  const c = () => { document.getElementById("drawer")?.classList.add("translate-x-full"); overlay?.classList.add("hidden"); };
-  closeBtn?.addEventListener("click", c); overlay?.addEventListener("click", c);
+  const drawer = document.getElementById('drawerPro');
+  const closeBtn = document.getElementById('closeDrawerBtn');
+  const overlay = document.getElementById('drawerOverlay');
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeDrawer);
+  }
+
+  if (overlay) {
+    overlay.addEventListener('click', closeDrawer);
+  }
+
+  if (drawer) {
+    drawer.classList.add('hidden');
+  }
 }
 
 function openDrawer(leadId) {
-  const lead = localLeadsCache.find(l => String(l.id) === String(leadId)); if (!lead) return;
-  document.getElementById("drawerSubtitle").textContent = `ID: ${lead.id.slice(0,8)}`;
-  document.getElementById("drawerExpandedData").innerHTML = `<p class="font-semibold text-slate-800">${lead.name || 'Anónimo'}</p><p class="text-xs text-slate-500 mt-2">🚗 Interés: ${lead.auto_interes || '—'}<br>💰 Enganche: ${lead.enganche || '—'}</p>`;
-  document.getElementById("drawerOverlay")?.classList.remove("hidden");
-  document.getElementById("drawer")?.classList.remove("translate-x-full");
+  const lead = leadsCache.find(l => String(l.id) === String(leadId));
+  if (!lead) return;
+
+  const drawer = document.getElementById('drawerPro');
+  const overlay = document.getElementById('drawerOverlay');
+  if (!drawer) return;
+
+  const fields = {
+    drawerNombre: lead.nombre,
+    drawerTelefono: lead.telefono,
+    drawerEmail: lead.email,
+    drawerStatus: lead.status,
+    drawerFechaCita: formatDate(lead.fecha_cita),
+    drawerUltimoMensaje: lead.ultimo_mensaje,
+    drawerInteres: lead.interes,
+    drawerNotas: lead.notas
+  };
+
+  Object.entries(fields).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value || '---';
+  });
+
+  drawer.classList.remove('hidden');
+  drawer.classList.add('drawer-open');
+  if (overlay) overlay.classList.remove('hidden');
 }
+
+function closeDrawer() {
+  const drawer = document.getElementById('drawerPro');
+  const overlay = document.getElementById('drawerOverlay');
+
+  if (drawer) {
+    drawer.classList.add('hidden');
+    drawer.classList.remove('drawer-open');
+  }
+  if (overlay) overlay.add('hidden');
+}
+
+// ------------------------------------------------------------
+// SIDEBAR / NAVEGACIÓN INTERNA
+// ------------------------------------------------------------
+function initSidebarNav() {
+  const navButtons = document.querySelectorAll('.nav-btn');
+  if (!navButtons.length) return;
+
+  navButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetSection = btn.getAttribute('data-section');
+      if (!targetSection) return;
+
+      document.querySelectorAll('.dashboard-section').forEach(section => {
+        section.classList.add('hidden');
+      });
+
+      const target = document.getElementById(targetSection);
+      if (target) target.classList.remove('hidden');
+
+      navButtons.forEach(b => b.classList.remove('nav-active'));
+      btn.classList.add('nav-active');
+    });
+  });
+}
+
+// ------------------------------------------------------------
+// AUTENTICACIÓN
+// ------------------------------------------------------------
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+
+  const emailInput = document.getElementById('loginEmail');
+  const passwordInput = document.getElementById('loginPassword');
+  const errorEl = document.getElementById('loginError');
+
+  if (!emailInput || !passwordInput) return;
+
+  const email = emailInput.value.trim();
+  const password = passwordInput;
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    if (errorEl) errorEl.textContent = 'Credenciales incorrectas. Intenta de nuevo.';
+    console.error('[handleLoginSubmit] Error:', error);
+    return;
+  }
+
+  currentUser = data.user;
+  await checkSessionAndLote();
+}
+
+async function handleRegistroSubmit(e) {
+  e.preventDefault();
+
+  const emailInput = document.getElementById('registroEmail');
+  const passwordInput = document.getElementById('registroPassword');
+  const nombreLoteInput = document.getElementById('registroNombreLote');
+  const phoneLoteInput = document.getElementById('registroPhoneLote');
+  const errorEl = document.getElementById('registroError');
+
+  if (!emailInput || !passwordInput || !nombreLoteInput) return;
+
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  const nombreLote = nombreLoteInput.value.trim();
+  const phoneLote = phoneLoteInput ? phoneLoteInput.value.trim() : '';
+
+  const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+    email,
+    password
+  });
+
+  if (signUpError) {
+    if (errorEl) errorEl.textContent = signUpError.message;
+    console.error('[handleRegistroSubmit] signUp Error:', signUpError);
+    return;
+  }
+
+  const userId = signUpData.user ? signUpData.user.id : null;
+  if (!userId) {
+    if (errorEl) errorEl.textContent = 'No se pudo crear el usuario. Verifica tu correo.';
+    return;
+  }
+
+  const { data: loteData, error: loteError } = await supabaseClient
+    .from('lotes')
+    .insert({
+      profile_id: userId,
+      nombre: nombreLote,
+      phone: phoneLote
+    })
+    .select()
+    .single();
+
+  if (loteError) {
+    if (errorEl) errorEl.textContent = 'Error al crear el lote: ' + loteError.message;
+    console.error('[handleRegistroSubmit] lote Error:', loteError);
+    return;
+  }
+
+  currentUser = signUpData.user;
+  currentLote = loteData;
+
+  renderConfigLote();
+  showView('view-dashboard');
+  startSync();
+}
+
+async function handleLogout() {
+  stopSync();
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  currentLote = null;
+  leadsCache = [];
+  carsCache = [];
+  showView('view-login');
+}
+
+async function checkSessionAndLote() {
+  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+
+  if (userError || !userData || !userData.user) {
+    currentUser = null;
+    currentLote = null;
+    showView('view-registro');
+    return;
+  }
+
+  currentUser = userData.user;
+
+  const { data: loteData, error: loteError } = await supabaseClient
+    .from('lotes')
+    .select('*')
+    .eq('profile_id', currentUser.id)
+    .maybeSingle();
+
+  if (loteError) {
+    console.error('[checkSessionAndLote] Error consultando lote:', loteError);
+  }
+
+  if (!loteData) {
+    currentLote = null;
+    showView('view-registro');
+    return;
+  }
+
+  currentLote = loteData;
+  renderConfigLote();
+  showView('view-dashboard');
+  startSync();
+}
+
+// ------------------------------------------------------------
+// UTILIDADES
+// ------------------------------------------------------------
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatCurrency(value) {
+  const num = Number(value) || 0;
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '---';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '---';
+  return date.toLocaleString('es-MX', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+// ------------------------------------------------------------
+// INICIALIZACIÓN
+// ------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', async () => {
+  const loginForm = document.getElementById('loginForm');
+  const registroForm = document.getElementById('registroForm');
+  const configForm = document.getElementById('configForm');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  if (loginForm) loginForm.addEventListener('submit', handleLoginSubmit);
+  if (registroForm) registroForm.addEventListener('submit', handleRegistroSubmit);
+  if (configForm) configForm.addEventListener('submit', handleConfigSubmit);
+  if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+  initDrawer();
+  initSidebarNav();
+
+  await checkSessionAndLote();
+});
