@@ -6,7 +6,6 @@
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
-// Inicialización de Supabase con almacenamiento local automático para persistencia
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
@@ -189,7 +188,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// CARS / INVENTARIO
+// CARS / INVENTARIO (CORREGIDO SIN COMISIONES)
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -206,11 +205,38 @@ async function fetchCars() {
   carsCache = data || [];
   renderCars();
   renderCarsCounter();
+  calcularMetricasInventario();
 }
 
 function renderCarsCounter() {
   const carsCountEl = document.getElementById('carsCount');
-  if (carsCountEl) carsCountEl.textContent = carsCache.length;
+  if (carsCountEl) {
+    const enExhibicion = carsCache.filter(car => car.status !== 'Vendido').length;
+    carsCountEl.textContent = enExhibicion;
+  }
+}
+
+function calcularMetricasInventario() {
+  const invValorTotalEl = document.getElementById('invValorTotal');
+  const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
+
+  let valorTotal = 0;
+  let gananciasTotales = 0;
+
+  carsCache.forEach(car => {
+    const precioFinal = Number(car.price || car.precio) || 0;
+
+    if (car.status === 'Vendido') {
+      // Ventas totales acumuladas
+      gananciasTotales += precioFinal;
+    } else {
+      // Valor activo en patio
+      valorTotal += precioFinal;
+    }
+  });
+
+  if (invValorTotalEl) invValorTotalEl.textContent = formatCurrency(valorTotal);
+  if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = formatCurrency(gananciasTotales);
 }
 
 function renderCars() {
@@ -218,7 +244,7 @@ function renderCars() {
   if (!tbody) return;
 
   if (carsCache.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-sm text-gray-400 p-4">No hay unidades en inventario.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-sm text-gray-400 p-4">No hay unidades en inventario.</td></tr>';
     return;
   }
 
@@ -226,32 +252,58 @@ function renderCars() {
     const shortId = car.id ? String(car.id).slice(0, 8) : '---';
     const brandModel = car.brand_model || `${car.marca || ''} ${car.modelo || ''}`.trim() || 'Unidad sin nombre';
     const year = car.year || car.anio || '—';
-    const precioFinal = calcularPrecioConComision(car.price || car.precio, car.comision);
+    const precioFinal = Number(car.price || car.precio) || 0;
+    
+    const botonVendido = car.status !== 'Vendido' 
+      ? `<button data-action-id="${car.id}" class="btn-marcar-vendido bg-emerald-600 text-white text-[11px] px-2.5 py-1 rounded-md font-medium hover:bg-emerald-700 transition">Marcar Vendido</button>`
+      : `<span class="text-xs text-slate-400 italic">Unidad Vendida</span>`;
 
     return `
       <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
-        <td class="px-4 py-2 text-xs text-gray-500 font-mono">${shortId}</td>
-        <td class="px-4 py-2 text-sm text-gray-800">${escapeHtml(brandModel)}</td>
-        <td class="px-4 py-2 text-sm text-gray-600">${escapeHtml(String(year))}</td>
-        <td class="px-4 py-2 text-sm font-semibold text-gray-800">${formatCurrency(precioFinal)}</td>
-        <td class="px-4 py-2">
+        <td class="px-4 py-3 text-xs text-gray-500 font-mono">${shortId}</td>
+        <td class="px-4 py-3 text-sm font-medium text-slate-800">
+          <div class="flex items-center gap-2">
+            ${car.image_url || car.imagen_url ? `<a href="${car.image_url || car.imagen_url}" target="_blank" class="text-indigo-500 hover:underline">🖼️</a>` : ''}
+            <span>${escapeHtml(brandModel)}</span>
+          </div>
+        </td>
+        <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(String(year))}</td>
+        <td class="px-4 py-3 text-sm font-semibold text-gray-800">${formatCurrency(precioFinal)}</td>
+        <td class="px-4 py-3">
           <span class="inline-block text-xs px-2 py-0.5 rounded-full ${carStatusBadgeClass(car.status)}">${escapeHtml(car.status || 'Disponible')}</span>
         </td>
+        <td class="px-4 py-3 text-right">${botonVendido}</td>
       </tr>
     `;
   }).join('');
+
+  tbody.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const carId = btn.getAttribute('data-action-id');
+      await cambiarEstatusAuto(carId, 'Vendido');
+    });
+  });
 }
 
-function calcularPrecioConComision(precio, comision) {
-  const p = Number(precio) || 0;
-  const c = Number(comision) || 0;
-  return p + (p * (c / 100));
+async function cambiarEstatusAuto(carId, nuevoEstatus) {
+  const { error } = await supabaseClient
+    .from('cars')
+    .update({ status: nuevoEstatus })
+    .eq('id', carId);
+
+  if (error) {
+    console.error('[cambiarEstatusAuto] Error:', error);
+    alert('No se pudo actualizar el estatus de la unidad.');
+    return;
+  }
+
+  await fetchCars();
 }
 
 function carStatusBadgeClass(status) {
   switch (status) {
     case 'Disponible': return 'bg-green-100 text-green-700';
-    case 'Vendido': return 'bg-gray-200 text-gray-700';
+    case 'Vendido': return 'bg-slate-100 text-slate-600 font-medium';
     case 'Apartado': return 'bg-yellow-100 text-yellow-700';
     default: return 'bg-gray-100 text-gray-700';
   }
@@ -442,7 +494,7 @@ async function handleRegistroSubmit(e) {
 
   const userId = signUpData.user ? signUpData.user.id : null;
   if (!userId) {
-    if (errorEl) errorEl.textContent = 'No se pudo crear el usuario. Verifica tu correo.';
+    if (errorEl) errorEl.textContent = 'No se pudo crear el usuario.';
     return;
   }
 
@@ -480,13 +532,10 @@ async function handleLogout() {
   showView('view-login');
 }
 
-// 🔥 FUNCIÓN OPTIMIZADA: Comprobación asíncrona con escudo de persistencia
 async function checkSessionAndLote() {
-  // Primero intentamos recuperar la sesión activa del almacenamiento local
   const { data: sessionData } = await supabaseClient.auth.getSession();
   
   if (!sessionData || !sessionData.session) {
-    // Si no hay sesión local, consultamos al servidor por si acaso
     const { data: userData, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !userData || !userData.user) {
       currentUser = null;
@@ -499,7 +548,6 @@ async function checkSessionAndLote() {
     currentUser = sessionData.session.user;
   }
 
-  // Si llegamos aquí, hay usuario autenticado. Buscamos su lote.
   const { data: loteData, error: loteError } = await supabaseClient
     .from('lotes')
     .select('*')
@@ -567,7 +615,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (configForm) configForm.addEventListener('submit', handleConfigSubmit);
   if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
-  // Mapeo seguro de los botones de redirección (Alineados con ambos IDs posibles)
   const toLoginBtn = document.getElementById('to-login-btn');
   const goToLoginLink = document.getElementById('goToLoginLink');
 
@@ -588,9 +635,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     goToRegistroLink.addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
   }
 
+  // ------------------------------------------------------------
+  // MODAL CONTROL DE INVENTARIO (LIMPIO SIN COMISIÓN)
+  // ------------------------------------------------------------
+  const modalCar = document.getElementById('modalCarOverlay');
+  const btnAbrirModal = document.getElementById('btnAbrirModalCar');
+  const btnCerrarModal = document.getElementById('btnCerrarModalCar');
+  const formNuevoCar = document.getElementById('formNuevoCar');
+
+  if (btnAbrirModal && modalCar) {
+    btnAbrirModal.addEventListener('click', () => modalCar.classList.remove('hidden'));
+  }
+
+  if (btnCerrarModal && modalCar) {
+    btnCerrarModal.addEventListener('click', () => modalCar.classList.add('hidden'));
+  }
+
+  if (formNuevoCar) {
+    formNuevoCar.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentLote) return;
+
+      const brandModel = document.getElementById('carBrandModel').value.trim();
+      const year = parseInt(document.getElementById('carYear').value);
+      const price = parseFloat(document.getElementById('carPrice').value);
+      const imageUrl = document.getElementById('carImageUrl').value.trim();
+      const status = document.getElementById('carStatus').value;
+
+      const { error } = await supabaseClient
+        .from('cars')
+        .insert({
+          lote_id: currentLote.id,
+          brand_model: brandModel,
+          year: year,
+          price: price,
+          image_url: imageUrl,
+          status: status
+        });
+
+      if (error) {
+        console.error('[formNuevoCar] Error al insertar auto:', error);
+        alert('Error al registrar el auto: ' + error.message);
+        return;
+      }
+
+      formNuevoCar.reset();
+      modalCar.classList.add('hidden');
+      await fetchCars();
+      alert('¡Vehículo agregado con éxito al inventario!');
+    });
+  }
+
   initDrawer();
   initSidebarNav();
 
-  // Ejecutamos la comprobación de persistencia al arrancar la SPA
   await checkSessionAndLote();
 });
