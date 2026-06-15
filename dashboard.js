@@ -188,7 +188,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// CARS / INVENTARIO (MAPEADO A TUS COLUMNAS EN INGLÉS)
+// CARS / INVENTARIO (MAPEADO A COLUMNAS EN INGLÉS)
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -433,47 +433,53 @@ function initSidebarNav() {
 }
 
 // ------------------------------------------------------------
-// 🛡️ AUTENTICACIÓN (REPARADO: FLUJO ORDENADO SECUENCIALMENTE)
+// 🛡️ GUARDIÁN ANTIRREBOTE CON MODO DIAGNÓSTICO
 // ------------------------------------------------------------
 async function checkSessionAndLote() {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
+  console.log('[Proyecto 360] Inicializando validador de lote...');
   
-  if (!sessionData || !sessionData.session) {
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !userData || !userData.user) {
+  try {
+    const { data: sessionData, error: sessionErr } = await supabaseClient.auth.getSession();
+    
+    if (sessionErr || !sessionData || !sessionData.session) {
+      console.warn('[Proyecto 360] Sin sesión local activa. Forzando login.');
       currentUser = null;
       currentLote = null;
-      showView('view-login'); // Destino base si es sesión fría
+      showView('view-login');
       return;
     }
-    currentUser = userData.user;
-  } else {
+
     currentUser = sessionData.session.user;
+    console.log('[Proyecto 360] UID de sesión activa:', currentUser.id);
+
+    // Consulta limpia directa
+    const { data: loteData, error: loteError } = await supabaseClient
+      .from('lotes')
+      .select('*')
+      .eq('profile_id', currentUser.id);
+
+    if (loteError) {
+      console.error('[Proyecto 360] Fallo consulta tabla lotes:', loteError.message);
+    }
+
+    if (loteData && loteData.length > 0) {
+      currentLote = loteData[0];
+      console.log('[Proyecto 360] Acceso concedido al lote:', currentLote.nombre);
+      
+      renderConfigLote();
+      showView('view-dashboard');
+      startSync();
+      return;
+    }
+
+    console.warn('[Proyecto 360] Usuario sin lote asignado. Solicitando onboarding.');
+    currentLote = null;
+    showView('view-registro');
+
+  } catch (err) {
+    console.error('[Proyecto 360] Excepción crítica en el guardián:', err);
+    showView('view-login');
   }
-
-  // Verificación estricta contra base de datos
-  const { data: loteData, error: loteError } = await supabaseClient
-    .from('lotes')
-    .select('*')
-    .eq('profile_id', currentUser.id)
-    .maybeSingle();
-
-  if (loteError) {
-    console.error('[checkSessionAndLote] Error consultando lote:', loteError);
-  }
-
-  // Si encuentra lote, rompe la vista y va directo al panel operativo
-  if (loteData) {
-    currentLote = loteData;
-    renderConfigLote();
-    showView('view-dashboard');
-    startSync();
-    return;
-  }
-
-  // Único caso donde muestra el registro: Cuenta virgen sin lote mapeado
-  currentLote = null;
-  showView('view-registro');
 }
 
 async function handleLoginSubmit(e) {
@@ -499,6 +505,7 @@ async function handleLoginSubmit(e) {
   }
 
   currentUser = data.user;
+  console.log('[Proyecto 360] Login exitoso para:', currentUser.email);
   await checkSessionAndLote();
 }
 
@@ -533,7 +540,7 @@ async function handleRegistroSubmit(e) {
 
   const userId = signUpData.user ? signUpData.user.id : null;
   if (!userId) {
-    if (errorEl) errorEl.textContent = 'No se pudo crear el usuario.';
+    if (errorEl) errorEl.textContent = 'No se pudo generar la sesión del usuario.';
     return;
   }
 
@@ -603,10 +610,9 @@ function formatDate(dateStr) {
 }
 
 // ------------------------------------------------------------
-// INICIALIZACIÓN DEL DOM (🔥 FLUJO RE-ORDENADO DE SEGURIDAD)
+// INICIALIZACIÓN DEL DOM
 // ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  // 1️⃣ PRIMERO: Mapear y amarrar todos los elementos y listeners
   const loginForm = document.getElementById('loginForm');
   const registroForm = document.getElementById('registroForm');
   const configForm = document.getElementById('configForm');
@@ -617,17 +623,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (configForm) configForm.addEventListener('submit', handleConfigSubmit);
   if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
+  // 🛡️ Manejadores síncronos corregidos para las pestañas de Login / Registro
   const toLoginBtn = document.getElementById('to-login-btn');
   if (toLoginBtn) {
-    toLoginBtn.addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
+    toLoginBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      showView('view-login');
+    });
   }
 
   const toRegistroBtn = document.getElementById('to-registro-btn');
   if (toRegistroBtn) {
-    toRegistroBtn.addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
+    toRegistroBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      showView('view-registro');
+    });
   }
 
-  // Modal Control
+  // Modal Control de carros
   const modalCar = document.getElementById('modalCarOverlay');
   const btnAbrirModal = document.getElementById('btnAbrirModalCar');
   const btnCerrarModal = document.getElementById('btnCerrarModalCar');
@@ -691,6 +704,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   initDrawer();
   initSidebarNav();
 
-  // 2️⃣ SEGUNDO: Correr la validación de sesión una vez cargado el ecosistema
+  // Execución tardía del Guardián una vez mapeado el DOM completo
   await checkSessionAndLote();
 });
