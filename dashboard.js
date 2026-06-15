@@ -1,312 +1,476 @@
-// dashboard.js
+// ============================================================
+// PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL CON PERSISTENCIA)
+// SPA: registro / login / dashboard
+// ============================================================
 
-// 1. Inicialización de Supabase
-const SUPABASE_URL = 'TU_SUPABASE_URL'; // <-- REEMPLAZAR
-const SUPABASE_KEY = 'TU_SUPABASE_ANON_KEY'; // <-- REEMPLAZAR
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
-// Variables Globales Estrictas
-let currentUser = null;
-let currentLote = null;
-let syncInterval = null;
-
-// 2. Sincronización Estricta del DOM
-document.addEventListener('DOMContentLoaded', () => {
-    mapEventListeners();
-    checkSessionAndLote(); // Guardián de Rutas invocado al final de la carga
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true
+  }
 });
 
-// Mapeo de Eventos
-function mapEventListeners() {
-    // Formularios
-    document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
-    document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
-    document.getElementById('formNuevoCar').addEventListener('submit', handleCarSubmit);
+// Variables de Control Global
+let currentUser = null;
+let currentLote = null;
+let syncIntervalId = null;
 
-    // Navegación Vistas (Login <-> Registro Dummy)
-    document.getElementById('to-registro-btn').addEventListener('click', () => {
-        // En un entorno de producción real este botón redirigiría a una vista de 'Sign Up'
-        // Por brevedad, alertamos. Auth de Supabase maneja Sign Up similar a Sign In.
-        alert("Para este flujo, el Sign Up se realiza vía la API o creando un usuario en Supabase Auth primero. Ingresa tus credenciales.");
-    });
+let leadsCache = [];
+let carsCache = [];
 
-    // Menú Lateral SPA
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.nav-btn').forEach(b => {
-                b.classList.remove('bg-slate-800', 'text-white');
-                b.classList.add('text-slate-400');
-            });
-            e.currentTarget.classList.add('bg-slate-800', 'text-white');
-            e.currentTarget.classList.remove('text-slate-400');
-            
-            const targetId = e.currentTarget.getAttribute('data-target');
-            document.querySelectorAll('.spa-view').forEach(view => view.classList.add('hidden'));
-            document.getElementById(targetId).classList.remove('hidden');
-        });
-    });
-
-    // Modal Vehículos
-    document.getElementById('btn-abrir-modal-car').addEventListener('click', () => {
-        document.getElementById('modalCarOverlay').classList.remove('hidden');
-    });
-    document.getElementById('btn-cerrar-modal-car').addEventListener('click', cerrarModalCar);
-    document.querySelector('.btn-cancelar').addEventListener('click', cerrarModalCar);
-
-    // Drawer Prospectos
-    document.getElementById('btn-cerrar-drawer').addEventListener('click', () => {
-        document.getElementById('drawerPro').classList.add('translate-x-full');
-    });
-
-    // Logout
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-        await supabase.auth.signOut();
-        localStorage.clear();
-        if(syncInterval) clearInterval(syncInterval);
-        showView('view-login');
-    });
-}
-
-// 3. El Guardián de Rutas
-async function checkSessionAndLote() {
-    try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (!session || error) {
-            localStorage.clear();
-            await supabase.auth.signOut();
-            showView('view-login');
-            return;
-        }
-
-        currentUser = session.user;
-
-        // Búsqueda estricta del Tenant
-        const { data: lote, error: loteError } = await supabase
-            .from('lotes')
-            .select('*')
-            .eq('profile_id', currentUser.id)
-            .single();
-
-        if (lote) {
-            currentLote = lote;
-            document.getElementById('ui-lote-name').textContent = currentLote.nombre;
-            showView('view-dashboard');
-            initDashboardWorker();
-        } else {
-            showView('view-registro');
-        }
-    } catch (err) {
-        console.error("Error en Guardián de Rutas:", err);
-        showView('view-login');
-    }
-}
-
-// Intercambiador de Vistas Top-Level
+// Cambiador Global de Vistas SPA
 function showView(viewId) {
-    document.getElementById('view-login').classList.add('hidden');
-    document.getElementById('view-registro').classList.add('hidden');
-    document.getElementById('view-dashboard').classList.add('hidden');
-    document.getElementById(viewId).classList.remove('hidden');
+  ['view-registro', 'view-login', 'view-dashboard'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+  const target = document.getElementById(viewId);
+  if (target) target.classList.remove('hidden');
 }
 
-// 4. Lógica de Formularios
-async function handleLoginSubmit(e) {
-    e.preventDefault();
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+function stopSync() {
+  if (syncIntervalId) {
+    clearInterval(syncIntervalId);
+    syncIntervalId = null;
+  }
+}
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    
-    if (error) {
-        alert("Error de acceso: " + error.message);
-        return;
+function startSync() {
+  stopSync();
+  fetchAndRenderAll();
+  syncIntervalId = setInterval(fetchAndRenderAll, 10000); // 10 Segundos en vivo
+}
+
+async function fetchAndRenderAll() {
+  if (!currentUser || !currentLote) {
+    stopSync();
+    return;
+  }
+  try {
+    await Promise.all([fetchLeads(), fetchCars()]);
+  } catch (err) {
+    console.error('[Sync Core] Error de refresco automatizado:', err);
+  }
+}
+
+// ------------------------------------------------------------
+// SECCIÓN LEADS (PROSPECTOS CALIFICADOS POR IA)
+// ------------------------------------------------------------
+async function fetchLeads() {
+  const { data, error } = await supabaseClient
+    .from('leads')
+    .select('*')
+    .eq('lote_id', currentLote.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[Leads Engine] Error de consulta:', error);
+    return;
+  }
+  leadsCache = data || [];
+  renderLeads();
+  renderCitas();
+  renderMonitorMensajes();
+  renderLeadsCounters();
+}
+
+function renderLeadsCounters() {
+  const leadsCountEl = document.getElementById('leadsCount');
+  const citasCountEl = document.getElementById('citasCount');
+  const pipeNuevoEl = document.getElementById('pipeNuevo');
+  const pipePendienteEl = document.getElementById('pipePendiente');
+  const pipeCitaEl = document.getElementById('pipeCita');
+
+  const pendientes = leadsCache.filter(l => l.status === 'Pendiente').length;
+  const citas = leadsCache.filter(l => !!l.fecha_cita).length;
+  const nuevos = leadsCache.filter(l => l.status === 'Nuevo').length;
+
+  if (leadsCountEl) leadsCountEl.textContent = pendientes;
+  if (citasCountEl) citasCountEl.textContent = citas;
+  if (pipeNuevoEl) pipeNuevoEl.textContent = `${nuevos} conversaciones en proceso`;
+  if (pipePendienteEl) pipePendienteEl.textContent = `${pendientes} leads listos en Dashboard`;
+  if (pipeCitaEl) pipeCitaEl.textContent = `${citas} citas registradas`;
+}
+
+function renderLeads() {
+  const container = document.getElementById('leadsList');
+  if (!container) return;
+
+  if (leadsCache.length === 0) {
+    container.innerHTML = '<p class="text-xs text-slate-400 p-4 text-center">Sin prospectos precalificados.</p>';
+    return;
+  }
+
+  container.innerHTML = leadsCache.map(lead => `
+    <div class="flex items-center justify-between p-3 border-b border-slate-50 hover:bg-slate-50/60 transition">
+      <div>
+        <p class="font-semibold text-sm text-slate-800">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</p>
+        <p class="text-xs text-slate-500 font-mono">${escapeHtml(lead.telefono || '')}</p>
+        <span class="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Pendiente')}</span>
+      </div>
+      <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg hover:bg-indigo-700 transition font-medium">
+        Ver Perfil Pro
+      </button>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.btn-ver-perfil').forEach(btn => {
+    btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-lead-id')));
+  });
+}
+
+function renderCitas() {
+  const container = document.getElementById('citasListContainer');
+  if (!container) return;
+  const citas = leadsCache.filter(l => !!l.fecha_cita);
+
+  if (citas.length === 0) {
+    container.innerHTML = '<p class="text-xs text-slate-400 p-4 text-center">No hay citas agendadas el día de hoy.</p>';
+    return;
+  }
+
+  container.innerHTML = citas.map(lead => `
+    <div class="flex items-center justify-between p-3 border-b border-slate-50">
+      <div>
+        <p class="font-semibold text-sm text-slate-800">${escapeHtml(lead.nombre || 'Cliente Patio')}</p>
+        <p class="text-xs text-slate-400 font-mono">${escapeHtml(lead.telefono || '')}</p>
+      </div>
+      <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100">${formatDate(lead.fecha_cita)}</span>
+    </div>
+  `).join('');
+}
+
+function renderMonitorMensajes() {
+  const container = document.getElementById('monitorMensajesContainer');
+  if (!container) return;
+  const conMensajes = leadsCache.filter(l => l.ultimo_mensaje);
+
+  if (conMensajes.length === 0) {
+    container.innerHTML = '<p class="text-xs text-slate-400 p-4 text-center">Esperando tráfico de webhooks de n8n...</p>';
+    return;
+  }
+
+  container.innerHTML = conMensajes.map(lead => `
+    <div class="p-3 border-b border-slate-50">
+      <div class="flex justify-between">
+        <p class="text-xs font-bold text-slate-700 font-mono">${escapeHtml(lead.telefono || '')}</p>
+        <span class="text-[10px] text-indigo-500 font-medium bg-slate-100 px-1.5 rounded">${escapeHtml(lead.auto_interes || 'General')}</span>
+      </div>
+      <p class="text-xs text-slate-500 truncate mt-1 bg-white p-1.5 border border-slate-100 rounded italic">"${escapeHtml(lead.ultimo_mensaje)}"</p>
+    </div>
+  `).join('');
+}
+
+function statusBadgeClass(status) {
+  switch (status) {
+    case 'Pendiente': return 'bg-amber-50 text-amber-700 border border-amber-200';
+    case 'Calificado': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+    case 'Descartado': return 'bg-rose-50 text-rose-700 border border-rose-200';
+    default: return 'bg-slate-50 text-slate-600';
+  }
+}
+
+// ------------------------------------------------------------
+// SECCIÓN INVENTARIO (CARS) - TOTALMENTE EN INGLÉS
+// ------------------------------------------------------------
+async function fetchCars() {
+  const { data, error } = await supabaseClient
+    .from('cars')
+    .select('*')
+    .eq('lote_id', currentLote.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[Inventory Engine] Fallo:', error);
+    return;
+  }
+  carsCache = data || [];
+  renderCars();
+  renderCarsCounter();
+  calcularMetricasInventario();
+}
+
+function renderCarsCounter() {
+  const carsCountEl = document.getElementById('carsCount');
+  if (carsCountEl) {
+    carsCountEl.textContent = carsCache.filter(car => car.status !== 'Vendido').length;
+  }
+}
+
+function calcularMetricasInventario() {
+  const invValorTotalEl = document.getElementById('invValorTotal');
+  const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
+
+  let valorTotal = 0;
+  let gananciasTotales = 0;
+
+  carsCache.forEach(car => {
+    const precio = Number(car.price) || 0;
+    if (car.status === 'Vendido') {
+      gananciasTotales += precio;
+    } else {
+      valorTotal += precio;
     }
+  });
+
+  if (invValorTotalEl) invValorTotalEl.textContent = formatCurrency(valorTotal);
+  if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = formatCurrency(gananciasTotales);
+}
+
+function renderCars() {
+  const tbody = document.getElementById('carsTableBody');
+  if (!tbody) return;
+
+  if (carsCache.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-xs text-slate-400 p-8">No hay unidades vehiculares en exhibición.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = carsCache.map(car => {
+    const shortId = car.id ? String(car.id).slice(-6) : '---';
+    const unidadNombre = `${car.brand} ${car.model}`;
+    const esVendido = car.status === 'Vendido';
     
-    // Asignación inmediata y síncrona
-    currentUser = data.user;
-    // Disparar guardián para enrutamiento sin delays
-    await checkSessionAndLote();
+    const botonEstatus = !esVendido 
+      ? `<button data-action-id="${car.id}" class="btn-marcar-vendido bg-emerald-600 text-white text-[11px] px-2.5 py-1 rounded-md font-semibold hover:bg-emerald-700 transition">Marcar Vendido</button>`
+      : `<span class="text-xs text-slate-400 font-medium italic">Unidad Entregada</span>`;
+
+    return `
+      <tr class="hover:bg-slate-50/60 transition border-b border-slate-100">
+        <td class="px-4 py-3.5 text-xs font-mono text-slate-400 font-bold">#${shortId}</td>
+        <td class="px-4 py-3.5 font-medium text-slate-800 text-sm">
+          <div class="flex items-center gap-2">
+            ${car.image_url ? `<a href="${car.image_url}" target="_blank" class="text-indigo-500 opacity-70 hover:opacity-100">🖼️</a>` : ''}
+            <span>${escapeHtml(unidadNombre)}</span>
+          </div>
+        </td>
+        <td class="px-4 py-3.5 text-sm text-slate-500">${escapeHtml(String(car.year || ''))}</td>
+        <td class="px-4 py-3.5 text-sm font-bold text-slate-800">${formatCurrency(car.price)}</td>
+        <td class="px-4 py-3.5">
+          <span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full ${car.status === 'Disponible' ? 'bg-green-50 text-green-700 border border-green-200' : car.status === 'Apartado' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-500'}">${car.status}</span>
+        </td>
+        <td class="px-4 py-3.5 text-right">${botonEstatus}</td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const { error } = await supabaseClient.from('cars').update({ status: 'Vendido' }).eq('id', btn.getAttribute('data-action-id'));
+      if (error) alert('Error al actualizar estatus');
+      await fetchCars();
+    });
+  });
+}
+
+// ------------------------------------------------------------
+// DRAWER PERFIL PRO
+// ------------------------------------------------------------
+function openDrawer(leadId) {
+  const lead = leadsCache.find(l => String(l.id) === String(leadId));
+  if (!lead) return;
+
+  document.getElementById('drawerNombre').textContent = lead.nombre || '---';
+  document.getElementById('drawerTelefono').textContent = lead.telefono || '---';
+  document.getElementById('drawerStatus').textContent = lead.status || '---';
+  document.getElementById('drawerFechaCita').textContent = formatDate(lead.fecha_cita);
+  document.getElementById('drawerInteres').textContent = lead.auto_interes || '---';
+  document.getElementById('drawerUltimoMensaje').textContent = lead.ultimo_mensaje || 'Sin mensajes capturados por n8n';
+  document.getElementById('drawerNotas').textContent = lead.notes || lead.notas || 'Sin anotaciones del bot.';
+
+  document.getElementById('drawerPro').classList.add('drawer-open');
+  document.getElementById('drawerOverlay').classList.remove('hidden');
+}
+
+function closeDrawer() {
+  document.getElementById('drawerPro').classList.remove('drawer-open');
+  document.getElementById('drawerOverlay').classList.add('hidden');
+}
+
+function initSidebarNav() {
+  const navButtons = document.querySelectorAll('.nav-btn');
+  navButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sectionId = btn.getAttribute('data-section');
+      document.querySelectorAll('.dashboard-section').forEach(s => s.classList.add('hidden'));
+      document.getElementById(sectionId).classList.remove('hidden');
+      navButtons.forEach(b => b.classList.remove('nav-active'));
+      btn.classList.add('nav-active');
+    });
+  });
+}
+
+function renderConfigLote() {
+  if (!currentLote) return;
+  if (document.getElementById('configNombreLote')) document.getElementById('configNombreLote').value = currentLote.nombre || '';
+  if (document.getElementById('configPhoneLote')) document.getElementById('configPhoneLote').value = currentLote.whatsapp_number || '';
+  document.querySelectorAll('.lote-nombre-display').forEach(el => el.textContent = currentLote.nombre);
+}
+
+// ------------------------------------------------------------
+// 🛡️ GUARDIÁN RUTEADOR ANTIRREBOTES NATIVO
+// ------------------------------------------------------------
+async function checkSessionAndLote() {
+  console.log('[Proyecto 360] Ejecutando análisis estricto de sesión...');
+  try {
+    const { data: sessionData, error: sessionErr } = await supabaseClient.auth.getSession();
+    if (sessionErr || !sessionData || !sessionData.session) {
+      currentUser = null;
+      currentLote = null;
+      showView('view-login');
+      return;
+    }
+
+    currentUser = sessionData.session.user;
+    
+    const { data: loteData, error: loteError } = await supabaseClient
+      .from('lotes')
+      .select('*')
+      .eq('profile_id', currentUser.id);
+
+    if (loteData && loteData.length > 0) {
+      currentLote = loteData[0];
+      renderConfigLote();
+      showView('view-dashboard');
+      startSync();
+      return;
+    }
+
+    currentLote = null;
+    showView('view-registro');
+  } catch (err) {
+    console.error('[Guardián] Excepción:', err);
+    showView('view-login');
+  }
+}
+
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errorEl = document.getElementById('loginError');
+  if (errorEl) errorEl.textContent = '';
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) {
+    if (errorEl) errorEl.textContent = 'Credenciales no válidas.';
+    return;
+  }
+  // 🔥 ASIGNACIÓN INSTANTÁNEA PARA ASINCRONÍA SÍNCRONA
+  currentUser = data.user;
+  await checkSessionAndLote();
 }
 
 async function handleRegistroSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('registroEmail').value.trim();
+  const password = document.getElementById('registroPassword').value;
+  const nombreLote = document.getElementById('registroNombreLote').value.trim();
+  const phoneLote = document.getElementById('registroPhoneLote').value.trim();
+  const errorEl = document.getElementById('registroError');
+  if (errorEl) errorEl.textContent = '';
+
+  const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({ email, password });
+  if (signUpError) {
+    if (errorEl) errorEl.textContent = signUpError.message;
+    return;
+  }
+
+  const { data: loteData, error: loteError } = await supabaseClient
+    .from('lotes')
+    .insert({ profile_id: signUpData.user.id, nombre: nombreLote, whatsapp_number: phoneLote })
+    .select().single();
+
+  currentUser = signUpData.user;
+  currentLote = loteData;
+  renderConfigLote();
+  showView('view-dashboard');
+  startSync();
+}
+
+// ------------------------------------------------------------
+// INICIALIZADOR DE INTERRUPTORES Y EVENTOS DOM
+// ------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', async () => {
+  // Sincronización de formularios nativos
+  if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
+  if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
+  
+  if (document.getElementById('configForm')) {
+    document.getElementById('configForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { data, error } = await supabaseClient.from('lotes').update({
+        nombre: document.getElementById('configNombreLote').value.trim(),
+        whatsapp_number: document.getElementById('configPhoneLote').value.trim()
+      }).eq('id', currentLote.id).select().single();
+      if (!error) { currentLote = data; renderConfigLote(); alert('Lote guardado.'); }
+    });
+  }
+
+  if (document.getElementById('logoutBtn')) {
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      stopSync(); await supabaseClient.auth.signOut(); currentUser = null; currentLote = null; showView('view-login');
+    });
+  }
+
+  // Enlaces SPA internos
+  document.getElementById('to-login-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
+  document.getElementById('to-registro-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
+  document.getElementById('closeDrawerBtn').addEventListener('click', closeDrawer);
+  document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+
+  // Modales de Inventario
+  const modalCar = document.getElementById('modalCarOverlay');
+  document.getElementById('btnAbrirModalCar').addEventListener('click', () => modalCar.classList.remove('hidden'));
+  document.getElementById('btnCerrarModalCar').addEventListener('click', () => modalCar.classList.add('hidden'));
+
+  // 🔥 REGISTRO DE CARROS CON INPUTS INDEPENDIENTES NATVOS
+  document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const nombre = document.getElementById('registroNombreLote').value;
-    const whatsapp = document.getElementById('registroPhoneLote').value;
+    if (!currentLote) return;
 
-    const { data, error } = await supabase
-        .from('lotes')
-        .insert([{ 
-            nombre: nombre, 
-            whatsapp_number: whatsapp, 
-            profile_id: currentUser.id 
-        }])
-        .select()
-        .single();
+    const brand = document.getElementById('carBrand').value.trim();
+    const model = document.getElementById('carModel').value.trim();
+    const year = parseInt(document.getElementById('carYear').value);
+    const price = parseFloat(document.getElementById('carPrice').value);
+    const image_url = document.getElementById('carImageUrl').value.trim() || 'https://via.placeholder.com/400x250?text=Sin+Foto';
+    const status = document.getElementById('carStatus').value;
+    const transmision = document.getElementById('carTransmision').value;
+    const kilometraje = parseFloat(document.getElementById('carKilometraje').value) || 0;
+    const enganche_minimo = parseFloat(document.getElementById('carEnganche').value) || 0;
 
-    if (error) {
-        alert("Error creando lote: " + error.message);
-        return;
-    }
-
-    currentLote = data;
-    document.getElementById('ui-lote-name').textContent = currentLote.nombre;
-    showView('view-dashboard');
-    initDashboardWorker();
-}
-
-async function handleCarSubmit(e) {
-    e.preventDefault();
-    
-    // Mapeo directo y limpio sin strings manipulados
-    const newCar = {
-        lote_id: currentLote.id,
-        brand: document.getElementById('carBrand').value.trim(),
-        model: document.getElementById('carModel').value.trim(),
-        year: parseInt(document.getElementById('carYear').value),
-        price: parseFloat(document.getElementById('carPrice').value),
-        kilometraje: parseFloat(document.getElementById('carKilometraje').value),
-        transmision: document.getElementById('carTransmision').value,
-        enganche_minimo: parseFloat(document.getElementById('carEnganche').value),
-        status: 'Disponible'
-    };
-
-    const { error } = await supabase.from('cars').insert([newCar]);
-
-    if (error) {
-        alert("Error guardando vehículo: " + error.message);
-    } else {
-        cerrarModalCar();
-        document.getElementById('formNuevoCar').reset();
-        await fetchCarsAndMetrics(); // Refresco inmediato
-    }
-}
-
-function cerrarModalCar() {
-    document.getElementById('modalCarOverlay').classList.add('hidden');
-}
-
-// 5. Worker de Dashboard (Sincronización en Segundo Plano)
-function initDashboardWorker() {
-    // Carga inicial
-    fetchCarsAndMetrics();
-    fetchLeads();
-
-    // Sincronización cada 10 segundos
-    if(syncInterval) clearInterval(syncInterval);
-    syncInterval = setInterval(async () => {
-        try {
-            await fetchCarsAndMetrics();
-            await fetchLeads();
-        } catch (err) {
-            console.warn("Fallo silencioso en sincronización de fondo", err);
-        }
-    }, 10000);
-}
-
-// Procesamiento de Métricas y render de Autos
-async function fetchCarsAndMetrics() {
-    const { data: cars, error } = await supabase
-        .from('cars')
-        .select('*')
-        .eq('lote_id', currentLote.id)
-        .order('id', { ascending: false });
-
-    if (error) return;
-
-    let ganancias = 0;
-    let valorPatio = 0;
-    const tableBody = document.getElementById('cars-table-body');
-    tableBody.innerHTML = '';
-
-    cars.forEach(car => {
-        // Lógica Financiera Estricta (Discriminación por Status)
-        if (car.status === 'Vendido') {
-            ganancias += Number(car.price);
-        } else {
-            valorPatio += Number(car.price);
-        }
-
-        // Render Fila
-        const tr = document.createElement('tr');
-        tr.className = "border-b border-slate-800 hover:bg-slate-800/50 transition";
-        tr.innerHTML = `
-            <td class="p-4 font-medium text-white">${car.brand} ${car.model}</td>
-            <td class="p-4">${car.year}</td>
-            <td class="p-4 font-mono text-emerald-400">${formatearMoneda(car.price)}</td>
-            <td class="p-4">
-                <span class="px-2 py-1 text-xs rounded-full ${car.status === 'Disponible' ? 'bg-blue-500/20 text-blue-400' : (car.status === 'Vendido' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400')}">
-                    ${car.status}
-                </span>
-            </td>
-        `;
-        tableBody.appendChild(tr);
+    const { error } = await supabaseClient.from('cars').insert({
+      lote_id: currentLote.id, brand, model, year, price, image_url, status, transmision, kilometraje, enganche_minimo
     });
 
-    document.getElementById('metric-ganancias').textContent = formatearMoneda(ganancias);
-    document.getElementById('metric-patio').textContent = formatearMoneda(valorPatio);
+    if (error) { alert('Fallo al insertar carro.'); return; }
+    e.target.reset();
+    modalCar.classList.add('hidden');
+    await fetchCars();
+  });
+
+  // Sidebar Móvil Control
+  document.getElementById('openSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.remove('-translate-x-full'));
+  document.getElementById('closeSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.add('-translate-x-full'));
+
+  initSidebarNav();
+  
+  // 🔥 Activación tardía de seguridad
+  await checkSessionAndLote();
+});
+
+// Formateadores globales
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
-// Render de Leads capturados por IA
-async function fetchLeads() {
-    const { data: leads, error } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('lote_id', currentLote.id)
-        .order('fecha_cita', { ascending: false });
-
-    if (error) return;
-
-    const container = document.getElementById('leads-container');
-    container.innerHTML = '';
-
-    leads.forEach(lead => {
-        const card = document.createElement('div');
-        card.className = "bg-slate-900 border border-slate-800 p-5 rounded-xl cursor-pointer hover:border-blue-500 transition";
-        card.onclick = () => abrirDrawerLead(lead);
-        card.innerHTML = `
-            <div class="flex justify-between items-start mb-2">
-                <h4 class="font-bold text-white">${lead.nombre}</h4>
-                <span class="text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded">${lead.status || 'Nuevo'}</span>
-            </div>
-            <p class="text-sm text-slate-400 mb-1">Interés: <span class="text-white">${lead.auto_interes}</span></p>
-            <p class="text-xs text-slate-500 truncate">Últ. Msg: ${lead.ultimo_mensaje || 'N/A'}</p>
-        `;
-        container.appendChild(card);
-    });
+function formatCurrency(v) {
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v) || 0);
 }
-
-function abrirDrawerLead(lead) {
-    const drawer = document.getElementById('drawerPro');
-    const content = document.getElementById('drawer-content');
-    
-    content.innerHTML = `
-        <div class="space-y-4">
-            <div>
-                <label class="block text-xs text-slate-500 uppercase tracking-wider">Nombre</label>
-                <p class="text-base text-white font-medium">${lead.nombre}</p>
-            </div>
-            <div>
-                <label class="block text-xs text-slate-500 uppercase tracking-wider">Teléfono</label>
-                <p class="text-base text-white font-medium">${lead.telefono}</p>
-            </div>
-            <div>
-                <label class="block text-xs text-slate-500 uppercase tracking-wider">Vehículo de Interés</label>
-                <p class="text-base text-blue-400 font-medium">${lead.auto_interes}</p>
-            </div>
-            <div>
-                <label class="block text-xs text-slate-500 uppercase tracking-wider">Historial de Mensajes (IA)</label>
-                <div class="bg-slate-800 p-3 rounded-lg mt-1 text-slate-300 italic">
-                    "${lead.ultimo_mensaje || 'Sin mensajes registrados.'}"
-                </div>
-            </div>
-        </div>
-    `;
-    
-    drawer.classList.remove('translate-x-full');
-}
-
-// Utilidades
-function formatearMoneda(valor) {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(valor);
+function formatDate(d) {
+  if (!d) return '---';
+  return new Date(d).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' hrs';
 }
