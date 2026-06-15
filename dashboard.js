@@ -3,11 +3,9 @@
 // SPA: registro / login / dashboard
 // ============================================================
 
-// 🔥 CREDENCIALES DE PRODUCCIÓN INTEGRADAS
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
-// Identificador único seguro para evitar colisiones sintácticas con el CDN global
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ------------------------------------------------------------
@@ -49,7 +47,6 @@ function startSync() {
 // Sincronización principal (con escudo anti-crash)
 // ------------------------------------------------------------
 async function fetchAndRenderAll() {
-  // ESCUDO TOTAL: Si el usuario o el lote no están listos, frena peticiones para no saturar
   if (!currentUser || !currentLote) {
     stopSync();
     return;
@@ -90,12 +87,19 @@ async function fetchLeads() {
 function renderLeadsCounters() {
   const leadsCountEl = document.getElementById('leadsCount');
   const citasCountEl = document.getElementById('citasCount');
+  const pipeNuevoEl = document.getElementById('pipeNuevo');
+  const pipePendienteEl = document.getElementById('pipePendiente');
+  const pipeCitaEl = document.getElementById('pipeCita');
 
   const pendientes = leadsCache.filter(l => l.status === 'Pendiente').length;
   const citas = leadsCache.filter(l => !!l.fecha_cita).length;
+  const nuevos = leadsCache.filter(l => l.status === 'Nuevo').length;
 
   if (leadsCountEl) leadsCountEl.textContent = pendientes;
   if (citasCountEl) citasCountEl.textContent = citas;
+  if (pipeNuevoEl) pipeNuevoEl.textContent = nuevos;
+  if (pipePendienteEl) pipePendienteEl.textContent = pendientes;
+  if (pipeCitaEl) pipeCitaEl.textContent = citas;
 }
 
 function renderLeads() {
@@ -195,6 +199,12 @@ async function fetchCars() {
 
   carsCache = data || [];
   renderCars();
+  renderCarsCounter();
+}
+
+function renderCarsCounter() {
+  const carsCountEl = document.getElementById('carsCount');
+  if (carsCountEl) carsCountEl.textContent = carsCache.length;
 }
 
 function renderCars() {
@@ -343,7 +353,7 @@ function closeDrawer() {
     drawer.classList.add('hidden');
     drawer.classList.remove('drawer-open');
   }
-  if (overlay) overlay.add('hidden');
+  if (overlay) overlay.classList.add('hidden');
 }
 
 // ------------------------------------------------------------
@@ -384,7 +394,7 @@ async function handleLoginSubmit(e) {
   if (!emailInput || !passwordInput) return;
 
   const email = emailInput.value.trim();
-  const password = passwordInput;
+  const password = passwordInput.value;
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
@@ -543,6 +553,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (registroForm) registroForm.addEventListener('submit', handleRegistroSubmit);
   if (configForm) configForm.addEventListener('submit', handleConfigSubmit);
   if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+  const goToLoginLink = document.getElementById('goToLoginLink');
+  const goToRegistroLink = document.getElementById('goToRegistroLink');
+
+  if (goToLoginLink) {
+    goToLoginLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showView('view-login');
+    });
+  }
+
+  if (goToRegistroLink) {
+    goToRegistroLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showView('view-registro');
+    });
+  }
 
   initDrawer();
   initSidebarNav();
