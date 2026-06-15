@@ -369,7 +369,6 @@ async function ejecutarFlujoConexionWhatsApp() {
     .replace(/[^a-z0-9]/g, '');      // Destruye espacios, guiones y símbolos
     
   const instanceName = `${cleanName}instance`; 
-  const secureToken = Math.random().toString(36).substring(2, 15);
 
   try {
     const res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
@@ -380,8 +379,9 @@ async function ejecutarFlujoConexionWhatsApp() {
       },
       body: JSON.stringify({
         "instanceName": instanceName,
-        "token": secureToken,
-        "qrcode": true
+        "token": "",                      // Vacío para que asigne el token nativo por defecto
+        "qrcode": true,
+        "integration": "WHATSAPP-BAILEYS"  // Solución al error de "Invalid integration"
       })
     });
 
@@ -395,6 +395,7 @@ async function ejecutarFlujoConexionWhatsApp() {
 
     const data = await res.json();
 
+    // Validamos la respuesta estructurada de Evolution v2
     if (data.qrcode && data.qrcode.base64) {
       container.innerHTML = `
         <div class="text-center space-y-3">
@@ -402,11 +403,12 @@ async function ejecutarFlujoConexionWhatsApp() {
           <p class="text-[11px] text-amber-600 font-semibold animate-pulse">⚠️ Esperando escaneo desde el celular...</p>
         </div>`;
 
-      // Actualizamos o insertamos el canal en la base multi-tenant
+      // Actualizamos o insertamos el canal en la base multi-tenant de Supabase utilizando el token interno devuelto o el seguro
+      const finalToken = data.hash || data.token || EVOLUTION_GLOBAL_KEY;
       await supabaseClient.from('whatsapp_channels').upsert({
         lote_id: currentLote.id,
         instance_name: instanceName,
-        api_key: secureToken,
+        api_key: finalToken,
         status_conexion: 'CONECTADO'
       }, { onConflict: 'lote_id' });
 
