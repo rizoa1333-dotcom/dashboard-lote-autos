@@ -90,8 +90,8 @@ async function fetchLeads() {
 }
 
 function renderLeadsCounters() {
-  const leadsCountEl = document.getElementById('leadsCount');
-  const citasCountEl = document.getElementById('citasCount');
+  const leadsCountEl = document.getElementById('citasCount');
+  const citasCountEl = document.getElementById('leadsCount');
   const pipeNuevoEl = document.getElementById('pipeNuevo');
   const pipePendienteEl = document.getElementById('pipePendiente');
   const pipeCitaEl = document.getElementById('pipeCita');
@@ -100,8 +100,8 @@ function renderLeadsCounters() {
   const citas = leadsCache.filter(l => !!l.fecha_cita).length;
   const nuevos = leadsCache.filter(l => l.status === 'Nuevo').length;
 
-  if (leadsCountEl) leadsCountEl.textContent = pendientes;
-  if (citasCountEl) citasCountEl.textContent = citas;
+  if (leadsCountEl) leadsCountEl.textContent = citas;
+  if (citasCountEl) citasCountEl.textContent = pendientes;
   if (pipeNuevoEl) pipeNuevoEl.textContent = `${nuevos} conversaciones en proceso`;
   if (pipePendienteEl) pipePendienteEl.textContent = `${pendientes} leads listos en Dashboard`;
   if (pipeCitaEl) pipeCitaEl.textContent = `${citas} citas registradas`;
@@ -188,7 +188,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// CARS / INVENTARIO (MAPEADO AL 100% CON TU TABLA REAL EN INGLÉS)
+// CARS / INVENTARIO (CALIBRADO A TUS COLUMNAS EN INGLÉS)
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -224,7 +224,6 @@ function calcularMetricasInventario() {
   let gananciasTotales = 0;
 
   carsCache.forEach(car => {
-    // Usamos 'price' que es tu columna real en Supabase
     const precioFinal = Number(car.price) || 0;
 
     if (car.status === 'Vendido') {
@@ -249,7 +248,6 @@ function renderCars() {
 
   tbody.innerHTML = carsCache.map(car => {
     const shortId = car.id ? String(car.id).slice(0, 8) : '---';
-    // Mapeo exacto a 'brand' y 'model'
     const nombreCompleto = `${car.brand || ''} ${car.model || ''}`.trim() || 'Unidad sin nombre';
     const anioAuto = car.year || '—';
     const precioAuto = Number(car.price) || 0;
@@ -398,9 +396,6 @@ function openDrawer(leadId) {
   if (overlay) overlay.classList.remove('hidden');
 }
 
-// ------------------------------------------------------------
-// SIDEBAR / NAVEGACIÓN INTERNA
-// ------------------------------------------------------------
 function closeDrawer() {
   const drawer = document.getElementById('drawerPro');
   const overlay = document.getElementById('drawerOverlay');
@@ -412,6 +407,9 @@ function closeDrawer() {
   if (overlay) overlay.classList.add('hidden');
 }
 
+// ------------------------------------------------------------
+// SIDEBAR / NAVEGACIÓN INTERNA
+// ------------------------------------------------------------
 function initSidebarNav() {
   const navButtons = document.querySelectorAll('.nav-btn');
   if (!navButtons.length) return;
@@ -636,7 +634,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ------------------------------------------------------------
-  // MODAL CONTROL DE INVENTARIO (CON MAPPING REAL EN INGLÉS)
+  // MODAL CONTROL DE INVENTARIO (CON NUEVOS CAMPOS ADICIONALES)
   // ------------------------------------------------------------
   const modalCar = document.getElementById('modalCarOverlay');
   const btnAbrirModal = document.getElementById('btnAbrirModalCar');
@@ -661,13 +659,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       const price = parseFloat(document.getElementById('carPrice').value);
       const imageUrl = document.getElementById('carImageUrl').value.trim();
       const status = document.getElementById('carStatus').value;
+      
+      // Captura de especificaciones técnicas ocultas para fichas
+      const transmision = document.getElementById('carTransmision').value;
+      const kilometraje = parseFloat(document.getElementById('carKilometraje').value);
+      const engancheMinimo = parseFloat(document.getElementById('carEnganche').value);
 
-      // Rompemos el input por el primer espacio para mapear 'brand' y 'model' correctamente
       const palabras = brandModel.split(' ');
       const marcaAuto = palabras[0] || '';
       const modeloAuto = palabras.slice(1).join(' ') || '';
 
-      // 🔥 MAPEADO EXACTO A TU BASE DE DATOS REAL (Columnas en Inglés)
       const { error } = await supabaseClient
         .from('cars')
         .insert({
@@ -677,7 +678,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           price: price,
           image_url: imageUrl,
           status: status,
-          year: year
+          year: year,
+          kilometraje: kilometraje,
+          transmision: transmision,
+          enganche_minimo: engancheMinimo
         });
 
       if (error) {
@@ -689,7 +693,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       formNuevoCar.reset();
       modalCar.classList.add('hidden');
       await fetchCars();
-      alert('¡Vehículo agregado con éxito al inventario!');
+      alert('¡Vehículo agregado con éxito con ficha técnica oculta!');
     });
   }
 
