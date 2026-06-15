@@ -290,6 +290,9 @@ function openDrawer(leadId) {
   document.getElementById('drawerOverlay').classList.remove('hidden');
 }
 
+// ------------------------------------------------------------
+// CONFIGURACIÓN E INTERFAZ GENERAL
+// ------------------------------------------------------------
 function closeDrawer() {
   document.getElementById('drawerPro').classList.remove('drawer-open');
   document.getElementById('drawerOverlay').classList.add('hidden');
@@ -358,8 +361,14 @@ async function ejecutarFlujoConexionWhatsApp() {
   const container = document.getElementById('qr-container');
   container.innerHTML = `<p class="text-xs text-slate-500 font-medium animate-pulse">Solicitando canal a Railway...</p>`;
 
-  const cleanName = currentLote.nombre.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  const instanceName = `${cleanName}_instance`;
+  // SANITIZACIÓN ESTRICTA: Solo minúsculas de la 'a' a la 'z' y números para evitar Error 400
+  const cleanName = currentLote.nombre
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remueve acentos y diacríticos
+    .replace(/[^a-z0-9]/g, '');      // Destruye espacios, guiones y símbolos
+    
+  const instanceName = `${cleanName}instance`; 
   const secureToken = Math.random().toString(36).substring(2, 15);
 
   try {
@@ -370,11 +379,19 @@ async function ejecutarFlujoConexionWhatsApp() {
         'apikey': EVOLUTION_GLOBAL_KEY
       },
       body: JSON.stringify({
-        instanceName: instanceName,
-        token: secureToken,
-        qrcode: true
+        "instanceName": instanceName,
+        "token": secureToken,
+        "qrcode": true
       })
     });
+
+    // Diagnóstico en consola si la API devuelve un error de estructura
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("[Evolution API Error Detail]:", errorText);
+      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error 400: Parámetros rechazados por la API.</p>`;
+      return;
+    }
 
     const data = await res.json();
 
@@ -385,7 +402,7 @@ async function ejecutarFlujoConexionWhatsApp() {
           <p class="text-[11px] text-amber-600 font-semibold animate-pulse">⚠️ Esperando escaneo desde el celular...</p>
         </div>`;
 
-      // Subimos el canal en la tabla relacional multi-tenant
+      // Actualizamos o insertamos el canal en la base multi-tenant
       await supabaseClient.from('whatsapp_channels').upsert({
         lote_id: currentLote.id,
         instance_name: instanceName,
