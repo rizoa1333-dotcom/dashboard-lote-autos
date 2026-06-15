@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (SPA UNIFICADA INTEGRAL)
+// PROJECT 360 - dashboard.js (SPA UNIFICADA INTEGRAL OPTIMIZADA)
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
@@ -112,7 +112,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // 4. Escuchar el Botón de Cerrar Sesión con navegación segura (?.) para evitar el error de null
+  // 4. Escuchar el Botón de Cerrar Sesión con navegación segura (?.)
   document.getElementById("btn-logout")?.addEventListener("click", async () => {
     await supabase.auth.signOut();
     location.reload();
@@ -161,8 +161,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   setInterval(fetchAndRenderAll, 10000);
 });
 
+// ============================================================
+// ORQUESTADOR DE RENDERIZADO EN VIVO (CON FILTRO ANTIBUCLE)
+// ============================================================
 async function fetchAndRenderAll() {
-  if (!currentLote) return;
+  // 🔥 PROTECCIÓN SUPREMA: Si no hay lote logueado, cancela cualquier petición de fondo
+  // para evitar colgar o congelar el navegador del cliente en las pantallas de registro/login
+  if (!currentLote || currentLote === null) {
+    console.log("Modo Onboarding: Peticiones de fondo en pausa.");
+    return;
+  }
+  
   await renderLeadsAndCounters();
   await renderCars();
 }
