@@ -90,8 +90,8 @@ async function fetchLeads() {
 }
 
 function renderLeadsCounters() {
-  const leadsCountEl = document.getElementById('citasCount');
-  const citasCountEl = document.getElementById('leadsCount');
+  const leadsCountEl = document.getElementById('leadsCount');
+  const citasCountEl = document.getElementById('citasCount');
   const pipeNuevoEl = document.getElementById('pipeNuevo');
   const pipePendienteEl = document.getElementById('pipePendiente');
   const pipeCitaEl = document.getElementById('pipeCita');
@@ -100,8 +100,8 @@ function renderLeadsCounters() {
   const citas = leadsCache.filter(l => !!l.fecha_cita).length;
   const nuevos = leadsCache.filter(l => l.status === 'Nuevo').length;
 
-  if (leadsCountEl) leadsCountEl.textContent = citas;
-  if (citasCountEl) citasCountEl.textContent = pendientes;
+  if (leadsCountEl) leadsCountEl.textContent = pendientes;
+  if (citasCountEl) citasCountEl.textContent = citas;
   if (pipeNuevoEl) pipeNuevoEl.textContent = `${nuevos} conversaciones en proceso`;
   if (pipePendienteEl) pipePendienteEl.textContent = `${pendientes} leads listos en Dashboard`;
   if (pipeCitaEl) pipeCitaEl.textContent = `${citas} citas registradas`;
@@ -188,7 +188,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// CARS / INVENTARIO (CALIBRADO A TUS COLUMNAS EN INGLÉS)
+// CARS / INVENTARIO (MAPEADO A TUS COLUMNAS EN INGLÉS)
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -433,8 +433,48 @@ function initSidebarNav() {
 }
 
 // ------------------------------------------------------------
-// AUTENTICACIÓN
+// 🛡️ AUTENTICACIÓN (PARCHE CORREGIDO ANTI-REBOTES)
 // ------------------------------------------------------------
+async function checkSessionAndLote() {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  
+  if (!sessionData || !sessionData.session) {
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !userData || !userData.user) {
+      currentUser = null;
+      currentLote = null;
+      showView('view-login'); // 🌟 Si no hay token, que se quede en Login, no en Registro
+      return;
+    }
+    currentUser = userData.user;
+  } else {
+    currentUser = sessionData.session.user;
+  }
+
+  const { data: loteData, error: loteError } = await supabaseClient
+    .from('lotes')
+    .select('*')
+    .eq('profile_id', currentUser.id)
+    .maybeSingle();
+
+  if (loteError) {
+    console.error('[checkSessionAndLote] Error consultando lote:', loteError);
+  }
+
+  // Si el usuario existe pero no tiene lote asignado, va a la de registro
+  if (!loteData) {
+    currentLote = null;
+    showView('view-registro');
+    return;
+  }
+
+  // Si todo está chido, ingresa directo al Dashboard
+  currentLote = loteData;
+  renderConfigLote();
+  showView('view-dashboard');
+  startSync();
+}
+
 async function handleLoginSubmit(e) {
   e.preventDefault();
 
@@ -457,6 +497,7 @@ async function handleLoginSubmit(e) {
     return;
   }
 
+  // 🔥 Seteamos el usuario global inmediatamente antes de validar
   currentUser = data.user;
   await checkSessionAndLote();
 }
@@ -530,44 +571,6 @@ async function handleLogout() {
   showView('view-login');
 }
 
-async function checkSessionAndLote() {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  
-  if (!sessionData || !sessionData.session) {
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !userData || !userData.user) {
-      currentUser = null;
-      currentLote = null;
-      showView('view-registro');
-      return;
-    }
-    currentUser = userData.user;
-  } else {
-    currentUser = sessionData.session.user;
-  }
-
-  const { data: loteData, error: loteError } = await supabaseClient
-    .from('lotes')
-    .select('*')
-    .eq('profile_id', currentUser.id)
-    .maybeSingle();
-
-  if (loteError) {
-    console.error('[checkSessionAndLote] Error consultando lote:', loteError);
-  }
-
-  if (!loteData) {
-    currentLote = null;
-    showView('view-registro');
-    return;
-  }
-
-  currentLote = loteData;
-  renderConfigLote();
-  showView('view-dashboard');
-  startSync();
-}
-
 // ------------------------------------------------------------
 // UTILIDADES
 // ------------------------------------------------------------
@@ -614,27 +617,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
   const toLoginBtn = document.getElementById('to-login-btn');
-  const goToLoginLink = document.getElementById('goToLoginLink');
-
   if (toLoginBtn) {
     toLoginBtn.addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
   }
-  if (goToLoginLink) {
-    goToLoginLink.addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
-  }
 
   const toRegistroBtn = document.getElementById('to-registro-btn');
-  const goToRegistroLink = document.getElementById('goToRegistroLink');
-
   if (toRegistroBtn) {
     toRegistroBtn.addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
   }
-  if (goToRegistroLink) {
-    goToRegistroLink.addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
-  }
 
   // ------------------------------------------------------------
-  // MODAL CONTROL DE INVENTARIO (CON NUEVOS CAMPOS ADICIONALES)
+  // MODAL CONTROL DE INVENTARIO
   // ------------------------------------------------------------
   const modalCar = document.getElementById('modalCarOverlay');
   const btnAbrirModal = document.getElementById('btnAbrirModalCar');
@@ -660,7 +653,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       const imageUrl = document.getElementById('carImageUrl').value.trim();
       const status = document.getElementById('carStatus').value;
       
-      // Captura de especificaciones técnicas ocultas para fichas
       const transmision = document.getElementById('carTransmision').value;
       const kilometraje = parseFloat(document.getElementById('carKilometraje').value);
       const engancheMinimo = parseFloat(document.getElementById('carEnganche').value);
