@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (PROD CONECTADO A SUPABASE VIVO)
+// PROJECT 360 - dashboard.js (SaaS MULTI-TENANT PROD CONECTADO)
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
@@ -10,23 +10,61 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Almacén local de datos descargados para alimentar el panel dinámico
 let localLeadsCache = [];
+let currentLote = null; // Almacenará los datos del lote que inició sesión
 
 // ============================================================
-// INICIALIZACIÓN GENERAL
+// CONTROL DE ACCESO E INICIALIZACIÓN GENERAL
 // ============================================================
-document.addEventListener("DOMContentLoaded", () => {
-  initSidebar();
-  initNavigation();
-  initDrawer();
+document.addEventListener("DOMContentLoaded", async () => {
+  // 1. Verificar si el usuario tiene sesión activa en Supabase Auth
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    console.log("Acceso denegado. Redirigiendo al login...");
+    window.location.href = "login.html";
+    return;
+  }
+
+  // 2. Descargar el lote que le pertenece a este usuario (amarre por profile_id)
+  const { data: lote, error: loteError } = await supabase
+    .from('lotes')
+    .select('*')
+    .eq('profile_id', user.id)
+    .single();
+
+  if (loteError || !lote) {
+    console.error("Error al obtener el lote vinculado:", loteError);
+    alert("Tu cuenta de usuario no tiene ningún lote asignado. Contacta a soporte.");
+    window.location.href = "login.html";
+    return;
+  }
+
+  // Guardamos el lote en memoria global para los filtros del panel
+  currentLote = lote;
+
+  // 3. Pintar dinámicamente los datos del lote en la cabecera del Dashboard
+  const headerText = document.querySelector("header p");
+  if (headerText) {
+    headerText.innerHTML = `${lote.nombre} <span class="text-slate-400 font-normal">• ID Lote: ${lote.id.slice(0,8)}... • Ciudad: ${lote.ciudad}</span>`;
+  }
   
-  // Ejecutamos la consulta directa a tu base de datos
-  fetchAndRenderAll();
+  const bottomProfileText = document.querySelector(".Automotriz-Manzanillo-text"); // Ajustador de sidebar inferior si existe
+  if (bottomProfileText) bottomProfileText.textContent = lote.nombre;
+
+  // 4. Inicializar de forma segura la interactividad visual de pestañas y barras laterales
+  try { initSidebar(); } catch (e) { console.error("Error initSidebar:", e); }
+  try { initNavigation(); } catch (e) { console.error("Error initNavigation:", e); }
+  try { initDrawer(); } catch (e) { console.error("Error initDrawer:", e); }
+  
+  // Ejecutamos la consulta filtrada inicial
+  await fetchAndRenderAll();
   
   // Polling automático cada 10 segundos para pintar leads en vivo sin refrescar
   setInterval(fetchAndRenderAll, 10000);
 });
 
 async function fetchAndRenderAll() {
+  if (!currentLote) return; // Seguridad si el polling corre antes de cargar el lote
   await renderLeadsAndCounters();
   await renderCars();
 }
@@ -86,9 +124,11 @@ function initNavigation() {
 // RENDEREADO DE LEADS, CONTADORES Y PIPELINE DESDE SUPABASE
 // ============================================================
 async function renderLeadsAndCounters() {
+  // 🔥 FILTRO MULTI-TENANT SEGURO: Trae únicamente los leads del lote logueado
   const { data: leads, error } = await supabase
     .from('leads')
-    .select('*');
+    .select('*')
+    .eq('lote_id', currentLote.id);
 
   if (error) {
     console.error("Error cargando leads de Supabase:", error);
@@ -208,9 +248,11 @@ async function renderLeadsAndCounters() {
 // CONTROL DE INVENTARIO DESDE SUPABASE REAL
 // ============================================================
 async function renderCars() {
+  // 🔥 FILTRO MULTI-TENANT SEGURO: Trae únicamente el stock de autos del lote logueado
   const { data: cars, error } = await supabase
     .from('cars')
-    .select('*');
+    .select('*')
+    .eq('lote_id', currentLote.id);
 
   if (error) {
     console.error("Error cargando inventario de Supabase:", error);
@@ -227,11 +269,11 @@ async function renderCars() {
   const statusClassMap = {
     Disponible: "status-green",
     Apartado: "status-yellow",
-    Vendido: "status-gray",
+    Vendidos: "status-gray",
   };
 
   if (!cars || cars.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-xs text-slate-400 py-4">Sin autos en el inventario.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-xs text-slate-400 py-4">Sin autos en el inventario de este lote.</td></tr>`;
     return;
   }
 
