@@ -2,21 +2,21 @@ const express = require('express');
 const path = require('path');
 const app = express();
 
-// Railway te asigna un puerto dinámico mediante la variable de entorno process.env.PORT.
-// Si corres de forma local, usará el puerto 3000.
 const PORT = process.env.PORT || 3000;
 
-// Sirve de forma automática todos tus archivos estáticos (HTML, JS, CSS, imágenes) 
-// que se encuentren en la raíz del proyecto.
+// Sirve archivos estáticos
 app.use(express.static(__dirname));
 
-// Configura que cuando un usuario entre a la URL principal de tu app, 
-// lo mande directo a la pantalla de Inicio de Sesión (Login)
+// La raíz entrega directamente la SPA unificada
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dashboard.html'));
+    res.sendFile(path.join(__dirname, 'dashboard.html')); 
 });
 
-// Enciende el servidor para escuchar las peticiones de Railway
+// ESCUDO EXTRA: Si alguien escribe /index.html o /login.html por error, redirige a la raíz
+app.get(['/index.html', '/login.html', '/registro.html', '/dashboard.html'], (req, res) => {
+    res.redirect('/');
+});
+
 app.listen(PORT, () => {
     console.log(`Servidor de PROJECT 360 corriendo exitosamente en el puerto ${PORT}`);
 });
