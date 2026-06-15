@@ -1,0 +1,15 @@
+{
+  "name": "dashboard-lote-autos",
+  "version": "1.0.0",
+  "description": "Dashboard Multinquilino para PROJECT 360",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
