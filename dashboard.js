@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (SaaS MULTI-TENANT PROD CONECTADO)
+// PROJECT 360 - dashboard.js (SaaS MULTI-TENANT OPTIMIZADO)
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
@@ -42,13 +42,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Guardamos el lote en memoria global para los filtros del panel
   currentLote = lote;
 
-  // 3. Pintar dinámicamente los datos del lote en la cabecera del Dashboard
-  const headerText = document.querySelector("header p");
+  // 3. Pintar dinámicamente los datos del lote en la cabecera (BLINDADO CONTRA NULL)
+  const headerText = document.getElementById("loteHeaderName") || document.querySelector("header p") || document.querySelector("h1");
   if (headerText) {
-    headerText.innerHTML = `${lote.nombre} <span class="text-slate-400 font-normal">• ID Lote: ${lote.id.slice(0,8)}... • Ciudad: ${lote.ciudad}</span>`;
+    headerText.innerHTML = `${lote.nombre} <span class="text-slate-400 font-normal text-xs">• ID Lote: ${lote.id.slice(0,8)}... • Ciudad: ${lote.ciudad}</span>`;
   }
   
-  const bottomProfileText = document.querySelector(".Automotriz-Manzanillo-text"); // Ajustador de sidebar inferior si existe
+  const bottomProfileText = document.querySelector(".Automotriz-Manzanillo-text"); 
   if (bottomProfileText) bottomProfileText.textContent = lote.nombre;
 
   // 4. Inicializar de forma segura la interactividad visual de pestañas y barras laterales
@@ -70,7 +70,7 @@ async function fetchAndRenderAll() {
 }
 
 // ============================================================
-// SIDEBAR MÓVIL (Tolerante a fallos si faltan botones)
+// SIDEBAR MÓVIL (Blindado contra elementos inexistentes en el DOM)
 // ============================================================
 function initSidebar() {
   const sidebar = document.getElementById("sidebar");
@@ -78,15 +78,16 @@ function initSidebar() {
   const openBtn = document.getElementById("openSidebar");
   const closeBtn = document.getElementById("closeSidebar");
 
-  if (!sidebar || !overlay) return;
+  // Si no existe la barra lateral en el HTML, salimos pacíficamente sin romper el código
+  if (!sidebar) return; 
 
   const open = () => {
     sidebar.classList.remove("-translate-x-full");
-    overlay.classList.remove("hidden");
+    if (overlay) overlay.classList.remove("hidden");
   };
   const close = () => {
     sidebar.classList.add("-translate-x-full");
-    overlay.classList.add("hidden");
+    if (overlay) overlay.classList.add("hidden");
   };
 
   if (openBtn) openBtn.addEventListener("click", open);
@@ -124,7 +125,7 @@ function initNavigation() {
 // RENDEREADO DE LEADS, CONTADORES Y PIPELINE DESDE SUPABASE
 // ============================================================
 async function renderLeadsAndCounters() {
-  // 🔥 FILTRO MULTI-TENANT SEGURO: Trae únicamente los leads del lote logueado
+  // FILTRO MULTI-TENANT SEGURO: Trae únicamente los leads del lote logueado
   const { data: leads, error } = await supabase
     .from('leads')
     .select('*')
@@ -248,7 +249,7 @@ async function renderLeadsAndCounters() {
 // CONTROL DE INVENTARIO DESDE SUPABASE REAL
 // ============================================================
 async function renderCars() {
-  // 🔥 FILTRO MULTI-TENANT SEGURO: Trae únicamente el stock de autos del lote logueado
+  // FILTRO MULTI-TENANT SEGURO: Trae únicamente el stock de autos del lote logueado
   const { data: cars, error } = await supabase
     .from('cars')
     .select('*')
@@ -269,7 +270,7 @@ async function renderCars() {
   const statusClassMap = {
     Disponible: "status-green",
     Apartado: "status-yellow",
-    Vendidos: "status-gray",
+    Vendido: "status-gray",
   };
 
   if (!cars || cars.length === 0) {
