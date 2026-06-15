@@ -1,12 +1,18 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL)
+// PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL CON PERSISTENCIA)
 // SPA: registro / login / dashboard
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Inicialización de Supabase con almacenamiento local automático para persistencia
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true
+  }
+});
 
 // ------------------------------------------------------------
 // Estado global
@@ -242,7 +248,6 @@ function calcularPrecioConComision(precio, comision) {
   return p + (p * (c / 100));
 }
 
-// Precio Base de Venta y Configuración Comercial Estándar
 function carStatusBadgeClass(status) {
   switch (status) {
     case 'Disponible': return 'bg-green-100 text-green-700';
@@ -262,7 +267,7 @@ function renderConfigLote() {
   const phoneInput = document.getElementById('configPhoneLote');
 
   if (nombreInput) nombreInput.value = currentLote.nombre || '';
-  if (phoneInput) phoneInput.value = currentLote.whatsapp_number || ''; // 🔥 CORREGIDO: Mapeado a whatsapp_number
+  if (phoneInput) phoneInput.value = currentLote.whatsapp_number || '';
 
   document.querySelectorAll('.lote-nombre-display').forEach(el => {
     el.textContent = currentLote.nombre || 'Mi Lote';
@@ -278,7 +283,7 @@ async function handleConfigSubmit(e) {
 
   const updates = {
     nombre: nombreInput ? nombreInput.value.trim() : currentLote.nombre,
-    whatsapp_number: phoneInput ? phoneInput.value.trim() : currentLote.whatsapp_number // 🔥 CORREGIDO: Mapeado a whatsapp_number
+    whatsapp_number: phoneInput ? phoneInput.value.trim() : currentLote.whatsapp_number
   };
 
   const { data, error } = await supabaseClient
@@ -328,7 +333,7 @@ function openDrawer(leadId) {
     drawerFechaCita: formatDate(lead.fecha_cita),
     drawerUltimoMensaje: lead.ultimo_mensaje,
     drawerInteres: lead.interes || lead.auto_interes,
-    drawerNotas: lead.notas || lead.enganche ? `Enganche propuesto: ${lead.enganche}` : ''
+    drawerNotas: lead.notas || (lead.enganche ? `Enganche propuesto: ${lead.enganche}` : '')
   };
 
   Object.entries(fields).forEach(([id, value]) => {
@@ -441,7 +446,6 @@ async function handleRegistroSubmit(e) {
     return;
   }
 
-  // 🔥 CORREGIDO: Insertamos apuntando a la columna real 'whatsapp_number' en Postgres
   const { data: loteData, error: loteError } = await supabaseClient
     .from('lotes')
     .insert({
@@ -476,18 +480,26 @@ async function handleLogout() {
   showView('view-login');
 }
 
+// 🔥 FUNCIÓN OPTIMIZADA: Comprobación asíncrona con escudo de persistencia
 async function checkSessionAndLote() {
-  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-
-  if (userError || !userData || !userData.user) {
-    currentUser = null;
-    currentLote = null;
-    showView('view-registro');
-    return;
+  // Primero intentamos recuperar la sesión activa del almacenamiento local
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  
+  if (!sessionData || !sessionData.session) {
+    // Si no hay sesión local, consultamos al servidor por si acaso
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !userData || !userData.user) {
+      currentUser = null;
+      currentLote = null;
+      showView('view-registro');
+      return;
+    }
+    currentUser = userData.user;
+  } else {
+    currentUser = sessionData.session.user;
   }
 
-  currentUser = userData.user;
-
+  // Si llegamos aquí, hay usuario autenticado. Buscamos su lote.
   const { data: loteData, error: loteError } = await supabaseClient
     .from('lotes')
     .select('*')
@@ -555,26 +567,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (configForm) configForm.addEventListener('submit', handleConfigSubmit);
   if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
-  // Botones/Enlaces de alternancia Onboarding en el formulario unificado
+  // Mapeo seguro de los botones de redirección (Alineados con ambos IDs posibles)
   const toLoginBtn = document.getElementById('to-login-btn');
-  const toRegistroBtn = document.getElementById('to-registro-btn');
+  const goToLoginLink = document.getElementById('goToLoginLink');
 
   if (toLoginBtn) {
-    toLoginBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      showView('view-login');
-    });
+    toLoginBtn.addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
+  }
+  if (goToLoginLink) {
+    goToLoginLink.addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
   }
 
+  const toRegistroBtn = document.getElementById('to-registro-btn');
+  const goToRegistroLink = document.getElementById('goToRegistroLink');
+
   if (toRegistroBtn) {
-    toRegistroBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      showView('view-registro');
-    });
+    toRegistroBtn.addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
+  }
+  if (goToRegistroLink) {
+    goToRegistroLink.addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
   }
 
   initDrawer();
   initSidebarNav();
 
+  // Ejecutamos la comprobación de persistencia al arrancar la SPA
   await checkSessionAndLote();
 });
