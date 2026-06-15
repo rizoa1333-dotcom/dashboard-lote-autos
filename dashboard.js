@@ -5,10 +5,10 @@
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
-// Usamos el cliente global provisto por el script del HTML
+// Inicialización limpia usando el objeto global expuesto por el script del HTML
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Almacén local de datos descargados para el Drawer
+// Almacén local de datos descargados para alimentar el panel dinámico
 let localLeadsCache = [];
 
 // ============================================================
@@ -19,10 +19,10 @@ document.addEventListener("DOMContentLoaded", () => {
   initNavigation();
   initDrawer();
   
-  // Ejecutamos las consultas reales a Supabase
+  // Ejecutamos la consulta directa a tu base de datos
   fetchAndRenderAll();
   
-  // Realtime Opcional: Recargar cada 10 segundos para ver cambios del bot en vivo
+  // Polling automático cada 10 segundos para pintar leads en vivo sin refrescar
   setInterval(fetchAndRenderAll, 10000);
 });
 
@@ -32,13 +32,15 @@ async function fetchAndRenderAll() {
 }
 
 // ============================================================
-// SIDEBAR MÓVIL
+// SIDEBAR MÓVIL (Tolerante a fallos si faltan botones)
 // ============================================================
 function initSidebar() {
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("overlay");
   const openBtn = document.getElementById("openSidebar");
   const closeBtn = document.getElementById("closeSidebar");
+
+  if (!sidebar || !overlay) return;
 
   const open = () => {
     sidebar.classList.remove("-translate-x-full");
@@ -84,7 +86,6 @@ function initNavigation() {
 // RENDEREADO DE LEADS, CONTADORES Y PIPELINE DESDE SUPABASE
 // ============================================================
 async function renderLeadsAndCounters() {
-  // 1. Descargamos todos los leads de la tabla real
   const { data: leads, error } = await supabase
     .from('leads')
     .select('*');
@@ -96,17 +97,17 @@ async function renderLeadsAndCounters() {
 
   localLeadsCache = leads || [];
 
-  // Containers del HTML
+  // Containers del HTML seguro
   const containerLeadsList = document.getElementById("leadsList");
   const containerCitasList = document.getElementById("citasListContainer");
   const containerMonitorMensajes = document.getElementById("monitorMensajesContainer");
 
-  // Limpieza inicial
-  containerLeadsList.innerHTML = "";
+  // Limpieza inicial antes de inyectar datos reales
+  if (containerLeadsList) containerLeadsList.innerHTML = "";
   if (containerCitasList) containerCitasList.innerHTML = "";
   if (containerMonitorMensajes) containerMonitorMensajes.innerHTML = "";
 
-  // Variables para contadores analíticos
+  // Variables contadoras para las tarjetas analíticas de arriba
   let totalCalificadosPendientes = 0;
   let totalCitasHoy = 0;
   let countNuevo = 0;
@@ -114,7 +115,7 @@ async function renderLeadsAndCounters() {
   let countCita = 0;
 
   localLeadsCache.forEach((lead) => {
-    // Clasificación para el Pipeline
+    // Clasificación de contadores basados en la estructura real
     if (lead.fecha_cita) {
       countCita++;
       totalCitasHoy++;
@@ -124,8 +125,8 @@ async function renderLeadsAndCounters() {
       countNuevo++;
     }
 
-    // A: Pintar en Monitor de Leads Precalificados (Solo si status === 'Pendiente')
-    if (lead.status === 'Pendiente') {
+    // A: Inyectar en Monitor de Leads Precalificados (Solo si status === 'Pendiente')
+    if (lead.status === 'Pendiente' && containerLeadsList) {
       totalCalificadosPendientes++;
       
       const row = document.createElement("div");
@@ -135,7 +136,7 @@ async function renderLeadsAndCounters() {
           <span class="score-badge score-high">★</span>
           <div class="min-w-0">
             <p class="text-sm font-medium truncate">${lead.name || 'Prospecto Anónimo'}</p>
-            <p class="text-xs text-slate-400 truncate">${lead.auto_interes || 'Sin auto definido'} • Enganche: ${lead.enganche || 'Pendiente'}</p>
+            <p class="text-xs text-slate-400 truncate">${lead.auto_interes || 'Sin auto especificado'} • Enganche: ${lead.enganche || 'Pendiente'}</p>
           </div>
         </div>
         <button class="btn-ghost flex-shrink-0" data-lead-id="${lead.id}">
@@ -145,55 +146,62 @@ async function renderLeadsAndCounters() {
       containerLeadsList.appendChild(row);
     }
 
-    // B: Pintar en pestaña de Citas Agendadas (Si tiene fecha_cita)
+    // B: Inyectar en pestaña de Citas Agendadas (Si tiene fecha_cita guardada)
     if (lead.fecha_cita && containerCitasList) {
       const rowCita = document.createElement("div");
       rowCita.className = "flat-row flex items-center justify-between bg-white";
       rowCita.innerHTML = `
         <div>
           <p class="text-sm font-medium">${lead.name || 'Interesado'}</p>
-          <p class="text-xs text-slate-400">${lead.auto_interes || 'Unidad'} • Hora asignada: <strong class="text-slate-900">${lead.fecha_cita}</strong></p>
+          <p class="text-xs text-slate-400">${lead.auto_interes || 'Unidad'} • Horario: <strong class="text-slate-900">${lead.fecha_cita}</strong></p>
         </div>
         <span class="status-pill status-green">Agendada</span>
       `;
       containerCitasList.appendChild(rowCita);
     }
 
-    // C: Pintar en pestaña de Módulo de Mensajes
+    // C: Inyectar en pestaña de Módulo de Mensajes
     if (containerMonitorMensajes) {
       const rowMsg = document.createElement("div");
       rowMsg.className = "flat-row bg-white";
       rowMsg.innerHTML = `
         <p class="text-sm"><span class="font-medium">${lead.phone_number || 'Sin Teléfono'}</span> — <span class="text-xs text-slate-400">Paso Encuesta: ${lead.encuesta_step || 0}</span></p>
-        <p class="text-xs text-slate-500 mt-1">Interés en: ${lead.auto_interes || 'No especificado'} | Situación: ${lead.situacion_laboral || 'No capturada'}</p>
+        <p class="text-xs text-slate-500 mt-1">Auto: ${lead.auto_interes || 'No especificado'} | Trabajo: ${lead.situacion_laboral || 'No capturada'}</p>
       `;
       containerMonitorMensajes.appendChild(rowMsg);
     }
   });
 
-  // Mensajes de lista vacía por seguridad
-  if (totalCalificadosPendientes === 0) {
-    containerLeadsList.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay leads precalificados pendientes en este momento.</p>`;
+  // Validaciones en caso de listas vacías
+  if (containerLeadsList && totalCalificadosPendientes === 0) {
+    containerLeadsList.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay leads precalificados pendientes.</p>`;
   }
   if (containerCitasList && totalCitasHoy === 0) {
-    containerCitasList.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay ninguna cita registrada en la base de datos.</p>`;
+    containerCitasList.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay citas registradas en la base de datos.</p>`;
   }
 
-  // 3. Renderizar los contadores superiores globales
-  document.getElementById("leadsCount").textContent = totalCalificadosPendientes;
-  document.getElementById("citasCount").textContent = totalCitasHoy;
+  // Renderizar valores en los contadores analíticos superiores protegiendo la carga
+  const leadsCountEl = document.getElementById("leadsCount");
+  const citasCountEl = document.getElementById("citasCount");
+  if (leadsCountEl) leadsCountEl.textContent = totalCalificadosPendientes;
+  if (citasCountEl) citasCountEl.textContent = totalCitasHoy;
 
-  // 4. Actualizar textos del Pipeline de Ventas dinámicamente
-  document.getElementById("pipeNuevo").textContent = `${countNuevo} conversaciones activas`;
-  document.getElementById("pipePendiente").textContent = `${countPendiente} leads listos en Dashboard`;
-  document.getElementById("pipeCita").textContent = `${countCita} citas confirmadas`;
+  // Actualizar textos del Pipeline de Ventas lateral
+  const pNuevo = document.getElementById("pipeNuevo");
+  const pPendiente = document.getElementById("pipePendiente");
+  const pCita = document.getElementById("pipeCita");
+  if (pNuevo) pNuevo.textContent = `${countNuevo} conversaciones en proceso`;
+  if (pPendiente) pPendiente.textContent = `${countPendiente} leads listos en Dashboard`;
+  if (pCita) pCita.textContent = `${countCita} citas registradas`;
 
-  // Listener para abrir el Drawer con datos extendidos
-  containerLeadsList.querySelectorAll("[data-lead-id]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      openDrawer(btn.dataset.leadId);
+  // Listener para levantar el Drawer con los detalles guardados por Carlos
+  if (containerLeadsList) {
+    containerLeadsList.querySelectorAll("[data-lead-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        openDrawer(btn.dataset.leadId);
+      });
     });
-  });
+  }
 }
 
 // ============================================================
@@ -210,9 +218,11 @@ async function renderCars() {
   }
 
   const tbody = document.getElementById("carsTableBody");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
-  document.getElementById("carsCount").textContent = cars ? cars.length : 0;
+  const carsCountEl = document.getElementById("carsCount");
+  if (carsCountEl) carsCountEl.textContent = cars ? cars.length : 0;
 
   const statusClassMap = {
     Disponible: "status-green",
@@ -221,7 +231,7 @@ async function renderCars() {
   };
 
   if (!cars || cars.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-xs text-slate-400 py-4">Sin autos en el inventario de Supabase.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-xs text-slate-400 py-4">Sin autos en el inventario.</td></tr>`;
     return;
   }
 
@@ -241,12 +251,14 @@ async function renderCars() {
 }
 
 // ============================================================
-// DRAWER EXTENDIDO: MOSTRAR DETALLES DE LA ENCUESTA DE WHATSAPP
+// DRAWER EXTENDIDO: DETALLES COMPLETOS DE LA ENCUESTA
 // ============================================================
 function initDrawer() {
   const drawer = document.getElementById("drawer");
   const overlay = document.getElementById("drawerOverlay");
   const closeBtn = document.getElementById("closeDrawer");
+
+  if (!drawer || !overlay) return;
 
   const close = () => {
     drawer.classList.add("translate-x-full");
@@ -260,7 +272,6 @@ function initDrawer() {
 }
 
 function openDrawer(leadId) {
-  // Buscamos el lead guardado localmente en la caché
   const lead = localLeadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
@@ -269,9 +280,11 @@ function openDrawer(leadId) {
   const subtitle = document.getElementById("drawerSubtitle");
   const containerExtended = document.getElementById("drawerExpandedData");
 
+  if (!drawer || !subtitle || !containerExtended) return;
+
   subtitle.textContent = `ID Lead: ${lead.id} • Teléfono: ${lead.phone_number || 'Desconocido'}`;
   
-  // Imprimir todas las nuevas respuestas de la encuesta de WhatsApp de manera elegante
+  // Render de los datos de la encuesta de WhatsApp recolectados por la IA
   containerExtended.innerHTML = `
     <div class="border-b border-slate-200 pb-2 mb-2">
       <p class="text-xs text-slate-400 uppercase font-bold tracking-wider">Nombre del Cliente</p>
@@ -299,10 +312,10 @@ function openDrawer(leadId) {
     </div>
     <div class="mt-4 pt-3 border-t border-slate-200 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
       <p class="text-xs text-emerald-700 font-bold uppercase tracking-wider">📅 Cita de Manejo / Visita:</p>
-      <p class="text-sm font-semibold text-emerald-900 mt-0.5">${lead.fecha_cita ? lead.fecha_cita : '❌ Aún no agenda cita'}</p>
+      <p class="text-sm font-semibold text-emerald-900 mt-0.5">${lead.fecha_cita ? lead.fecha_cita : '❌ Sin cita asignada aún'}</p>
     </div>
   `;
 
-  overlay.classList.remove("hidden");
+  if (overlay) overlay.classList.remove("hidden");
   drawer.classList.remove("translate-x-full");
 }
