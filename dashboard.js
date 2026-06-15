@@ -18,7 +18,6 @@ function showView(viewName) {
   const viewDashboard = document.getElementById("view-dashboard");
   const body = document.body;
 
-  // Limpiar clases de orientación del body según la pantalla
   body.className = "bg-[#F8FAFC] text-slate-900 min-h-screen flex";
 
   if (viewName === 'dashboard') {
@@ -32,7 +31,6 @@ function showView(viewName) {
     if (viewLogin) viewLogin.classList.remove("hidden");
     body.classList.add("items-center", "justify-center", "p-4");
   } else {
-    // Por defecto: Registro
     if (viewLogin) viewLogin.classList.add("hidden");
     if (viewDashboard) viewDashboard.classList.add("hidden");
     if (viewRegistro) viewRegistro.classList.remove("hidden");
@@ -45,7 +43,7 @@ function showView(viewName) {
 // ============================================================
 document.addEventListener("DOMContentLoaded", async () => {
   
-  // 1. Alternadores visuales de Registro <-> Login de inmediato
+  // 1. Alternadores visuales con navegación segura (?.)
   document.getElementById("to-login-btn")?.addEventListener("click", () => showView('login'));
   document.getElementById("to-registro-btn")?.addEventListener("click", () => showView('registro'));
 
@@ -59,8 +57,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const telefono = document.getElementById('telefono').value.trim();
     const btn = document.getElementById('btn-registrar');
 
-    btn.textContent = "Configurando Empresa...";
-    btn.disabled = true;
+    if (btn) {
+      btn.textContent = "Configurando Empresa...";
+      btn.disabled = true;
+    }
 
     try {
       const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
@@ -72,11 +72,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (loteError) throw loteError;
 
       alert('¡Cuenta Creada! Inicializando panel...');
-      location.reload(); // Recarga para activar sesión limpia
+      location.reload(); 
     } catch (err) {
       alert("Error al registrar: " + err.message);
-      btn.textContent = "Registrar Lote e Ingresar";
-      btn.disabled = false;
+      if (btn) {
+        btn.textContent = "Registrar Lote e Ingresar";
+        btn.disabled = false;
+      }
     }
   });
 
@@ -88,8 +90,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btn = document.getElementById('btn-login-submit');
     const errorDiv = document.getElementById('login-error');
 
-    btn.textContent = "Validando...";
-    btn.disabled = true;
+    if (btn) {
+      btn.textContent = "Validando...";
+      btn.disabled = true;
+    }
     if (errorDiv) errorDiv.style.display = "none";
 
     try {
@@ -101,26 +105,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         errorDiv.textContent = "Credenciales incorrectas.";
         errorDiv.style.display = "block";
       }
-      btn.textContent = "Iniciar Sesión";
-      btn.disabled = false;
+      if (btn) {
+        btn.textContent = "Iniciar Sesión";
+        btn.disabled = false;
+      }
     }
   });
 
-  // 4. Escuchar el Botón de Cerrar Sesión
+  // 4. Escuchar el Botón de Cerrar Sesión con navegación segura (?.) para evitar el error de null
   document.getElementById("btn-logout")?.addEventListener("click", async () => {
     await supabase.auth.signOut();
     location.reload();
   });
 
-  // 5. VALIDACIÓN SOBERANA DE RUTA INTERNA
-  const { data: { user } } = await supabase.auth.getUser();
+  // 5. VALIDACIÓN DE RUTA INTERNA
+  const { data: authData } = await supabase.auth.getUser();
+  const user = authData?.user;
 
   if (!user) {
-    showView('registro'); // Si no ha iniciado sesión, mándalo al Onboarding
-    return;
+    showView('registro'); 
+    return; 
   }
 
-  // Descargar lote del usuario logueado
   const { data: lote, error: loteError } = await supabase
     .from('lotes')
     .select('*')
@@ -133,8 +139,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   currentLote = lote;
-
-  // Inicializar UI Operativa
   showView('dashboard');
   
   const headerText = document.getElementById("loteHeaderName");
@@ -164,7 +168,7 @@ async function fetchAndRenderAll() {
 }
 
 // ============================================================
-// FUNCIONES DE CONTROL DE INTERFAZ INTERNA (Pestañas del Dashboard)
+// FUNCIONES DE CONTROL DE INTERFAZ INTERNA
 // ============================================================
 function initSidebar() {
   const sidebar = document.getElementById("sidebar");
