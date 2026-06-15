@@ -1,10 +1,14 @@
 // ============================================================
 // PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL CON PERSISTENCIA)
-// SPA: registro / login / dashboard
+// SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
+
+// CONFIGURACIÓN DE EVOLUTION API DESDE RAILWAY
+const EVOLUTION_API_URL = 'https://tu-api-evolution.railway.app'; 
+const EVOLUTION_GLOBAL_KEY = '600d6bfcce4e4d8e656b1d07fdbdc2b97fd6ba4a0';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -41,6 +45,7 @@ function stopSync() {
 function startSync() {
   stopSync();
   fetchAndRenderAll();
+  checarEstatusWhatsApp(); // Verifica estatus multi-tenant al arrancar
   syncIntervalId = setInterval(fetchAndRenderAll, 10000); // 10 Segundos en vivo
 }
 
@@ -174,7 +179,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN INVENTARIO (CARS) - TOTALMENTE EN INGLÉS
+// SECCIÓN INVENTARIO (CARS)
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -311,7 +316,97 @@ function renderConfigLote() {
 }
 
 // ------------------------------------------------------------
-// 🛡️ GUARDIÁN RUTEADOR ANTIRREBOTES NATIVO
+// SECCIÓN DINÁMICA MULTI-TENANT DE WHATSAPP (EVOLUTION API)
+// ------------------------------------------------------------
+async function checarEstatusWhatsApp() {
+  if (!currentLote) return;
+  
+  try {
+    const { data, error } = await supabaseClient
+      .from('whatsapp_channels')
+      .select('*')
+      .eq('lote_id', currentLote.id)
+      .maybeSingle();
+
+    const badge = document.getElementById('wa-badge');
+    const statusText = document.getElementById('wa-status-text');
+    const instanceDisplay = document.getElementById('wa-instance-display');
+    const container = document.getElementById('qr-container');
+
+    if (data) {
+      instanceDisplay.textContent = `Instancia: ${data.instance_name}`;
+      statusText.textContent = data.status_conexion;
+      
+      if (data.status_conexion === 'CONECTADO') {
+        badge.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+        container.innerHTML = `
+          <div class="text-center space-y-2 text-emerald-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <p class="text-sm font-bold">¡Canal Operando Exitosamente!</p>
+            <p class="text-xs text-slate-400">La IA se encuentra respondiendo los mensajes en vivo.</p>
+          </div>`;
+      }
+    }
+  } catch (err) {
+    console.error('Error al verificar estatus del canal:', err);
+  }
+}
+
+async function ejecutarFlujoConexionWhatsApp() {
+  if (!currentLote) return;
+  
+  const container = document.getElementById('qr-container');
+  container.innerHTML = `<p class="text-xs text-slate-500 font-medium animate-pulse">Solicitando canal a Railway...</p>`;
+
+  const cleanName = currentLote.nombre.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const instanceName = `${cleanName}_instance`;
+  const secureToken = Math.random().toString(36).substring(2, 15);
+
+  try {
+    const res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_GLOBAL_KEY
+      },
+      body: JSON.stringify({
+        instanceName: instanceName,
+        token: secureToken,
+        qrcode: true
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.qrcode && data.qrcode.base64) {
+      container.innerHTML = `
+        <div class="text-center space-y-3">
+          <img src="${data.qrcode.base64}" alt="Código QR" class="mx-auto rounded-lg shadow-md border border-slate-200 max-w-[220px]" />
+          <p class="text-[11px] text-amber-600 font-semibold animate-pulse">⚠️ Esperando escaneo desde el celular...</p>
+        </div>`;
+
+      // Subimos el canal en la tabla relacional multi-tenant
+      await supabaseClient.from('whatsapp_channels').upsert({
+        lote_id: currentLote.id,
+        instance_name: instanceName,
+        api_key: secureToken,
+        status_conexion: 'CONECTADO'
+      }, { onConflict: 'lote_id' });
+
+      document.getElementById('wa-status-text').textContent = "CONECTADO";
+      document.getElementById('wa-badge').className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+      document.getElementById('wa-instance-display').textContent = `Instancia: ${instanceName}`;
+    } else {
+      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">La instancia ya está activa o la API rechazó la solicitud.</p>`;
+    }
+  } catch (error) {
+    container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error de red al conectar con Railway.</p>`;
+    console.error(error);
+  }
+}
+
+// ------------------------------------------------------------
+// GUARDIÁN RUTEADOR
 // ------------------------------------------------------------
 async function checkSessionAndLote() {
   console.log('[Proyecto 360] Ejecutando análisis estricto de sesión...');
@@ -359,7 +454,6 @@ async function handleLoginSubmit(e) {
     if (errorEl) errorEl.textContent = 'Credenciales no válidas.';
     return;
   }
-  // 🔥 ASIGNACIÓN INSTANTÁNEA PARA ASINCRONÍA SÍNCRONA
   currentUser = data.user;
   await checkSessionAndLote();
 }
@@ -392,10 +486,9 @@ async function handleRegistroSubmit(e) {
 }
 
 // ------------------------------------------------------------
-// INICIALIZADOR DE INTERRUPTORES Y EVENTOS DOM
+// INICIALIZADOR DE EVENTOS DOM
 // ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  // Sincronización de formularios nativos
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
   
@@ -416,6 +509,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  if (document.getElementById('btnGenerarQR')) {
+    document.getElementById('btnGenerarQR').addEventListener('click', ejecutarFlujoConexionWhatsApp);
+  }
+
   // Enlaces SPA internos
   document.getElementById('to-login-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
   document.getElementById('to-registro-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
@@ -427,7 +524,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btnAbrirModalCar').addEventListener('click', () => modalCar.classList.remove('hidden'));
   document.getElementById('btnCerrarModalCar').addEventListener('click', () => modalCar.classList.add('hidden'));
 
-  // 🔥 REGISTRO DE CARROS CON INPUTS INDEPENDIENTES NATVOS
+  // REGISTRO DE CARROS
   document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentLote) return;
@@ -457,8 +554,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('closeSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.add('-translate-x-full'));
 
   initSidebarNav();
-  
-  // 🔥 Activación tardía de seguridad
   await checkSessionAndLote();
 });
 
