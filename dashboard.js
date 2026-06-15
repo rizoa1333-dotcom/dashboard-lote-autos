@@ -1,28 +1,126 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (SaaS MULTI-TENANT OPTIMIZADO)
+// PROJECT 360 - dashboard.js (SPA UNIFICADA INTEGRAL)
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
-
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let localLeadsCache = [];
 let currentLote = null;
 
 // ============================================================
-// CONTROL DE ACCESO E INICIALIZACIÓN GENERAL
+// ORQUESTADOR DE VISTAS (SPA)
+// ============================================================
+function showView(viewName) {
+  const viewRegistro = document.getElementById("view-registro");
+  const viewLogin = document.getElementById("view-login");
+  const viewDashboard = document.getElementById("view-dashboard");
+  const body = document.body;
+
+  // Limpiar clases de orientación del body según la pantalla
+  body.className = "bg-[#F8FAFC] text-slate-900 min-h-screen flex";
+
+  if (viewName === 'dashboard') {
+    if (viewRegistro) viewRegistro.classList.add("hidden");
+    if (viewLogin) viewLogin.classList.add("hidden");
+    if (viewDashboard) viewDashboard.classList.remove("hidden");
+    body.classList.add("flex-col", "md:flex-row", "justify-start", "items-stretch");
+  } else if (viewName === 'login') {
+    if (viewRegistro) viewRegistro.classList.add("hidden");
+    if (viewDashboard) viewDashboard.classList.add("hidden");
+    if (viewLogin) viewLogin.classList.remove("hidden");
+    body.classList.add("items-center", "justify-center", "p-4");
+  } else {
+    // Por defecto: Registro
+    if (viewLogin) viewLogin.classList.add("hidden");
+    if (viewDashboard) viewDashboard.classList.add("hidden");
+    if (viewRegistro) viewRegistro.classList.remove("hidden");
+    body.classList.add("items-center", "justify-center", "p-4");
+  }
+}
+
+// ============================================================
+// INICIALIZACIÓN DE LA APLICACIÓN
 // ============================================================
 document.addEventListener("DOMContentLoaded", async () => {
-  // 1. Verificar sesión activa
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  // 1. Alternadores visuales de Registro <-> Login de inmediato
+  document.getElementById("to-login-btn")?.addEventListener("click", () => showView('login'));
+  document.getElementById("to-registro-btn")?.addEventListener("click", () => showView('registro'));
 
-  if (authError || !user) {
-    window.location.href = "login.html";
+  // 2. Escuchar Formulario de Registro
+  document.getElementById("form-registro")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const nombreLote = document.getElementById('nombre-lote').value.trim();
+    const ciudad = document.getElementById('ciudad').value.trim();
+    const telefono = document.getElementById('telefono').value.trim();
+    const btn = document.getElementById('btn-registrar');
+
+    btn.textContent = "Configurando Empresa...";
+    btn.disabled = true;
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+      if (authError) throw authError;
+
+      const { error: loteError } = await supabase.from('lotes').insert([
+        { nombre: nombreLote, ciudad: ciudad, whatsapp_number: telefono, profile_id: authData.user.id }
+      ]);
+      if (loteError) throw loteError;
+
+      alert('¡Cuenta Creada! Inicializando panel...');
+      location.reload(); // Recarga para activar sesión limpia
+    } catch (err) {
+      alert("Error al registrar: " + err.message);
+      btn.textContent = "Registrar Lote e Ingresar";
+      btn.disabled = false;
+    }
+  });
+
+  // 3. Escuchar Formulario de Inicio de Sesión
+  document.getElementById("form-login")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const btn = document.getElementById('btn-login-submit');
+    const errorDiv = document.getElementById('login-error');
+
+    btn.textContent = "Validando...";
+    btn.disabled = true;
+    if (errorDiv) errorDiv.style.display = "none";
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      location.reload();
+    } catch (err) {
+      if (errorDiv) {
+        errorDiv.textContent = "Credenciales incorrectas.";
+        errorDiv.style.display = "block";
+      }
+      btn.textContent = "Iniciar Sesión";
+      btn.disabled = false;
+    }
+  });
+
+  // 4. Escuchar el Botón de Cerrar Sesión
+  document.getElementById("btn-logout")?.addEventListener("click", async () => {
+    await supabase.auth.signOut();
+    location.reload();
+  });
+
+  // 5. VALIDACIÓN SOBERANA DE RUTA INTERNA
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    showView('registro'); // Si no ha iniciado sesión, mándalo al Onboarding
     return;
   }
 
-  // 2. Descargar lote vinculado por profile_id
+  // Descargar lote del usuario logueado
   const { data: lote, error: loteError } = await supabase
     .from('lotes')
     .select('*')
@@ -30,30 +128,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     .single();
 
   if (loteError || !lote) {
-    console.error("Error al obtener el lote:", loteError);
-    alert("Cuenta sin lote asignado. Contacta a soporte.");
-    window.location.href = "login.html";
+    showView('registro');
     return;
   }
 
   currentLote = lote;
 
-  // 3. Modificar UI dinámicamente usando selectores seguros por ID
+  // Inicializar UI Operativa
+  showView('dashboard');
+  
   const headerText = document.getElementById("loteHeaderName");
   if (headerText) {
-    headerText.innerHTML = `${lote.nombre} <span class="text-slate-400 font-normal text-xs">• ID: ${lote.id.slice(0,8)}... • Ciudad: ${lote.ciudad}</span>`;
+    headerText.innerHTML = `${lote.nombre} <span class="text-slate-400 font-normal text-xs">• ID Lote: ${lote.id.slice(0,8)}...</span>`;
   }
-  
   const sidebarText = document.getElementById("loteSidebarName");
   if (sidebarText) sidebarText.textContent = lote.nombre;
 
-  // Rellenar campos de la pestaña de configuración interna
   const configNombre = document.getElementById("configNombreLote");
   const configPhone = document.getElementById("configPhoneLote");
   if (configNombre) configNombre.value = lote.nombre;
   if (configPhone) configPhone.value = lote.whatsapp_number || '';
 
-  // 4. Inicializar interactividad
   initSidebar();
   initNavigation();
   initDrawer();
@@ -69,71 +164,45 @@ async function fetchAndRenderAll() {
 }
 
 // ============================================================
-// SIDEBAR MÓVIL (Resistente)
+// FUNCIONES DE CONTROL DE INTERFAZ INTERNA (Pestañas del Dashboard)
 // ============================================================
 function initSidebar() {
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("overlay");
   const openBtn = document.getElementById("openSidebar");
   const closeBtn = document.getElementById("closeSidebar");
-
   if (!sidebar) return; 
 
-  const open = () => {
-    sidebar.classList.remove("-translate-x-full");
-    if (overlay) overlay.classList.remove("hidden");
-  };
-  const close = () => {
-    sidebar.classList.add("-translate-x-full");
-    if (overlay) overlay.classList.add("hidden");
-  };
+  const open = () => { sidebar.classList.remove("-translate-x-full"); overlay?.classList.remove("hidden"); };
+  const close = () => { sidebar.classList.add("-translate-x-full"); overlay?.classList.add("hidden"); };
 
   if (openBtn) openBtn.addEventListener("click", open);
   if (closeBtn) closeBtn.addEventListener("click", close);
   if (overlay) overlay.addEventListener("click", close);
-
   window._closeSidebar = close;
 }
 
-// ============================================================
-// NAVEGACIÓN ENTRE SECCIONES (Filtro por clases de Tailwind)
-// ============================================================
 function initNavigation() {
   const navItems = document.querySelectorAll(".nav-item");
   const sections = document.querySelectorAll(".section-panel");
 
   navItems.forEach((item) => {
     item.addEventListener("click", () => {
-      navItems.forEach((i) => i.classList.remove("active", "bg-[#F1F5F9]", "text-slate-900"));
+      navItems.forEach((i) => i.classList.remove("active", "bg-[#F1F5F9]"));
       item.classList.add("active");
 
       const target = item.dataset.section;
       sections.forEach((sec) => {
-        if (sec.id === `section-${target}`) {
-          sec.classList.remove("hidden");
-        } else {
-          sec.classList.add("hidden");
-        }
+        sec.classList.toggle("hidden", sec.id !== `section-${target}`);
       });
-
-      if (window.innerWidth < 768 && window._closeSidebar) {
-        window._closeSidebar();
-      }
+      if (window.innerWidth < 768 && window._closeSidebar) window._closeSidebar();
     });
   });
 }
 
-// ============================================================
-// RENDEREADO DE DATA MULTI-TENANT (LEADS)
-// ============================================================
 async function renderLeadsAndCounters() {
-  const { data: leads, error } = await supabase
-    .from('leads')
-    .select('*')
-    .eq('lote_id', currentLote.id);
-
+  const { data: leads, error } = await supabase.from('leads').select('*').eq('lote_id', currentLote.id);
   if (error) return;
-
   localLeadsCache = leads || [];
 
   const containerLeadsList = document.getElementById("leadsList");
@@ -144,21 +213,12 @@ async function renderLeadsAndCounters() {
   if (containerCitasList) containerCitasList.innerHTML = "";
   if (containerMonitorMensajes) containerMonitorMensajes.innerHTML = "";
 
-  let totalCalificadosPendientes = 0;
-  let totalCitasHoy = 0;
-  let countNuevo = 0;
-  let countPendiente = 0;
-  let countCita = 0;
+  let totalCalificadosPendientes = 0, totalCitasHoy = 0, countNuevo = 0, countPendiente = 0, countCita = 0;
 
   localLeadsCache.forEach((lead) => {
-    if (lead.fecha_cita) {
-      countCita++;
-      totalCitasHoy++;
-    } else if (lead.status === 'Pendiente') {
-      countPendiente++;
-    } else {
-      countNuevo++;
-    }
+    if (lead.fecha_cita) { countCita++; totalCitasHoy++; }
+    else if (lead.status === 'Pendiente') countPendiente++;
+    else countNuevo++;
 
     if (lead.status === 'Pendiente' && containerLeadsList) {
       totalCalificadosPendientes++;
@@ -172,9 +232,7 @@ async function renderLeadsAndCounters() {
             <p class="text-xs text-slate-400 truncate">${lead.auto_interes || 'Sin especificar'} • Enganche: ${lead.enganche || '—'}</p>
           </div>
         </div>
-        <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1.5 rounded-md font-medium transition-colors" data-lead-id="${lead.id}">
-          Ver Perfil Pro
-        </button>
+        <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1.5 rounded-md font-medium" data-lead-id="${lead.id}">Ver Perfil Pro</button>
       `;
       containerLeadsList.appendChild(row);
     }
@@ -183,10 +241,7 @@ async function renderLeadsAndCounters() {
       const rowCita = document.createElement("div");
       rowCita.className = "flex items-center justify-between bg-white p-3 rounded-lg border border-[#E2E8F0]";
       rowCita.innerHTML = `
-        <div>
-          <p class="text-sm font-medium text-slate-900">${lead.name || 'Interesado'}</p>
-          <p class="text-xs text-slate-400">${lead.auto_interes || 'Unidad'} • Horario: <strong class="text-slate-700">${lead.fecha_cita}</strong></p>
-        </div>
+        <div><p class="text-sm font-medium text-slate-900">${lead.name || 'Interesado'}</p><p class="text-xs text-slate-400">${lead.auto_interes || 'Unidad'} • Horario: <strong>${lead.fecha_cita}</strong></p></div>
         <span class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">Agendada</span>
       `;
       containerCitasList.appendChild(rowCita);
@@ -195,126 +250,46 @@ async function renderLeadsAndCounters() {
     if (containerMonitorMensajes) {
       const rowMsg = document.createElement("div");
       rowMsg.className = "bg-white p-3 rounded-lg border border-[#E2E8F0]";
-      rowMsg.innerHTML = `
-        <p class="text-sm text-slate-800"><span class="font-medium">${lead.phone_number || 'Sin número'}</span> — <span class="text-xs text-slate-400">Paso: ${lead.encuesta_step || 0}</span></p>
-        <p class="text-xs text-slate-500 mt-1">Auto: ${lead.auto_interes || 'No def'} | Trabajo: ${lead.situacion_laboral || '—'}</p>
-      `;
+      rowMsg.innerHTML = `<p class="text-sm text-slate-800"><span class="font-medium">${lead.phone_number || 'Sin número'}</span> — <span class="text-xs text-slate-400">Paso: ${lead.encuesta_step || 0}</span></p>`;
       containerMonitorMensajes.appendChild(rowMsg);
     }
   });
 
-  if (containerLeadsList && totalCalificadosPendientes === 0) {
-    containerLeadsList.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay leads precalificados pendientes.</p>`;
-  }
-  if (containerCitasList && totalCitasHoy === 0) {
-    containerCitasList.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay citas registradas.</p>`;
-  }
+  if (leadsCountEl = document.getElementById("leadsCount")) leadsCountEl.textContent = totalCalificadosPendientes;
+  if (citasCountEl = document.getElementById("citasCount")) citasCountEl.textContent = totalCitasHoy;
+  if (pNuevo = document.getElementById("pipeNuevo")) pNuevo.textContent = `${countNuevo} conversaciones en proceso`;
+  if (pPendiente = document.getElementById("pipePendiente")) pPendiente.textContent = `${countPendiente} leads listos en Dashboard`;
+  if (pCita = document.getElementById("pipeCita")) pCita.textContent = `${countCita} citas registradas`;
 
-  const leadsCountEl = document.getElementById("leadsCount");
-  const citasCountEl = document.getElementById("citasCount");
-  if (leadsCountEl) leadsCountEl.textContent = totalCalificadosPendientes;
-  if (citasCountEl) citasCountEl.textContent = totalCitasHoy;
-
-  const pNuevo = document.getElementById("pipeNuevo");
-  const pPendiente = document.getElementById("pipePendiente");
-  const pCita = document.getElementById("pipeCita");
-  if (pNuevo) pNuevo.textContent = `${countNuevo} conversaciones en proceso`;
-  if (pPendiente) pPendiente.textContent = `${countPendiente} leads listos en Dashboard`;
-  if (pCita) pCita.textContent = `${countCita} citas registradas`;
-
-  if (containerLeadsList) {
-    containerLeadsList.querySelectorAll("[data-lead-id]").forEach((btn) => {
-      btn.addEventListener("click", () => openDrawer(btn.dataset.leadId));
-    });
-  }
+  containerLeadsList?.querySelectorAll("[data-lead-id]").forEach(b => b.addEventListener("click", () => openDrawer(b.dataset.leadId)));
 }
 
-// ============================================================
-// STOCK MULTI-TENANT (AUTOS)
-// ============================================================
 async function renderCars() {
-  const { data: cars, error } = await supabase
-    .from('cars')
-    .select('*')
-    .eq('lote_id', currentLote.id);
-
+  const { data: cars, error } = await supabase.from('cars').select('*').eq('lote_id', currentLote.id);
   if (error) return;
-
   const tbody = document.getElementById("carsTableBody");
-  if (!tbody) return;
-  tbody.innerHTML = "";
+  if (!tbody) return; tbody.innerHTML = "";
 
-  const carsCountEl = document.getElementById("carsCount");
-  if (carsCountEl) carsCountEl.textContent = cars ? cars.length : 0;
-
-  if (!cars || cars.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-xs text-slate-400 py-6">Sin autos en el inventario de este lote.</td></tr>`;
-    return;
-  }
+  if (document.getElementById("carsCount")) document.getElementById("carsCount").textContent = cars ? cars.length : 0;
+  if (!cars || cars.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-center text-xs text-slate-400 py-6">Sin autos.</td></tr>`; return; }
 
   cars.forEach((car) => {
-    const tr = document.createElement("tr");
-    tr.className = "border-b border-slate-100 hover:bg-slate-50 transition-colors";
-    tr.innerHTML = `
-      <td class="text-slate-400 font-mono text-xs py-3">${car.id.slice(0,8)}...</td>
-      <td class="font-medium text-slate-900 py-3">${car.brand_model || '—'}</td>
-      <td class="text-slate-600 py-3">${car.year || '—'}</td>
-      <td class="text-slate-900 font-medium py-3">$${car.price ? car.price.toLocaleString("es-MX") : '0'}</td>
-      <td class="py-3"><span class="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">${car.status || 'Disponible'}</span></td>
-    `;
+    const tr = document.createElement("tr"); tr.className = "border-b border-slate-100 text-slate-700";
+    tr.innerHTML = `<td class="py-3 font-mono text-xs">${car.id.slice(0,5)}...</td><td class="font-medium text-slate-900 py-3">${car.brand_model}</td><td>${car.year}</td><td>$${car.price.toLocaleString()}</td><td>${car.status}</td>`;
     tbody.appendChild(tr);
   });
 }
 
-// ============================================================
-// DRAWER
-// ============================================================
 function initDrawer() {
-  const drawer = document.getElementById("drawer");
-  const overlay = document.getElementById("drawerOverlay");
-  const closeBtn = document.getElementById("closeDrawer");
-
-  if (!drawer || !overlay) return;
-
-  const close = () => {
-    drawer.classList.add("translate-x-full");
-    overlay.classList.add("hidden");
-  };
-
-  if (closeBtn) closeBtn.addEventListener("click", close);
-  if (overlay) overlay.addEventListener("click", close);
+  const closeBtn = document.getElementById("closeDrawer"), overlay = document.getElementById("drawerOverlay");
+  const c = () => { document.getElementById("drawer")?.classList.add("translate-x-full"); overlay?.classList.add("hidden"); };
+  closeBtn?.addEventListener("click", c); overlay?.addEventListener("click", c);
 }
 
 function openDrawer(leadId) {
-  const lead = localLeadsCache.find(l => String(l.id) === String(leadId));
-  if (!lead) return;
-
-  const drawer = document.getElementById("drawer");
-  const overlay = document.getElementById("drawerOverlay");
-  const subtitle = document.getElementById("drawerSubtitle");
-  const containerExtended = document.getElementById("drawerExpandedData");
-
-  if (!drawer || !subtitle || !containerExtended) return;
-
-  subtitle.textContent = `ID Lead: ${lead.id.slice(0,8)}... • Teléfono: ${lead.phone_number || 'Desconocido'}`;
-  
-  containerExtended.innerHTML = `
-    <div class="border-b border-slate-200 pb-2 mb-2">
-      <p class="text-xs text-slate-400 uppercase font-bold tracking-wider">Nombre del Cliente</p>
-      <p class="text-sm font-semibold text-slate-800">${lead.name || 'No proporcionado'}</p>
-    </div>
-    <div class="space-y-1 text-xs text-slate-600">
-      <p>🚗 <strong>Auto de Interés:</strong> ${lead.auto_interes || 'No especificado'}</p>
-      <p>💰 <strong>Enganche:</strong> ${lead.enganche || 'No declarado'}</p>
-      <p>💼 <strong>Trabajo:</strong> ${lead.situacion_laboral || 'No capturada'}</p>
-      <p>📊 <strong>Buró:</strong> ${lead.historial_crediticio || 'Sin evaluar'}</p>
-    </div>
-    <div class="mt-3 pt-2 border-t border-slate-200 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
-      <p class="text-xs text-emerald-700 font-bold uppercase">📅 Cita de Manejo / Visita:</p>
-      <p class="text-sm font-semibold text-emerald-900 mt-0.5">${lead.fecha_cita ? lead.fecha_cita : '❌ Sin cita asignada aún'}</p>
-    </div>
-  `;
-
-  if (overlay) overlay.classList.remove("hidden");
-  drawer.classList.remove("translate-x-full");
+  const lead = localLeadsCache.find(l => String(l.id) === String(leadId)); if (!lead) return;
+  document.getElementById("drawerSubtitle").textContent = `ID: ${lead.id.slice(0,8)}`;
+  document.getElementById("drawerExpandedData").innerHTML = `<p class="font-semibold text-slate-800">${lead.name || 'Anónimo'}</p><p class="text-xs text-slate-500 mt-2">🚗 Interés: ${lead.auto_interes || '—'}<br>💰 Enganche: ${lead.enganche || '—'}</p>`;
+  document.getElementById("drawerOverlay")?.classList.remove("hidden");
+  document.getElementById("drawer")?.classList.remove("translate-x-full");
 }
