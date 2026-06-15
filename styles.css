@@ -1,96 +1,201 @@
-:root {
-    --bg-main: #F8F9FA;
-    --bg-card: #FFFFFF;
-    --bg-sidebar: #FFFFFF;
-    --border-color: #E4E4E7;
-    --text-pure: #18181B;
-    --text-muted: #71717A;
-    --accent: #18181B;
-    --accent-text: #FFFFFF;
-    --success: #10B981;
-    --danger: #EF4444;
+/* ============================================================
+   PROJECT 360 - Estilos personalizados
+   Light Minimalist Premium (Stripe/Linear)
+   ============================================================ */
+
+* {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
-body { background-color: var(--bg-main); color: var(--text-pure); min-height: 100vh; overflow-x: hidden; letter-spacing: -0.01em; }
+/* ===== Tarjetas planas ===== */
+.card-flat {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+}
 
-/* --- PANTALLA DE LOGIN --- */
-.login-body { display: flex; justify-content: center; align-items: center; height: 100vh; }
-.login-container { background-color: var(--bg-card); padding: 40px; border-radius: 8px; border: 1px solid var(--border-color); width: 100%; max-width: 380px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
-.login-header { text-align: center; margin-bottom: 30px; }
-.login-header h2 { font-size: 20px; font-weight: 700; color: var(--text-pure); }
-.login-header p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
-.login-form { display: flex; flex-direction: column; gap: 16px; }
-.error-message { color: var(--danger); background: #FEF2F2; border: 1px solid #FECACA; padding: 10px; border-radius: 4px; font-size: 12px; text-align: center; }
+/* ===== Filas planas (mensajes, citas) ===== */
+.flat-row {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
 
-/* --- ESTRUCTURA GENERAL DEL DASHBOARD --- */
-.dashboard-layout { display: flex; min-height: 100vh; }
-.sidebar { width: 280px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border-color); padding: 30px 20px; display: flex; flex-direction: column; gap: 30px; transition: left 0.3s ease-in-out; }
-.brand h2 { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
-.brand p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+/* ===== Filas de leads ===== */
+.lead-row {
+  border: 1px solid #E2E8F0;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
 
-.sidebar-section { display: flex; flex-direction: column; gap: 10px; }
-.sidebar-section h3 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px; }
+/* ===== Sidebar: navegación ===== */
+.nav-item {
+  color: #64748B;
+  background-color: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
 
-.input-group { display: flex; flex-direction: column; gap: 6px; }
-.input-group input, .select-crm { background: #F9FAFB; border: 1px solid var(--border-color); padding: 10px 12px; border-radius: 6px; color: var(--text-pure); font-size: 13px; outline: none; }
-.input-group input:focus { border-color: var(--accent); background: #FFFFFF; }
+.nav-item:hover {
+  background-color: #F1F5F9;
+  color: #0F172A;
+}
 
-.btn-primary { background: var(--accent); color: var(--accent-text); border: 1px solid var(--accent); padding: 10px 16px; border-radius: 6px; font-weight: 500; font-size: 13px; cursor: pointer; transition: background 0.15s; text-align: center; }
-.btn-primary:hover { background: #27272A; border-color: #27272A; }
-.btn-tab { background: transparent; color: var(--text-pure); border: 1px solid transparent; text-align: left; padding: 10px 12px; font-weight: 500; }
-.btn-tab:hover, .btn-tab.active-tab { background: #F4F4F5; border-color: var(--border-color); }
+.nav-item.active {
+  background-color: #F1F5F9;
+  color: #0F172A;
+}
 
-.main-content { flex: 1; padding: 40px; display: flex; flex-direction: column; gap: 24px; position: relative; }
-.main-header { border-bottom: 1px solid var(--border-color); padding-bottom: 16px; }
-.main-header h1 { font-size: 20px; font-weight: 700; color: var(--text-pure); }
-.main-header p { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+/* ===== Pills de estado ===== */
+.status-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
 
-/* --- PANELES DE ESTADÍSTICAS (KPIs) --- */
-.kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.kpi-card { background: var(--bg-card); border: 1px solid var(--border-color); padding: 20px; border-radius: 8px; }
-.kpi-card h4 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px; }
-.kpi-card .kpi-value { font-size: 20px; font-weight: 700; color: var(--text-pure); }
+.status-green {
+  color: #047857;
+  background: #ECFDF5;
+  border: 1px solid #D1FAE5;
+}
 
-/* --- SISTEMA DE NAVEGACIÓN SPA (VISTAS) --- */
-.view-section { display: none; }
-.view-section.active-view { display: block; }
-.panel-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; }
-.card-header h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.status-gray {
+  color: #64748B;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+}
 
-.counter-pill { font-size: 12px; color: var(--text-muted); font-weight: 600; }
-.pulse-dot { width: 6px; height: 6px; background: var(--success); border-radius: 50%; }
-.empty-state { color: var(--text-muted); font-size: 13px; padding: 20px 0; }
+.status-yellow {
+  color: #92400E;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+}
 
-/* --- LISTADOS, CRM Y BLOQUES --- */
-.citas-container, .inventory-grid { display: flex; flex-direction: column; gap: 12px; }
-.cita-block, .auto-block { background: #FFFFFF; border: 1px solid var(--border-color); padding: 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
-.cita-main h4, .auto-block h4 { font-size: 14px; font-weight: 600; }
-.cita-main p { font-size: 12px; color: var(--text-muted); margin: 2px 0 6px 0; }
-.cita-tag { font-size: 11px; color: var(--text-muted); font-weight: 500; }
-.auto-price { font-size: 15px; font-weight: 600; margin-top: 2px; }
-.auto-status-badge { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); background: #F4F5F7; padding: 2px 6px; border-radius: 4px; }
+/* ===== Puntuación comercial ===== */
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
 
-.crm-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-.btn-whatsapp { background: #25D366; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; }
-.select-crm { padding: 6px 8px; font-size: 11px; font-weight: 500; cursor: pointer; }
+.score-high {
+  background: #ECFDF5;
+  color: #047857;
+}
 
-/* --- BOTÓN DE MENÚ SUPERIOR DERECHO Y RESPONSIVO --- */
-#mobile-menu-btn { display: none; }
+.score-mid {
+  background: #FFFBEB;
+  color: #92400E;
+}
 
-@media (max-width: 900px) {
-    .kpi-row, .dashboard-grid { grid-template-columns: 1fr; }
-    .main-header { padding-right: 90px; }
-    
-    #mobile-menu-btn {
-        display: block; position: fixed; top: 20px; right: 20px;
-        background: var(--bg-card); color: var(--text-pure); border: 1px solid var(--border-color);
-        padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 12px;
-        cursor: pointer; z-index: 1001; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
-    
-    .sidebar { position: fixed; left: -280px; top: 0; bottom: 0; z-index: 1000; border-right: 1px solid var(--border-color); }
-    .sidebar.active { left: 0; box-shadow: 4px 0 20px rgba(0,0,0,0.04); }
-    .main-content { padding: 20px; }
+/* ===== Botones secundarios (ghost) ===== */
+.btn-ghost {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  background-color: #FFFFFF;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-ghost:hover {
+  background-color: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+/* ===== Tabla de inventario ===== */
+#carsTableBody tr {
+  border-bottom: 1px solid #F1F5F9;
+}
+
+#carsTableBody tr:last-child {
+  border-bottom: none;
+}
+
+#carsTableBody td {
+  padding: 0.6rem 0;
+}
+
+/* ===== Drawer lateral ===== */
+.drawer-msg {
+  max-width: 80%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.drawer-msg.in {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  align-self: flex-start;
+}
+
+.drawer-msg.out {
+  background: #0F172A;
+  color: #FFFFFF;
+  align-self: flex-end;
+}
+
+#drawerMessages {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Animación de despliegue móvil ===== */
+#sidebar {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#overlay {
+  transition: opacity 0.2s ease;
+}
+
+/* ===== Transición de secciones ===== */
+.section-panel {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== Scrollbar personalizado ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E2E8F0;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #CBD5E1;
+}
+
+/* ===== Inputs ===== */
+input:focus {
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06);
 }

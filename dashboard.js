@@ -1,223 +1,280 @@
-const SUPABASE_URL = "https://deljncdcddfghfihuumd.supabase.co";
-const SUPABASE_KEY = "sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-"; 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ============================================================
+// PROJECT 360 - dashboard.js
+// Cliente Supabase
+// ============================================================
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-document.addEventListener("DOMContentLoaded", async () => {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) {
-        window.location.href = "/index.html";
-        return;
-    }
-    document.getElementById('user-email').innerText = session.user.email;
+const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    cargarInventario();
-    cargarCitas();
-    escucharTiempoReal();
-    configurarMenuMovil();
-});
+// ============================================================
+// MOCK DATA (estructura idéntica a las tablas reales)
+// Reemplazar por consultas reales cuando se conecten datos vivos.
+// ============================================================
 
-// --- ENRUTADOR INTERNO SPA (TABS) ---
-window.cambiarVista = (idVista, idTab) => {
-    document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active-view'));
-    document.querySelectorAll('.btn-tab').forEach(t => t.classList.remove('active-tab'));
-    
-    document.getElementById(idVista).classList.add('active-view');
-    document.getElementById(idTab).classList.add('active-tab');
+// Equivalente real: const { data } = await supabase.from('leads').select('*').order('score', { ascending: false });
+const MOCK_LEADS = [
+  { id: 1, name: "Roberto Gómez", vehicle_interest: "Chevrolet Aveo 2021", score: 9, down_payment: 45000 },
+  { id: 2, name: "Ana Fernández", vehicle_interest: "VW Vento 2019", score: 8, down_payment: 50000 },
+  { id: 3, name: "Luis Castillo", vehicle_interest: "Honda CR-V 2020", score: 6, down_payment: 30000 },
+  { id: 4, name: "Patricia Núñez", vehicle_interest: "Nissan Versa 2022", score: 7, down_payment: 38000 },
+];
 
-    const sidebar = document.getElementById('sidebar');
-    if (window.innerWidth <= 900) {
-        sidebar.classList.remove('active');
-        document.getElementById('mobile-menu-btn').textContent = '☰ Menú';
-    }
+// Equivalente real: const { data } = await supabase.from('cars').select('id, brand_model, year, price, status');
+const MOCK_CARS = [
+  { id: "CAR-001", brand_model: "VW Vento", year: 2019, price: 189000, status: "Disponible" },
+  { id: "CAR-002", brand_model: "Chevrolet Aveo", year: 2021, price: 215000, status: "Apartado" },
+  { id: "CAR-003", brand_model: "Honda CR-V", year: 2020, price: 398000, status: "Disponible" },
+];
+
+// Equivalente real: const { data } = await supabase.from('chat_history').select('*').eq('lead_id', leadId).order('created_at');
+const MOCK_CHAT_HISTORY = {
+  1: {
+    budget_detected: 45000,
+    messages: [
+      { direction: "in", text: "Hola, vi el Aveo 2021 en Facebook, ¿sigue disponible?" },
+      { direction: "out", text: "¡Hola Roberto! Sí, el Aveo 2021 está disponible. ¿Te gustaría agendar una cita para verlo?" },
+      { direction: "in", text: "Sí, claro. Tengo $45,000 para enganche, ¿es suficiente?" },
+      { direction: "out", text: "Con $45,000 de enganche entras perfecto al plan a 36 meses. ¿Agendamos para este sábado?" },
+      { direction: "in", text: "Sí, por favor." },
+    ],
+  },
+  2: {
+    budget_detected: 50000,
+    messages: [
+      { direction: "in", text: "Buenas tardes, me interesa el Vento 2019." },
+      { direction: "out", text: "¡Hola Ana! Con gusto. ¿Cuentas con enganche disponible?" },
+      { direction: "in", text: "Sí, tengo $50,000 para enganche." },
+    ],
+  },
+  3: {
+    budget_detected: 30000,
+    messages: [
+      { direction: "in", text: "¿Cuánto de enganche piden para el CR-V?" },
+      { direction: "out", text: "El enganche sugerido es de $30,000. ¿Te gustaría agendar una cita?" },
+    ],
+  },
+  4: {
+    budget_detected: 38000,
+    messages: [
+      { direction: "in", text: "Hola, ¿tienen el Versa 2022 en color blanco?" },
+      { direction: "out", text: "¡Hola Patricia! Sí, contamos con una unidad blanca. ¿Quieres agendar para verla?" },
+    ],
+  },
 };
 
-// --- CONFIGURACIÓN TÁCTIL Y DESLIZAMIENTO (SWIPE) ---
-function configurarMenuMovil() {
-    const btnMenu = document.getElementById('mobile-menu-btn');
-    const sidebar = document.getElementById('sidebar');
-
-    if (btnMenu) {
-        btnMenu.addEventListener('click', (e) => {
-            e.stopPropagation();
-            sidebar.classList.toggle('active');
-            btnMenu.textContent = sidebar.classList.contains('active') ? '✕ Cerrar' : '☰ Menú';
-        });
-    }
-
-    let touchstartX = 0;
-    let touchendX = 0;
-
-    document.addEventListener('touchstart', e => {
-        touchstartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-
-    document.addEventListener('touchend', e => {
-        touchendX = e.changedTouches[0].screenX;
-        // Swipe Derecha: Abrir desde el borde izquierdo
-        if (touchendX > touchstartX + 65 && touchstartX < 50) {
-            sidebar.classList.add('active');
-            if (btnMenu) btnMenu.textContent = '✕ Cerrar';
-        }
-        // Swipe Izquierda: Ocultar panel
-        if (touchendX < touchstartX - 65) {
-            sidebar.classList.remove('active');
-            if (btnMenu) btnMenu.textContent = '☰ Menú';
-        }
-    }, { passive: true });
-
-    const btnAlertas = document.getElementById('btn-alertas');
-    if (btnAlertas && Notification.permission === 'granted') btnAlertas.style.display = 'none';
-    if (btnAlertas) {
-        btnAlertas.addEventListener('click', async () => {
-            const res = await Notification.requestPermission();
-            if (res === 'granted') btnAlertas.style.display = 'none';
-        });
-    }
-}
-
-// --- LOGOUT ---
-document.getElementById('btn-logout').addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    window.location.href = "/index.html";
+// ============================================================
+// INICIALIZACIÓN
+// ============================================================
+document.addEventListener("DOMContentLoaded", () => {
+  initSidebar();
+  initNavigation();
+  initDrawer();
+  renderLeads();
+  renderCars();
 });
 
-// --- CRUD: INSERTAR VEHÍCULO ---
-document.getElementById('form-nuevo-auto').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const brand = document.getElementById('auto-marca').value.trim();
-    const model = document.getElementById('auto-modelo').value.trim();
-    const year = document.getElementById('auto-ano').value;
-    const price = document.getElementById('auto-precio').value;
-    const url = document.getElementById('auto-foto').value.trim();
+// ============================================================
+// SIDEBAR MÓVIL
+// ============================================================
+function initSidebar() {
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("overlay");
+  const openBtn = document.getElementById("openSidebar");
+  const closeBtn = document.getElementById("closeSidebar");
 
-    const { error } = await supabaseClient.from('cars').insert([{ brand, model, year, price, status: 'Disponible', image_url: url }]);
+  const open = () => {
+    sidebar.classList.remove("-translate-x-full");
+    overlay.classList.remove("hidden");
+  };
+  const close = () => {
+    sidebar.classList.add("-translate-x-full");
+    overlay.classList.add("hidden");
+  };
 
-    if (!error) {
-        document.getElementById('form-nuevo-auto').reset();
-        document.getElementById('form-nuevo-auto').style.display = 'none';
-        cargarInventario();
-    }
-});
+  openBtn.addEventListener("click", open);
+  closeBtn.addEventListener("click", close);
+  overlay.addEventListener("click", close);
 
-// --- CRUD: ACTUALIZAR ESTADO A VENDIDO ---
-window.marcarVendido = async (id) => {
-    if (confirm("¿Confirmar venta de la unidad?")) {
-        const { error } = await supabaseClient.from('cars').update({ status: 'Vendido' }).eq('id', id);
-        if (!error) cargarInventario();
-    }
-};
-
-// --- NUEVA FUNCIÓN CRM: ACTUALIZAR ESTADO DEL PROSPECTO DESDE EL SELECTOR ---
-window.cambiarEstadoProspecto = async (id, status) => {
-    const { error } = await supabaseClient.from('leads').update({ status }).eq('id', id);
-    if (!error) cargarCitas();
-};
-
-// --- CRUD: LEER INVENTARIO + CÁLCULO DE KPIs ---
-async function cargarInventario() {
-    const { data: autos } = await supabaseClient.from('cars').select('*').order('status', { ascending: true });
-    const cont = document.getElementById("contenedor-autos");
-    document.getElementById("total-autos").innerText = autos ? autos.length : 0;
-
-    let disponibles = 0, valorTotal = 0, vendidos = 0;
-
-    cont.innerHTML = autos?.length > 0 ? autos.map(a => {
-        if (a.status === 'Disponible') { disponibles++; valorTotal += Number(a.price || 0); }
-        else if (a.status === 'Vendido') { vendidos++; }
-
-        return `
-            <div class="auto-block" style="${a.status === 'Vendido' ? 'opacity: 0.4;' : ''}">
-                <div style="flex:1;">
-                    <div style="display:flex; align-items:center;">
-                        <h4>${a.brand} ${a.model}</h4>
-                        <span style="font-size:11px; margin-left:8px; background:var(--bg-main); padding:2px 6px; border-radius:4px; font-weight:600;">${a.year}</span>
-                    </div>
-                    <div class="auto-price">$${Number(a.price).toLocaleString('es-MX')} MXN</div>
-                    ${a.image_url ? `<a href="${a.image_url}" target="_blank" style="display:inline-block; margin-top:4px; font-size:11px; color:var(--text-pure); text-decoration:underline;">Ver Fotos</a>` : ''}
-                    <div style="margin-top:6px;"><span class="auto-status-badge">${a.status}</span></div>
-                </div>
-                ${a.status !== 'Vendido' ? `<button onclick="marcarVendido('${a.id}')" class="btn-primary" style="background:transparent; color:var(--text-pure); border:1px solid var(--border-color); padding:6px 12px; font-size:11px;">Vendido</button>` : ''}
-            </div>
-        `;
-    }).join('') : `<p class="empty-state">No hay registros.</p>`;
-
-    document.getElementById('kpi-disponibles').innerText = disponibles;
-    document.getElementById('kpi-valor').innerText = `$${valorTotal.toLocaleString('es-MX')} MXN`;
-    document.getElementById('kpi-vendidos').innerText = vendidos;
+  window._closeSidebar = close;
 }
 
-// --- LEER PROSPECTOS (TABLA LEADS) + INTEGRACIÓN DE DATOS FINANCIEROS EN VIVO ---
-async function cargarCitas() {
-    const { data: leads, error } = await supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
-    const cont = document.getElementById("contenedor-citas");
+// ============================================================
+// NAVEGACIÓN ENTRE SECCIONES
+// ============================================================
+function initNavigation() {
+  const navItems = document.querySelectorAll(".nav-item");
+  const sections = document.querySelectorAll(".section-panel");
 
-    if (error) {
-        console.error("Error cargando prospectos:", error);
-        if (cont) cont.innerHTML = `<p class="empty-state" style="color:var(--danger);">Error al conectar con la base de datos.</p>`;
-        return;
-    }
+  navItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      navItems.forEach((i) => i.classList.remove("active"));
+      item.classList.add("active");
 
-    if (!cont) return;
+      const target = item.dataset.section;
+      sections.forEach((sec) => {
+        sec.classList.toggle("hidden", sec.id !== `section-${target}`);
+      });
 
-    cont.innerHTML = leads?.length > 0 ? leads.map(l => {
-        const rawTel = l.phone_number || '';
-        const cleanTel = rawTel.replace(/\D/g, '');
-        const estado = l.status || 'nuevo';
-        const esPerfilado = estado === 'perfilado';
-
-        // Definición de colores para las etiquetas de estatus
-        const badgeColor = esPerfilado 
-            ? 'background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;' 
-            : 'background: #fef3c7; color: #92400e; border: 1px solid #fde68a;';
-
-        const txtEnganche = l.enganche ? `$${Number(l.enganche).toLocaleString('es-MX')} MXN` : 'Sin rellenar formulario';
-        const txtTrabajo = l.situacion_laboral || 'Pendiente';
-
-        return `
-            <div class="cita-block" style="display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--border-color); padding: 16px; border-radius: 8px; background: #FFF; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div style="flex:1; width: 100%;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; gap: 8px;">
-                        <h4 style="margin: 0; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-w-[70%];" title="${l.nombre || 'Prospecto'}">
-                            ${l.nombre || 'Prospecto de WhatsApp'}
-                        </h4>
-                        <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 9999px; ${badgeColor} white-space: nowrap;">
-                            ${estado}
-                        </span>
-                    </div>
-                    
-                    <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; font-weight: 500;">📱 Teléfono: ${l.phone_number}</p>
-                    
-                    <div style="background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-size: 11px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
-                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">🚙 Interés:</span><span style="font-weight: 700; color: var(--text-pure);">${l.auto_interes || 'No definido'}</span></div>
-                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">💰 Enganche:</span><span style="font-weight: 700; color: ${l.enganche ? '#6b21a8' : 'inherit'};">${txtEnganche}</span></div>
-                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">💼 Situación:</span><span style="font-weight: 600; color: var(--text-pure);">${txtTrabajo}</span></div>
-                    </div>
-                </div>
-
-                <div class="crm-actions" style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; pt: 4px;">
-                    ${cleanTel ? `<a href="https://wa.me/${cleanTel}" target="_blank" class="btn-whatsapp" style="font-size: 11px; padding: 6px 12px; text-decoration: none; text-align: center; flex: 1;">💬 WhatsApp</a>` : ''}
-                    <select onchange="cambiarEstadoProspecto('${l.id}', this.value)" class="select-crm" style="font-size: 11px; padding: 5px; border-radius: 4px; border: 1px solid var(--border-color); background: #FFF; flex: 1; cursor: pointer;">
-                        <option value="nuevo" ${estado === 'nuevo' ? 'selected' : ''}>Nuevo Lead</option>
-                        <option value="perfilado" ${estado === 'perfilado' ? 'selected' : ''}>Perfilado</option>
-                        <option value="en_negociacion" ${estado === 'en_negociacion' ? 'selected' : ''}>En Negociación</option>
-                        <option value="vendido" ${estado === 'vendido' ? 'selected' : ''}>Vendido</option>
-                    </select>
-                </div>
-            </div>
-        `;
-    }).join('') : `<p class="empty-state">No hay prospectos perfilados registrados.</p>`;
+      if (window.innerWidth < 768) {
+        window._closeSidebar();
+      }
+    });
+  });
 }
 
-// --- ESCUCHA TIEMPO REAL DESDE SUPABASE ---
-function escucharTiempoReal() {
-    // Sincronización en vivo ante cualquier inserción, actualización o borrado en la tabla 'leads'
-    supabaseClient.channel('leads-realtime-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, async (payload) => {
-        // Disparar una notificación de escritorio nativa si entra un nuevo lead perfilado
-        if (payload.eventType === 'INSERT' && Notification.permission === "granted") {
-            new Notification("¡Nuevo Prospecto en el Ecosistema! 🏎️", { 
-                body: `${payload.new.nombre || 'Cliente Nuevo'} interesado en un ${payload.new.auto_interes || 'Vehículo'}` 
-            });
-        }
-        await cargarCitas();
-    }).subscribe();
+// ============================================================
+// MONITOR DE LEADS PRECALIFICADOS
+// Tabla real: leads
+// Consulta real: supabase.from('leads').select('id, name, vehicle_interest, score, down_payment').order('score', { ascending: false })
+// ============================================================
+async function renderLeads() {
+  // const { data: leads, error } = await supabase
+  //   .from('leads')
+  //   .select('id, name, vehicle_interest, score, down_payment')
+  //   .order('score', { ascending: false });
+  // if (error) { console.error(error); return; }
+
+  const leads = MOCK_LEADS; // sustituir por `leads` cuando se conecten datos vivos
+
+  const container = document.getElementById("leadsList");
+  container.innerHTML = "";
+
+  leads.forEach((lead) => {
+    const scoreClass = lead.score >= 8 ? "score-high" : "score-mid";
+
+    const row = document.createElement("div");
+    row.className = "lead-row flex items-center justify-between gap-3";
+    row.innerHTML = `
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="score-badge ${scoreClass}">${lead.score}</span>
+        <div class="min-w-0">
+          <p class="text-sm font-medium truncate">${lead.name}</p>
+          <p class="text-xs text-slate-400 truncate">${lead.vehicle_interest} • Enganche $${lead.down_payment.toLocaleString("es-MX")}</p>
+        </div>
+      </div>
+      <button class="btn-ghost flex-shrink-0" data-lead-id="${lead.id}" data-lead-name="${lead.name}">
+        Ver Historial
+      </button>
+    `;
+    container.appendChild(row);
+  });
+
+  container.querySelectorAll("[data-lead-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      openDrawer(btn.dataset.leadId, btn.dataset.leadName);
+    });
+  });
+}
+
+// ============================================================
+// CONTROL DE INVENTARIO
+// Tabla real: cars
+// Consulta real: supabase.from('cars').select('id, brand_model, year, price, status')
+// ============================================================
+async function renderCars() {
+  // const { data: cars, error } = await supabase
+  //   .from('cars')
+  //   .select('id, brand_model, year, price, status');
+  // if (error) { console.error(error); return; }
+
+  const cars = MOCK_CARS; // sustituir por `cars` cuando se conecten datos vivos
+
+  const tbody = document.getElementById("carsTableBody");
+  tbody.innerHTML = "";
+
+  const statusClassMap = {
+    Disponible: "status-green",
+    Apartado: "status-yellow",
+    "En proceso": "status-gray",
+    Vendido: "status-gray",
+  };
+
+  cars.forEach((car) => {
+    const pillClass = statusClassMap[car.status] || "status-gray";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="text-slate-400 font-mono text-xs">${car.id}</td>
+      <td class="font-medium">${car.brand_model}</td>
+      <td>${car.year}</td>
+      <td>$${car.price.toLocaleString("es-MX")}</td>
+      <td><span class="status-pill ${pillClass}">${car.status}</span></td>
+      <td><button class="btn-ghost" data-edit-car="${car.id}">Editar</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // ============================================================
+  // Edición de inventario
+  // Acción real: abrir formulario y luego
+  // supabase.from('cars').update({ ... }).eq('id', carId)
+  // ============================================================
+  tbody.querySelectorAll("[data-edit-car]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const carId = btn.dataset.editCar;
+      console.log(`Editar unidad ${carId} — abrir formulario de edición y luego: supabase.from('cars').update({...}).eq('id', '${carId}')`);
+    });
+  });
+}
+
+// ============================================================
+// DRAWER: HISTORIAL DE CONVERSACIÓN
+// Tabla real: chat_history
+// Consulta real: supabase.from('chat_history').select('*').eq('lead_id', leadId).order('created_at')
+// ============================================================
+function initDrawer() {
+  const drawer = document.getElementById("drawer");
+  const overlay = document.getElementById("drawerOverlay");
+  const closeBtn = document.getElementById("closeDrawer");
+
+  const close = () => {
+    drawer.classList.add("translate-x-full");
+    overlay.classList.add("hidden");
+  };
+
+  closeBtn.addEventListener("click", close);
+  overlay.addEventListener("click", close);
+
+  window._closeDrawer = close;
+}
+
+async function openDrawer(leadId, leadName) {
+  // const { data: history, error } = await supabase
+  //   .from('chat_history')
+  //   .select('*')
+  //   .eq('lead_id', leadId)
+  //   .order('created_at', { ascending: true });
+  // if (error) { console.error(error); return; }
+
+  const record = MOCK_CHAT_HISTORY[leadId]; // sustituir por `history` cuando se conecten datos vivos
+
+  const drawer = document.getElementById("drawer");
+  const overlay = document.getElementById("drawerOverlay");
+  const subtitle = document.getElementById("drawerSubtitle");
+  const budgetTag = document.getElementById("drawerBudgetTag");
+  const messagesContainer = document.getElementById("drawerMessages");
+
+  subtitle.textContent = `tabla: chat_history • lead_id: ${leadId} (${leadName})`;
+  messagesContainer.innerHTML = "";
+
+  if (record) {
+    if (record.budget_detected) {
+      budgetTag.classList.remove("hidden");
+      budgetTag.querySelector(".status-pill").textContent =
+        `Presupuesto detectado: $${record.budget_detected.toLocaleString("es-MX")}`;
+    } else {
+      budgetTag.classList.add("hidden");
+    }
+
+    record.messages.forEach((msg) => {
+      const bubble = document.createElement("div");
+      bubble.className = `drawer-msg ${msg.direction === "in" ? "in" : "out"}`;
+      bubble.textContent = msg.text;
+      messagesContainer.appendChild(bubble);
+    });
+  }
+
+  overlay.classList.remove("hidden");
+  drawer.classList.remove("translate-x-full");
 }
