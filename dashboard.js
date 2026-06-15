@@ -188,7 +188,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// CARS / INVENTARIO (CON MAPPING REAL A TU POSTGRES)
+// CARS / INVENTARIO (MAPEADO AL 100% CON TU TABLA REAL EN INGLÉS)
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -224,7 +224,8 @@ function calcularMetricasInventario() {
   let gananciasTotales = 0;
 
   carsCache.forEach(car => {
-    const precioFinal = Number(car.precio) || 0;
+    // Usamos 'price' que es tu columna real en Supabase
+    const precioFinal = Number(car.price) || 0;
 
     if (car.status === 'Vendido') {
       gananciasTotales += precioFinal;
@@ -248,9 +249,10 @@ function renderCars() {
 
   tbody.innerHTML = carsCache.map(car => {
     const shortId = car.id ? String(car.id).slice(0, 8) : '---';
-    const nombreCompleto = `${car.marca || ''} ${car.modelo || ''}`.trim() || 'Unidad sin nombre';
-    const anioAuto = car.anio || '—';
-    const precioAuto = Number(car.precio) || 0;
+    // Mapeo exacto a 'brand' y 'model'
+    const nombreCompleto = `${car.brand || ''} ${car.model || ''}`.trim() || 'Unidad sin nombre';
+    const anioAuto = car.year || '—';
+    const precioAuto = Number(car.price) || 0;
     
     const botonVendido = car.status !== 'Vendido' 
       ? `<button data-action-id="${car.id}" class="btn-marcar-vendido bg-emerald-600 text-white text-[11px] px-2.5 py-1 rounded-md font-medium hover:bg-emerald-700 transition">Marcar Vendido</button>`
@@ -261,7 +263,7 @@ function renderCars() {
         <td class="px-4 py-3 text-xs text-gray-500 font-mono">${shortId}</td>
         <td class="px-4 py-3 text-sm font-medium text-slate-800">
           <div class="flex items-center gap-2">
-            ${car.imagen_url ? `<a href="${car.imagen_url}" target="_blank" class="text-indigo-500 hover:underline">🖼️</a>` : ''}
+            ${car.image_url ? `<a href="${car.image_url}" target="_blank" class="text-indigo-500 hover:underline">🖼️</a>` : ''}
             <span>${escapeHtml(nombreCompleto)}</span>
           </div>
         </td>
@@ -383,7 +385,7 @@ function openDrawer(leadId) {
     drawerFechaCita: formatDate(lead.fecha_cita),
     drawerUltimoMensaje: lead.ultimo_mensaje,
     drawerInteres: lead.interes || lead.auto_interes,
-    drawerNotas: lead.notas || (lead.enganche ? `Enganche: ${lead.enganche}` : '')
+    drawerNotas: lead.notes || lead.notas || (lead.enganche ? `Enganche: ${lead.enganche}` : '')
   };
 
   Object.entries(fields).forEach(([id, value]) => {
@@ -396,6 +398,9 @@ function openDrawer(leadId) {
   if (overlay) overlay.classList.remove('hidden');
 }
 
+// ------------------------------------------------------------
+// SIDEBAR / NAVEGACIÓN INTERNA
+// ------------------------------------------------------------
 function closeDrawer() {
   const drawer = document.getElementById('drawerPro');
   const overlay = document.getElementById('drawerOverlay');
@@ -407,9 +412,6 @@ function closeDrawer() {
   if (overlay) overlay.classList.add('hidden');
 }
 
-// ------------------------------------------------------------
-// SIDEBAR / NAVEGACIÓN INTERNA
-// ------------------------------------------------------------
 function initSidebarNav() {
   const navButtons = document.querySelectorAll('.nav-btn');
   if (!navButtons.length) return;
@@ -634,7 +636,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ------------------------------------------------------------
-  // MODAL CONTROL DE INVENTARIO (CON MAPPING REAL)
+  // MODAL CONTROL DE INVENTARIO (CON MAPPING REAL EN INGLÉS)
   // ------------------------------------------------------------
   const modalCar = document.getElementById('modalCarOverlay');
   const btnAbrirModal = document.getElementById('btnAbrirModalCar');
@@ -660,20 +662,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       const imageUrl = document.getElementById('carImageUrl').value.trim();
       const status = document.getElementById('carStatus').value;
 
+      // Rompemos el input por el primer espacio para mapear 'brand' y 'model' correctamente
       const palabras = brandModel.split(' ');
       const marcaAuto = palabras[0] || '';
       const modeloAuto = palabras.slice(1).join(' ') || '';
 
+      // 🔥 MAPEADO EXACTO A TU BASE DE DATOS REAL (Columnas en Inglés)
       const { error } = await supabaseClient
         .from('cars')
         .insert({
           lote_id: currentLote.id,
-          marca: marcaAuto,
-          modelo: modeloAuto,
-          precio: price,
-          imagen_url: imageUrl,
+          brand: marcaAuto,
+          model: modeloAuto,
+          price: price,
+          image_url: imageUrl,
           status: status,
-          anio: year
+          year: year
         });
 
       if (error) {
