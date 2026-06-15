@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PROJECT 360 - Panel Operativo</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="styles.css">
-<script type="module" src="dashboard.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PROJECT 360 - Panel Operativo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css">
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <script src="dashboard.js" defer></script>
 </head>
 <body class="bg-[#F8FAFC] text-slate-900 min-h-screen flex">
 
@@ -89,17 +92,17 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="card-flat p-5">
           <p class="text-sm text-slate-500">Citas Agendadas Hoy</p>
-          <p class="text-3xl font-semibold mt-2">8</p>
-          <p class="text-xs text-slate-400 mt-1">tabla: citas</p>
+          <p id="citasCount" class="text-3xl font-semibold mt-2">0</p>
+          <p class="text-xs text-slate-400 mt-1">tabla: leads (con cita)</p>
         </div>
         <div class="card-flat p-5">
           <p class="text-sm text-slate-500">Prospectos Calificados</p>
-          <p class="text-3xl font-semibold mt-2">14</p>
-          <p class="text-xs text-slate-400 mt-1">tabla: leads</p>
+          <p id="leadsCount" class="text-3xl font-semibold mt-2">0</p>
+          <p class="text-xs text-slate-400 mt-1">tabla: leads (Pendientes)</p>
         </div>
         <div class="card-flat p-5">
           <p class="text-sm text-slate-500">Autos en Exhibición</p>
-          <p class="text-3xl font-semibold mt-2">38</p>
+          <p id="carsCount" class="text-3xl font-semibold mt-2">0</p>
           <p class="text-xs text-slate-400 mt-1">tabla: cars</p>
         </div>
       </div>
@@ -109,7 +112,7 @@
         <div class="card-flat p-5">
           <div class="mb-4">
             <h3 class="font-semibold text-sm">Monitor de Leads Precalificados</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Filtro Automático • tabla: leads</p>
+            <p class="text-xs text-slate-400 mt-0.5">Filtro Automático • status = 'Pendiente'</p>
           </div>
           <div class="space-y-2" id="leadsList">
             </div>
@@ -118,23 +121,23 @@
         <div class="card-flat p-5">
           <div class="mb-4">
             <h3 class="font-semibold text-sm">Pipeline de Ventas</h3>
-            <p class="text-xs text-slate-400 mt-0.5">El Embudo del Dinero • tabla: citas</p>
+            <p class="text-xs text-slate-400 mt-0.5">El Embudo del Dinero por Estatus</p>
           </div>
           <ol class="relative border-l border-[#E2E8F0] ml-2 space-y-6 py-1">
             <li class="ml-5">
               <span class="absolute -left-[7px] w-3.5 h-3.5 rounded-full bg-[#0F172A] ring-4 ring-white"></span>
               <p class="text-sm font-medium">Atención Inicial</p>
-              <p class="text-xs text-slate-400 mt-0.5">9 conversaciones activas</p>
+              <p id="pipeNuevo" class="text-xs text-slate-400 mt-0.5">0 conversaciones en proceso</p>
             </li>
             <li class="ml-5">
               <span class="absolute -left-[7px] w-3.5 h-3.5 rounded-full bg-[#0F172A] ring-4 ring-white"></span>
-              <p class="text-sm font-medium">Precalificados con Presupuesto</p>
-              <p class="text-xs text-slate-400 mt-0.5">14 leads con puntuación &gt; 6</p>
+              <p class="text-sm font-medium">Precalificados Completos</p>
+              <p id="pipePendiente" class="text-xs text-slate-400 mt-0.5">0 leads listos en Dashboard</p>
             </li>
             <li class="ml-5">
               <span class="absolute -left-[7px] w-3.5 h-3.5 rounded-full bg-[#10B981] ring-4 ring-white"></span>
               <p class="text-sm font-medium">Cita Agendada</p>
-              <p class="text-xs text-slate-400 mt-0.5">8 citas confirmedas hoy</p>
+              <p id="pipeCita" class="text-xs text-slate-400 mt-0.5">0 citas registradas</p>
             </li>
           </ol>
         </div>
@@ -156,11 +159,10 @@
                 <th class="py-2 pr-4 font-medium">year</th>
                 <th class="py-2 pr-4 font-medium">price</th>
                 <th class="py-2 pr-4 font-medium">status</th>
-                <th class="py-2 pr-4 font-medium"></th>
               </tr>
             </thead>
             <tbody id="carsTableBody">
-              </tbody>
+               </tbody>
           </table>
         </div>
       </div>
@@ -170,31 +172,10 @@
       <div class="card-flat p-5">
         <div class="mb-4">
           <h3 class="font-semibold text-sm">Citas Agendadas</h3>
-          <p class="text-xs text-slate-400 mt-0.5">tabla: citas</p>
+          <p class="text-xs text-slate-400 mt-0.5">Leads con fecha_cita asignada</p>
         </div>
-        <div class="space-y-2">
-          <div class="flat-row flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium">Juan Pérez</p>
-              <p class="text-xs text-slate-400">Vento 2019 • Enganche $50,000</p>
-            </div>
-            <span class="status-pill status-green">Confirmada</span>
+        <div class="space-y-2" id="citasListContainer">
           </div>
-          <div class="flat-row flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium">María Torres</p>
-              <p class="text-xs text-slate-400">Aveo 2021 • 4:00 PM</p>
-            </div>
-            <span class="status-pill status-green">Confirmada</span>
-          </div>
-          <div class="flat-row flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium">Carlos Reyes</p>
-              <p class="text-xs text-slate-400">CR-V 2020 • Avalúo pendiente</p>
-            </div>
-            <span class="status-pill status-gray">Por confirmar</span>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -202,18 +183,10 @@
       <div class="card-flat p-5">
         <div class="mb-4">
           <h3 class="font-semibold text-sm">Módulo de Mensajes</h3>
-          <p class="text-xs text-slate-400 mt-0.5">tabla: chat_history</p>
+          <p class="text-xs text-slate-400 mt-0.5">Historial de Conversaciones Recientes</p>
         </div>
-        <div class="space-y-2">
-          <div class="flat-row">
-            <p class="text-sm"><span class="font-medium">+52 314 123 4567</span></p>
-            <p class="text-xs text-slate-400 mt-0.5">"Hola, vi el Vento 2019 en Facebook, ¿sigue disponible?"</p>
+        <div class="space-y-2" id="monitorMensajesContainer">
           </div>
-          <div class="flat-row">
-            <p class="text-sm"><span class="font-medium">+52 314 987 6543</span></p>
-            <p class="text-xs text-slate-400 mt-0.5">"¿Aceptan mi auto a cuenta para el CR-V?"</p>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -240,18 +213,20 @@
 <aside id="drawer" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white border-l border-[#E2E8F0] z-50 transform translate-x-full transition-transform duration-200 flex flex-col">
   <div class="px-5 h-16 border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0">
     <div>
-      <p class="font-semibold text-sm">Historial de Conversación</p>
-      <p class="text-xs text-slate-400" id="drawerSubtitle">tabla: chat_history</p>
+      <p class="font-semibold text-sm">Perfil del Prospecto Extendido</p>
+      <p class="text-xs text-slate-400" id="drawerSubtitle">Datos del Lead</p>
     </div>
     <button id="closeDrawer" class="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
-  <div id="drawerBudgetTag" class="px-5 pt-3 hidden">
-    <span class="status-pill status-green">Presupuesto detectado por Filtro Automático</span>
-  </div>
+  
+  <div id="drawerExpandedData" class="p-5 border-b border-[#E2E8F0] space-y-3 bg-slate-50 text-sm">
+     </div>
+
   <div id="drawerMessages" class="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
-    </div>
+     <p class="text-xs text-slate-400 text-center">Registro de control interno</p>
+  </div>
 </aside>
 
 </body>
