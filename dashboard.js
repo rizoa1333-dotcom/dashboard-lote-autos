@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js
+// PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL)
 // SPA: registro / login / dashboard
 // ============================================================
 
@@ -97,9 +97,9 @@ function renderLeadsCounters() {
 
   if (leadsCountEl) leadsCountEl.textContent = pendientes;
   if (citasCountEl) citasCountEl.textContent = citas;
-  if (pipeNuevoEl) pipeNuevoEl.textContent = nuevos;
-  if (pipePendienteEl) pipePendienteEl.textContent = pendientes;
-  if (pipeCitaEl) pipeCitaEl.textContent = citas;
+  if (pipeNuevoEl) pipeNuevoEl.textContent = `${nuevos} conversaciones en proceso`;
+  if (pipePendienteEl) pipePendienteEl.textContent = `${pendientes} leads listos en Dashboard`;
+  if (pipeCitaEl) pipeCitaEl.textContent = `${citas} citas registradas`;
 }
 
 function renderLeads() {
@@ -114,8 +114,8 @@ function renderLeads() {
   container.innerHTML = leadsCache.map(lead => `
     <div class="flex items-center justify-between p-3 border-b border-gray-100 hover:bg-gray-50 transition">
       <div>
-        <p class="font-semibold text-sm text-gray-800">${escapeHtml(lead.nombre || 'Sin nombre')}</p>
-        <p class="text-xs text-gray-500">${escapeHtml(lead.telefono || '')}</p>
+        <p class="font-semibold text-sm text-gray-800">${escapeHtml(lead.nombre || lead.name || 'Sin nombre')}</p>
+        <p class="text-xs text-gray-500">${escapeHtml(lead.telefono || lead.phone_number || '')}</p>
         <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Pendiente')}</span>
       </div>
       <button data-lead-id="${lead.id}" class="btn-ver-perfil text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition">
@@ -146,8 +146,8 @@ function renderCitas() {
   container.innerHTML = citas.map(lead => `
     <div class="flex items-center justify-between p-3 border-b border-gray-100">
       <div>
-        <p class="font-semibold text-sm text-gray-800">${escapeHtml(lead.nombre || 'Sin nombre')}</p>
-        <p class="text-xs text-gray-500">${escapeHtml(lead.telefono || '')}</p>
+        <p class="font-semibold text-sm text-gray-800">${escapeHtml(lead.nombre || lead.name || 'Sin nombre')}</p>
+        <p class="text-xs text-gray-500">${escapeHtml(lead.telefono || lead.phone_number || '')}</p>
       </div>
       <span class="text-xs font-medium text-indigo-600">${formatDate(lead.fecha_cita)}</span>
     </div>
@@ -158,7 +158,7 @@ function renderMonitorMensajes() {
   const container = document.getElementById('monitorMensajesContainer');
   if (!container) return;
 
-  const conMensajes = leadsCache.filter(l => l.ultimo_mensaje);
+  const conMensajes = leadsCache.filter(l => l.ultimo_mensaje || l.encuesta_step !== undefined);
 
   if (conMensajes.length === 0) {
     container.innerHTML = '<p class="text-sm text-gray-400 p-4">Sin mensajes recientes.</p>';
@@ -167,8 +167,8 @@ function renderMonitorMensajes() {
 
   container.innerHTML = conMensajes.map(lead => `
     <div class="p-3 border-b border-gray-100">
-      <p class="text-xs font-semibold text-gray-700">${escapeHtml(lead.nombre || 'Sin nombre')}</p>
-      <p class="text-xs text-gray-500 truncate">${escapeHtml(lead.ultimo_mensaje || '')}</p>
+      <p class="text-xs font-semibold text-gray-700">${escapeHtml(lead.telefono || lead.phone_number || 'Sin número')}</p>
+      <p class="text-xs text-gray-500 truncate">Paso encuesta: ${lead.encuesta_step || 0} ${lead.ultimo_mensaje ? `— ${escapeHtml(lead.ultimo_mensaje)}` : ''}</p>
     </div>
   `).join('');
 }
@@ -218,13 +218,15 @@ function renderCars() {
 
   tbody.innerHTML = carsCache.map(car => {
     const shortId = car.id ? String(car.id).slice(0, 8) : '---';
-    const precioFinal = calcularPrecioConComision(car.precio, car.comision);
+    const brandModel = car.brand_model || `${car.marca || ''} ${car.modelo || ''}`.trim() || 'Unidad sin nombre';
+    const year = car.year || car.anio || '—';
+    const precioFinal = calcularPrecioConComision(car.price || car.precio, car.comision);
 
     return `
       <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
         <td class="px-4 py-2 text-xs text-gray-500 font-mono">${shortId}</td>
-        <td class="px-4 py-2 text-sm text-gray-800">${escapeHtml(car.marca || '')} ${escapeHtml(car.modelo || '')}</td>
-        <td class="px-4 py-2 text-sm text-gray-600">${escapeHtml(car.anio || '')}</td>
+        <td class="px-4 py-2 text-sm text-gray-800">${escapeHtml(brandModel)}</td>
+        <td class="px-4 py-2 text-sm text-gray-600">${escapeHtml(String(year))}</td>
         <td class="px-4 py-2 text-sm font-semibold text-gray-800">${formatCurrency(precioFinal)}</td>
         <td class="px-4 py-2">
           <span class="inline-block text-xs px-2 py-0.5 rounded-full ${carStatusBadgeClass(car.status)}">${escapeHtml(car.status || 'Disponible')}</span>
@@ -240,6 +242,7 @@ function calcularPrecioConComision(precio, comision) {
   return p + (p * (c / 100));
 }
 
+// Precio Base de Venta y Configuración Comercial Estándar
 function carStatusBadgeClass(status) {
   switch (status) {
     case 'Disponible': return 'bg-green-100 text-green-700';
@@ -259,7 +262,7 @@ function renderConfigLote() {
   const phoneInput = document.getElementById('configPhoneLote');
 
   if (nombreInput) nombreInput.value = currentLote.nombre || '';
-  if (phoneInput) phoneInput.value = currentLote.phone || '';
+  if (phoneInput) phoneInput.value = currentLote.whatsapp_number || ''; // 🔥 CORREGIDO: Mapeado a whatsapp_number
 
   document.querySelectorAll('.lote-nombre-display').forEach(el => {
     el.textContent = currentLote.nombre || 'Mi Lote';
@@ -275,7 +278,7 @@ async function handleConfigSubmit(e) {
 
   const updates = {
     nombre: nombreInput ? nombreInput.value.trim() : currentLote.nombre,
-    phone: phoneInput ? phoneInput.value.trim() : currentLote.phone
+    whatsapp_number: phoneInput ? phoneInput.value.trim() : currentLote.whatsapp_number // 🔥 CORREGIDO: Mapeado a whatsapp_number
   };
 
   const { data, error } = await supabaseClient
@@ -293,6 +296,7 @@ async function handleConfigSubmit(e) {
 
   currentLote = data;
   renderConfigLote();
+  alert('Configuración guardada exitosamente.');
 }
 
 // ------------------------------------------------------------
@@ -303,17 +307,9 @@ function initDrawer() {
   const closeBtn = document.getElementById('closeDrawerBtn');
   const overlay = document.getElementById('drawerOverlay');
 
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeDrawer);
-  }
-
-  if (overlay) {
-    overlay.addEventListener('click', closeDrawer);
-  }
-
-  if (drawer) {
-    drawer.classList.add('hidden');
-  }
+  if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+  if (overlay) overlay.addEventListener('click', closeDrawer);
+  if (drawer) drawer.classList.add('hidden');
 }
 
 function openDrawer(leadId) {
@@ -325,14 +321,14 @@ function openDrawer(leadId) {
   if (!drawer) return;
 
   const fields = {
-    drawerNombre: lead.nombre,
-    drawerTelefono: lead.telefono,
+    drawerNombre: lead.nombre || lead.name,
+    drawerTelefono: lead.telefono || lead.phone_number,
     drawerEmail: lead.email,
     drawerStatus: lead.status,
     drawerFechaCita: formatDate(lead.fecha_cita),
     drawerUltimoMensaje: lead.ultimo_mensaje,
-    drawerInteres: lead.interes,
-    drawerNotas: lead.notas
+    drawerInteres: lead.interes || lead.auto_interes,
+    drawerNotas: lead.notas || lead.enganche ? `Enganche propuesto: ${lead.enganche}` : ''
   };
 
   Object.entries(fields).forEach(([id, value]) => {
@@ -396,6 +392,8 @@ async function handleLoginSubmit(e) {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
 
+  if (errorEl) errorEl.textContent = '';
+
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (error) {
@@ -424,6 +422,8 @@ async function handleRegistroSubmit(e) {
   const nombreLote = nombreLoteInput.value.trim();
   const phoneLote = phoneLoteInput ? phoneLoteInput.value.trim() : '';
 
+  if (errorEl) errorEl.textContent = '';
+
   const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
     email,
     password
@@ -441,12 +441,13 @@ async function handleRegistroSubmit(e) {
     return;
   }
 
+  // 🔥 CORREGIDO: Insertamos apuntando a la columna real 'whatsapp_number' en Postgres
   const { data: loteData, error: loteError } = await supabaseClient
     .from('lotes')
     .insert({
       profile_id: userId,
       nombre: nombreLote,
-      phone: phoneLote
+      whatsapp_number: phoneLote
     })
     .select()
     .single();
@@ -554,18 +555,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (configForm) configForm.addEventListener('submit', handleConfigSubmit);
   if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
-  const goToLoginLink = document.getElementById('goToLoginLink');
-  const goToRegistroLink = document.getElementById('goToRegistroLink');
+  // Botones/Enlaces de alternancia Onboarding en el formulario unificado
+  const toLoginBtn = document.getElementById('to-login-btn');
+  const toRegistroBtn = document.getElementById('to-registro-btn');
 
-  if (goToLoginLink) {
-    goToLoginLink.addEventListener('click', (e) => {
+  if (toLoginBtn) {
+    toLoginBtn.addEventListener('click', (e) => {
       e.preventDefault();
       showView('view-login');
     });
   }
 
-  if (goToRegistroLink) {
-    goToRegistroLink.addEventListener('click', (e) => {
+  if (toRegistroBtn) {
+    toRegistroBtn.addEventListener('click', (e) => {
       e.preventDefault();
       showView('view-registro');
     });
