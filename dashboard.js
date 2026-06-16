@@ -1,6 +1,7 @@
 // ============================================================
 // PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL CON PERSISTENCIA)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
+// CORREGIDO: Blindaje de destrucción de instancias (Opción B)
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
@@ -370,16 +371,23 @@ async function ejecutarFlujoConexionWhatsApp() {
   const instanceName = `${cleanName}instance`; 
 
   try {
-    // 🔥 PASO 1: BORRADO AGRESIVO DE SEGURIDAD
-    // Forzamos la destrucción de cualquier fantasma o basura que la API tenga guardada de esa instancia
+    // --------------------------------------------------------
+    // 🔥 INTEGRACIÓN OPCIÓN B: BLINDAJE CON TRY/CATCH CONTRA BLOQUEOS
+    // --------------------------------------------------------
     console.log(`[Ecosistema 360] Destruyendo instancia previa si existe: ${instanceName}`);
-    await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
-      method: 'DELETE',
-      headers: { 'apikey': EVOLUTION_GLOBAL_KEY }
-    });
+    try {
+      await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
+        method: 'DELETE',
+        headers: { 'apikey': EVOLUTION_GLOBAL_KEY }
+      });
+      console.log("[Ecosistema 360] Solicitud de borrado procesada correctamente.");
+    } catch (errorBorrado) {
+      // Si la instancia no existe en Evolution (404), el catch absorbe el error y no traba el código
+      console.warn("[Ecosistema 360] No se pudo borrar la instancia (posiblemente no existía). Continuando sin bloquear...", errorBorrado);
+    }
 
-    // Pequeña pausa de 300ms para darle tiempo al recolector de basura de la API
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Pausa técnica de 400ms para permitir la recolección de basura en el servidor de Railway
+    await new Promise(resolve => setTimeout(resolve, 400));
 
     // 🔥 PASO 2: CREACIÓN TOTALMENTE LIMPIA Y DESDE CERO
     container.innerHTML = `<p class="text-xs text-indigo-500 font-medium animate-pulse">Generando nueva instancia y código QR nítido...</p>`;
