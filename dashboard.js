@@ -8,7 +8,7 @@ const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
 // CONFIGURACIÓN DE EVOLUTION API DESDE RAILWAY (CORREGIDA CON HTTPS)
-const EVOLUTION_API_URL = 'https://evolution-api-production-3652.up.railway.app'; 
+const EVOLUTION_API_URL = 'https://evolution-api-production-b835.up.railway.app'; 
 const EVOLUTION_GLOBAL_KEY = '600d6bfcce4e4d8e656b1d07fbdbc2b97fd76dba4a0706480b6dd43e93bf126b';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
