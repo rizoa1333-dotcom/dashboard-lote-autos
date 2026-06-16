@@ -1,7 +1,7 @@
 // ============================================================
 // PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL CON PERSISTENCIA)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
-// CORREGIDO: Headers duales de autenticación (apikey + Bearer) contra Error 401
+// CORREGIDO: Endpoints versionados (/v2/) + Headers duales contra 401
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
@@ -372,15 +372,15 @@ async function ejecutarFlujoConexionWhatsApp() {
 
   try {
     // --------------------------------------------------------
-    // 🔥 PASO 1: DESTRUCCIÓN BLINDADA CON HEADERS DUALES
+    // 🔥 PASO 1: DESTRUCCIÓN CON RUTA VERSIONADA /v2/ Y BLINDAJE
     // --------------------------------------------------------
     console.log(`[Ecosistema 360] Destruyendo instancia previa si existe: ${instanceName}`);
     try {
-      await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
+      await fetch(`${EVOLUTION_API_URL}/v2/instance/delete/${instanceName}`, {
         method: 'DELETE',
         headers: { 
           'apikey': EVOLUTION_GLOBAL_KEY,
-          'Authorization': `Bearer ${EVOLUTION_GLOBAL_KEY}` // Soporte para versiones nuevas
+          'Authorization': `Bearer ${EVOLUTION_GLOBAL_KEY}`
         }
       });
       console.log("[Ecosistema 360] Solicitud de borrado procesada correctamente.");
@@ -388,19 +388,19 @@ async function ejecutarFlujoConexionWhatsApp() {
       console.warn("[Ecosistema 360] No se pudo borrar la instancia (no existía). Continuando...", errorBorrado);
     }
 
-    // Pausa técnica de 400ms para permitir al servidor recolectar basura
+    // Pausa técnica de 400ms para estabilizar el servidor de Railway
     await new Promise(resolve => setTimeout(resolve, 400));
 
     // --------------------------------------------------------
-    // 🔥 PASO 2: CREACIÓN CON HEADERS DUALES (ANTI-401 UNAUTHORIZED)
+    // 🔥 PASO 2: CREACIÓN CON ENDPOINT VERSIONADO /v2/ (ANTI-401)
     // --------------------------------------------------------
     container.innerHTML = `<p class="text-xs text-indigo-500 font-medium animate-pulse">Generando nueva instancia y código QR nítido...</p>`;
     
-    const res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+    const res = await fetch(`${EVOLUTION_API_URL}/v2/instance/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': EVOLUTION_GLOBAL_KEY,                 // Formato Header Tradicional
+        'apikey': EVOLUTION_GLOBAL_KEY,                 // Formato Header Estándar
         'Authorization': `Bearer ${EVOLUTION_GLOBAL_KEY}` // Formato Header Bearer Token
       },
       body: JSON.stringify({
@@ -419,7 +419,9 @@ async function ejecutarFlujoConexionWhatsApp() {
     }
 
     const data = await res.json();
-    const qrBase64 = data.qrcode?.base64;
+    
+    // Captura dinámica del QR según la estructura JSON de la versión v2 de Evolution API
+    const qrBase64 = data.qrcode?.base64 || data.instance?.qrcode?.base64 || data.data?.qrcode?.base64;
 
     // 🔥 PASO 3: RENDERIZACIÓN SEGURA DE LA IMAGEN IMPECABLE
     if (qrBase64) {
@@ -432,7 +434,7 @@ async function ejecutarFlujoConexionWhatsApp() {
         </div>`;
 
       // Actualizamos Supabase con la nueva llave
-      const finalToken = data.hash || data.token || EVOLUTION_GLOBAL_KEY;
+      const finalToken = data.hash || data.token || data.instance?.token || EVOLUTION_GLOBAL_KEY;
       await supabaseClient.from('whatsapp_channels').upsert({
         lote_id: currentLote.id,
         instance_name: instanceName,
