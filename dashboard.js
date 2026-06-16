@@ -361,25 +361,27 @@ async function ejecutarFlujoConexionWhatsApp() {
   const container = document.getElementById('qr-container');
   container.innerHTML = `<p class="text-xs text-slate-500 font-medium animate-pulse">Solicitando canal a Railway...</p>`;
 
-  // SANITIZACIÓN ESTRICTA: Solo minúsculas de la 'a' a la 'z' y números para evitar errores de URL
   const cleanName = currentLote.nombre
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remueve acentos y diacríticos
-    .replace(/[^a-z0-9]/g, '');      // Destruye espacios, guiones y símbolos
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/[^a-z0-9]/g, '');      
     
   const instanceName = `${cleanName}instance`; 
 
   try {
-    // 1. INTENTO DE RECUPERACIÓN: Solicitamos directamente el QR de la instancia que ya existe
+    // 1. INTENTO DE RECUPERACIÓN: Solicitamos directamente el QR de la instancia activa
     let res = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
       method: 'GET',
       headers: { 'apikey': EVOLUTION_GLOBAL_KEY }
     });
 
-    // 2. CONTROL DE FALLO: Si da 404 o no existe la instancia, la creamos en automático
+    let data = await res.json();
+    let qrBase64 = null;
+
+    // 2. CONTROL DE FALLO: Si da error o no existe la instancia, la creamos desde cero
     if (!res.ok) {
-      console.log(`[Dashboard Core] Instancia ${instanceName} no activa. Procediendo a creación automática...`);
+      console.log(`[Dashboard Core] Instancia ${instanceName} no activa. Creando instancia limpia...`);
       res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
         method: 'POST',
         headers: {
@@ -393,29 +395,29 @@ async function ejecutarFlujoConexionWhatsApp() {
           "integration": "WHATSAPP-BAILEYS"
         })
       });
+      
+      if (!res.ok) {
+        container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error al conectar con la instancia de Evolution.</p>`;
+        return;
+      }
+      data = await res.json();
+      qrBase64 = data.qrcode?.base64;
+    } else {
+      // Si la instancia ya existía, mapeamos el formato de respuesta del endpoint /connect
+      qrBase64 = data.base64 || data.code || (data.qrcode?.base64);
     }
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("[Evolution API Error Detail]:", errorText);
-      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error al conectar con la instancia de Evolution.</p>`;
-      return;
-    }
-
-    const data = await res.json();
-
-    // 3. RENDERIZACIÓN DEL QR SEGURO
-    // Las rutas de Evolution v2 pueden devolver el código base64 directo o dentro del objeto code
-    const qrBase64 = data.qrcode?.base64 || data.code || (data.base64 ? data.base64 : null);
-
+    // 3. RENDERIZACIÓN ROBUSTA DE LA IMAGEN EN PANTALLA
     if (qrBase64) {
+      // Limpiamos encabezados duplicados por si la API ya incluye el prefijo de datos data:image
+      const cleanBase64 = qrBase64.replace(/^data:image\/png;base64,/, "");
+      
       container.innerHTML = `
         <div class="text-center space-y-3">
-          <img src="${qrBase64.startsWith('data:') ? qrBase64 : `data:image/png;base64,${qrBase64}`}" alt="Código QR" class="mx-auto rounded-lg shadow-md border border-slate-200 max-w-[220px]" />
+          <img src="data:image/png;base64,${cleanBase64}" alt="Código QR" class="mx-auto rounded-lg shadow-md border border-slate-200 max-w-[220px]" />
           <p class="text-[11px] text-amber-600 font-semibold animate-pulse">⚠️ Esperando escaneo desde el celular...</p>
         </div>`;
 
-      // Persistencia en Supabase
       const finalToken = data.hash || data.token || EVOLUTION_GLOBAL_KEY;
       await supabaseClient.from('whatsapp_channels').upsert({
         lote_id: currentLote.id,
@@ -428,11 +430,10 @@ async function ejecutarFlujoConexionWhatsApp() {
       document.getElementById('wa-badge').className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
       document.getElementById('wa-instance-display').textContent = `Instancia: ${instanceName}`;
     } else {
-      // Si ya está conectada y no requiere QR
       container.innerHTML = `
         <div class="text-center space-y-2 text-emerald-600">
           <p class="text-sm font-bold">¡Canal Sincronizado Previamente!</p>
-          <p class="text-xs text-slate-400">La instancia ya se encuentra activa en el backend.</p>
+          <p class="text-xs text-slate-400">La instancia ya se encuentra activa y vinculada.</p>
         </div>`;
     }
   } catch (error) {
