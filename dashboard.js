@@ -1,13 +1,13 @@
 // ============================================================
 // PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL CON PERSISTENCIA)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
-// CORREGIDO: Endpoints versionados (/v2/) + Headers duales contra 401
+// CORREGIDO: Rutas base nativas (/instance/) + Headers duales contra 401/404
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
-// CONFIGURACIÓN DE EVOLUTION API DESDE RAILWAY (CORREGIDA CON HTTPS)
+// CONFIGURACIÓN DE EVOLUTION API DESDE RAILWAY (CORREGIDA CON HTTPS Y SERVIDOR ACTIVO)
 const EVOLUTION_API_URL = 'https://evolution-api-production-b835.up.railway.app'; 
 const EVOLUTION_GLOBAL_KEY = '600d6bfcce4e4d8e656b1d07fbdbc2b97fd76dba4a0706480b6dd43e93bf126b';
 
@@ -372,11 +372,11 @@ async function ejecutarFlujoConexionWhatsApp() {
 
   try {
     // --------------------------------------------------------
-    // 🔥 PASO 1: DESTRUCCIÓN CON RUTA VERSIONADA /v2/ Y BLINDAJE
+    // 🔥 PASO 1: DESTRUCCIÓN CON ENDPOINT BASE NATIVO Y BLINDAJE
     // --------------------------------------------------------
     console.log(`[Ecosistema 360] Destruyendo instancia previa si existe: ${instanceName}`);
     try {
-      await fetch(`${EVOLUTION_API_URL}/v2/instance/delete/${instanceName}`, {
+      await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
         method: 'DELETE',
         headers: { 
           'apikey': EVOLUTION_GLOBAL_KEY,
@@ -388,19 +388,19 @@ async function ejecutarFlujoConexionWhatsApp() {
       console.warn("[Ecosistema 360] No se pudo borrar la instancia (no existía). Continuando...", errorBorrado);
     }
 
-    // Pausa técnica de 400ms para estabilizar el servidor de Railway
+    // Pausa técnica de 400ms para estabilizar el recolector del contenedor de Railway
     await new Promise(resolve => setTimeout(resolve, 400));
 
     // --------------------------------------------------------
-    // 🔥 PASO 2: CREACIÓN CON ENDPOINT VERSIONADO /v2/ (ANTI-401)
+    // 🔥 PASO 2: CREACIÓN CON ENDPOINT BASE NATIVO (SOLUCIÓN AL 404)
     // --------------------------------------------------------
     container.innerHTML = `<p class="text-xs text-indigo-500 font-medium animate-pulse">Generando nueva instancia y código QR nítido...</p>`;
     
-    const res = await fetch(`${EVOLUTION_API_URL}/v2/instance/create`, {
+    const res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': EVOLUTION_GLOBAL_KEY,                 // Formato Header Estándar
+        'apikey': EVOLUTION_GLOBAL_KEY,                 // Formato Header Tradicional
         'Authorization': `Bearer ${EVOLUTION_GLOBAL_KEY}` // Formato Header Bearer Token
       },
       body: JSON.stringify({
@@ -420,7 +420,7 @@ async function ejecutarFlujoConexionWhatsApp() {
 
     const data = await res.json();
     
-    // Captura dinámica del QR según la estructura JSON de la versión v2 de Evolution API
+    // Mapeo dinámico y flexible del QR para soportar cualquier respuesta JSON del contenedor
     const qrBase64 = data.qrcode?.base64 || data.instance?.qrcode?.base64 || data.data?.qrcode?.base64;
 
     // 🔥 PASO 3: RENDERIZACIÓN SEGURA DE LA IMAGEN IMPECABLE
