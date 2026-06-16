@@ -359,7 +359,7 @@ async function ejecutarFlujoConexionWhatsApp() {
   if (!currentLote) return;
   
   const container = document.getElementById('qr-container');
-  container.innerHTML = `<p class="text-xs text-slate-500 font-medium animate-pulse">Solicitando canal a Railway...</p>`;
+  container.innerHTML = `<p class="text-xs text-slate-500 font-medium animate-pulse">Forzando limpieza de caché en la API...</p>`;
 
   const cleanName = currentLote.nombre
     .toLowerCase()
@@ -370,46 +370,46 @@ async function ejecutarFlujoConexionWhatsApp() {
   const instanceName = `${cleanName}instance`; 
 
   try {
-    // 1. INTENTO DE RECUPERACIÓN: Solicitamos directamente el QR de la instancia activa
-    let res = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
-      method: 'GET',
+    // 🔥 PASO 1: BORRADO AGRESIVO DE SEGURIDAD
+    // Forzamos la destrucción de cualquier fantasma o basura que la API tenga guardada de esa instancia
+    console.log(`[Ecosistema 360] Destruyendo instancia previa si existe: ${instanceName}`);
+    await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
+      method: 'DELETE',
       headers: { 'apikey': EVOLUTION_GLOBAL_KEY }
     });
 
-    let data = await res.json();
-    let qrBase64 = null;
+    // Pequeña pausa de 300ms para darle tiempo al recolector de basura de la API
+    await new Promise(resolve => setTimeout(resolve, 300));
 
-    // 2. CONTROL DE FALLO: Si da error o no existe la instancia, la creamos desde cero
+    // 🔥 PASO 2: CREACIÓN TOTALMENTE LIMPIA Y DESDE CERO
+    container.innerHTML = `<p class="text-xs text-indigo-500 font-medium animate-pulse">Generando nueva instancia y código QR nítido...</p>`;
+    
+    const res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_GLOBAL_KEY
+      },
+      body: JSON.stringify({
+        "instanceName": instanceName,
+        "token": "",
+        "qrcode": true,
+        "integration": "WHATSAPP-BAILEYS"
+      })
+    });
+
     if (!res.ok) {
-      console.log(`[Dashboard Core] Instancia ${instanceName} no activa. Creando instancia limpia...`);
-      res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': EVOLUTION_GLOBAL_KEY
-        },
-        body: JSON.stringify({
-          "instanceName": instanceName,
-          "token": "",
-          "qrcode": true,
-          "integration": "WHATSAPP-BAILEYS"
-        })
-      });
-      
-      if (!res.ok) {
-        container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error al conectar con la instancia de Evolution.</p>`;
-        return;
-      }
-      data = await res.json();
-      qrBase64 = data.qrcode?.base64;
-    } else {
-      // Si la instancia ya existía, mapeamos el formato de respuesta del endpoint /connect
-      qrBase64 = data.base64 || data.code || (data.qrcode?.base64);
+      const errorText = await res.text();
+      console.error("[Evolution API Error Detail]:", errorText);
+      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error al inicializar los registros de la instancia.</p>`;
+      return;
     }
 
-    // 3. RENDERIZACIÓN ROBUSTA DE LA IMAGEN EN PANTALLA
+    const data = await res.json();
+    const qrBase64 = data.qrcode?.base64;
+
+    // 🔥 PASO 3: RENDERIZACIÓN SEGURA DE LA IMAGEN IMPECABLE
     if (qrBase64) {
-      // Limpiamos encabezados duplicados por si la API ya incluye el prefijo de datos data:image
       const cleanBase64 = qrBase64.replace(/^data:image\/png;base64,/, "");
       
       container.innerHTML = `
@@ -418,6 +418,7 @@ async function ejecutarFlujoConexionWhatsApp() {
           <p class="text-[11px] text-amber-600 font-semibold animate-pulse">⚠️ Esperando escaneo desde el celular...</p>
         </div>`;
 
+      // Actualizamos Supabase con la nueva llave
       const finalToken = data.hash || data.token || EVOLUTION_GLOBAL_KEY;
       await supabaseClient.from('whatsapp_channels').upsert({
         lote_id: currentLote.id,
@@ -430,11 +431,7 @@ async function ejecutarFlujoConexionWhatsApp() {
       document.getElementById('wa-badge').className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
       document.getElementById('wa-instance-display').textContent = `Instancia: ${instanceName}`;
     } else {
-      container.innerHTML = `
-        <div class="text-center space-y-2 text-emerald-600">
-          <p class="text-sm font-bold">¡Canal Sincronizado Previamente!</p>
-          <p class="text-xs text-slate-400">La instancia ya se encuentra activa y vinculada.</p>
-        </div>`;
+      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">La API no devolvió la estructura del código de barras visual.</p>`;
     }
   } catch (error) {
     container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error de red al conectar con Railway.</p>`;
