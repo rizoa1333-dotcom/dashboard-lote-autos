@@ -1,15 +1,11 @@
 // ============================================================
 // PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL CON PERSISTENCIA)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
-// CORREGIDO: Rutas base nativas (/instance/) + Headers duales contra 401/404
+// DEPURADO: Gestión de instancias delegada al Manager de Evolution API
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
-
-// CONFIGURACIÓN DE EVOLUTION API DESDE RAILWAY (CORREGIDA CON HTTPS Y SERVIDOR ACTIVO)
-const EVOLUTION_API_URL = 'https://evolution-api-production-b835.up.railway.app'; 
-const EVOLUTION_GLOBAL_KEY = '600d6bfcce4e4d8e656b1d07fbdbc2b97fd76dba4a0706480b6dd43e93bf126b';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -320,7 +316,7 @@ function renderConfigLote() {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN DINÁMICA MULTI-TENANT DE WHATSAPP (EVOLUTION API)
+// SECCIÓN DINÁMICA MULTI-TENANT DE WHATSAPP (MONITOREO SUPABASE)
 // ------------------------------------------------------------
 async function checarEstatusWhatsApp() {
   if (!currentLote) return;
@@ -343,114 +339,36 @@ async function checarEstatusWhatsApp() {
       
       if (data.status_conexion === 'CONECTADO') {
         badge.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+        if (container) {
+          container.innerHTML = `
+            <div class="text-center space-y-2 text-emerald-600 p-6">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <p class="text-sm font-bold">¡Canal Multi-Tenant Vinculado y Operando!</p>
+              <p class="text-xs text-slate-400">La IA del lote se encuentra procesando y respondiendo los mensajes en vivo.</p>
+            </div>`;
+        }
+      } else {
+        badge.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+        if (container) {
+          container.innerHTML = `
+            <div class="text-center space-y-2 text-slate-500 p-6">
+              <p class="text-xs font-semibold text-amber-600 font-mono">Status: WAITING_FOR_SCAN</p>
+              <p class="text-xs text-slate-400 mt-2">Por favor, realiza la vinculación del QR directamente desde tu Gestor de Evolution API.</p>
+              <p class="text-[10px] text-slate-400">El Dashboard se actualizará en verde de forma automática en cuanto detecte la conexión en la base de datos.</p>
+            </div>`;
+        }
+      }
+    } else {
+      // Si ni siquiera existe la fila en la tabla para este lote
+      if (container) {
         container.innerHTML = `
-          <div class="text-center space-y-2 text-emerald-600">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            <p class="text-sm font-bold">¡Canal Operando Exitosamente!</p>
-            <p class="text-xs text-slate-400">La IA se encuentra respondiendo los mensajes en vivo.</p>
+          <div class="text-center text-slate-400 p-6 text-xs">
+            <p>Esperando inicialización de datos en Supabase para este lote.</p>
           </div>`;
       }
     }
   } catch (err) {
     console.error('Error al verificar estatus del canal:', err);
-  }
-}
-
-async function ejecutarFlujoConexionWhatsApp() {
-  if (!currentLote) return;
-  
-  const container = document.getElementById('qr-container');
-  container.innerHTML = `<p class="text-xs text-slate-500 font-medium animate-pulse">Forzando limpieza de caché en la API...</p>`;
-
-  const cleanName = currentLote.nombre
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") 
-    .replace(/[^a-z0-9]/g, '');      
-    
-  const instanceName = `${cleanName}instance`; 
-
-  try {
-    // --------------------------------------------------------
-    // 🔥 PASO 1: DESTRUCCIÓN CON ENDPOINT BASE NATIVO Y BLINDAJE
-    // --------------------------------------------------------
-    console.log(`[Ecosistema 360] Destruyendo instancia previa si existe: ${instanceName}`);
-    try {
-      await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
-        method: 'DELETE',
-        headers: { 
-          'apikey': EVOLUTION_GLOBAL_KEY,
-          'Authorization': `Bearer ${EVOLUTION_GLOBAL_KEY}`
-        }
-      });
-      console.log("[Ecosistema 360] Solicitud de borrado procesada correctamente.");
-    } catch (errorBorrado) {
-      console.warn("[Ecosistema 360] No se pudo borrar la instancia (no existía). Continuando...", errorBorrado);
-    }
-
-    // Pausa técnica de 400ms para estabilizar el recolector del contenedor de Railway
-    await new Promise(resolve => setTimeout(resolve, 400));
-
-    // --------------------------------------------------------
-    // 🔥 PASO 2: CREACIÓN CON ENDPOINT BASE NATIVO (SOLUCIÓN AL 404)
-    // --------------------------------------------------------
-    container.innerHTML = `<p class="text-xs text-indigo-500 font-medium animate-pulse">Generando nueva instancia y código QR nítido...</p>`;
-    
-    const res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': EVOLUTION_GLOBAL_KEY,                 // Formato Header Tradicional
-        'Authorization': `Bearer ${EVOLUTION_GLOBAL_KEY}` // Formato Header Bearer Token
-      },
-      body: JSON.stringify({
-        "instanceName": instanceName,
-        "token": "",
-        "qrcode": true,
-        "integration": "WHATSAPP-BAILEYS"
-      })
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("[Evolution API Error Detail]:", errorText);
-      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error al inicializar los registros de la instancia.</p>`;
-      return;
-    }
-
-    const data = await res.json();
-    
-    // Mapeo dinámico y flexible del QR para soportar cualquier respuesta JSON del contenedor
-    const qrBase64 = data.qrcode?.base64 || data.instance?.qrcode?.base64 || data.data?.qrcode?.base64;
-
-    // 🔥 PASO 3: RENDERIZACIÓN SEGURA DE LA IMAGEN IMPECABLE
-    if (qrBase64) {
-      const cleanBase64 = qrBase64.replace(/^data:image\/png;base64,/, "");
-      
-      container.innerHTML = `
-        <div class="text-center space-y-3">
-          <img src="data:image/png;base64,${cleanBase64}" alt="Código QR" class="mx-auto rounded-lg shadow-md border border-slate-200 max-w-[220px]" />
-          <p class="text-[11px] text-amber-600 font-semibold animate-pulse">⚠️ Esperando escaneo desde el celular...</p>
-        </div>`;
-
-      // Actualizamos Supabase con la nueva llave
-      const finalToken = data.hash || data.token || data.instance?.token || EVOLUTION_GLOBAL_KEY;
-      await supabaseClient.from('whatsapp_channels').upsert({
-        lote_id: currentLote.id,
-        instance_name: instanceName,
-        api_key: finalToken,
-        status_conexion: 'CONECTADO'
-      }, { onConflict: 'lote_id' });
-
-      document.getElementById('wa-status-text').textContent = "CONECTADO";
-      document.getElementById('wa-badge').className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
-      document.getElementById('wa-instance-display').textContent = `Instancia: ${instanceName}`;
-    } else {
-      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">La API no devolvió la estructura del código de barras visual.</p>`;
-    }
-  } catch (error) {
-    container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error de red al conectar con Railway.</p>`;
-    console.error(error);
   }
 }
 
@@ -556,10 +474,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       stopSync(); await supabaseClient.auth.signOut(); currentUser = null; currentLote = null; showView('view-login');
     });
-  }
-
-  if (document.getElementById('btnGenerarQR')) {
-    document.getElementById('btnGenerarQR').addEventListener('click', ejecutarFlujoConexionWhatsApp);
   }
 
   // Enlaces SPA internos
