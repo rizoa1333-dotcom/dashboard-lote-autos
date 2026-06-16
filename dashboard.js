@@ -1,7 +1,7 @@
 // ============================================================
 // PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL CON PERSISTENCIA)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
-// CORREGIDO: Blindaje de destrucción de instancias (Opción B)
+// CORREGIDO: Headers duales de autenticación (apikey + Bearer) contra Error 401
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
@@ -372,31 +372,36 @@ async function ejecutarFlujoConexionWhatsApp() {
 
   try {
     // --------------------------------------------------------
-    // 🔥 INTEGRACIÓN OPCIÓN B: BLINDAJE CON TRY/CATCH CONTRA BLOQUEOS
+    // 🔥 PASO 1: DESTRUCCIÓN BLINDADA CON HEADERS DUALES
     // --------------------------------------------------------
     console.log(`[Ecosistema 360] Destruyendo instancia previa si existe: ${instanceName}`);
     try {
       await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
         method: 'DELETE',
-        headers: { 'apikey': EVOLUTION_GLOBAL_KEY }
+        headers: { 
+          'apikey': EVOLUTION_GLOBAL_KEY,
+          'Authorization': `Bearer ${EVOLUTION_GLOBAL_KEY}` // Soporte para versiones nuevas
+        }
       });
       console.log("[Ecosistema 360] Solicitud de borrado procesada correctamente.");
     } catch (errorBorrado) {
-      // Si la instancia no existe en Evolution (404), el catch absorbe el error y no traba el código
-      console.warn("[Ecosistema 360] No se pudo borrar la instancia (posiblemente no existía). Continuando sin bloquear...", errorBorrado);
+      console.warn("[Ecosistema 360] No se pudo borrar la instancia (no existía). Continuando...", errorBorrado);
     }
 
-    // Pausa técnica de 400ms para permitir la recolección de basura en el servidor de Railway
+    // Pausa técnica de 400ms para permitir al servidor recolectar basura
     await new Promise(resolve => setTimeout(resolve, 400));
 
-    // 🔥 PASO 2: CREACIÓN TOTALMENTE LIMPIA Y DESDE CERO
+    // --------------------------------------------------------
+    // 🔥 PASO 2: CREACIÓN CON HEADERS DUALES (ANTI-401 UNAUTHORIZED)
+    // --------------------------------------------------------
     container.innerHTML = `<p class="text-xs text-indigo-500 font-medium animate-pulse">Generando nueva instancia y código QR nítido...</p>`;
     
     const res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': EVOLUTION_GLOBAL_KEY
+        'apikey': EVOLUTION_GLOBAL_KEY,                 // Formato Header Tradicional
+        'Authorization': `Bearer ${EVOLUTION_GLOBAL_KEY}` // Formato Header Bearer Token
       },
       body: JSON.stringify({
         "instanceName": instanceName,
