@@ -361,7 +361,7 @@ async function ejecutarFlujoConexionWhatsApp() {
   const container = document.getElementById('qr-container');
   container.innerHTML = `<p class="text-xs text-slate-500 font-medium animate-pulse">Solicitando canal a Railway...</p>`;
 
-  // SANITIZACIÓN ESTRICTA: Solo minúsculas de la 'a' a la 'z' y números para evitar Error 400
+  // SANITIZACIÓN ESTRICTA: Solo minúsculas de la 'a' a la 'z' y números para evitar errores de URL
   const cleanName = currentLote.nombre
     .toLowerCase()
     .normalize("NFD")
@@ -371,39 +371,51 @@ async function ejecutarFlujoConexionWhatsApp() {
   const instanceName = `${cleanName}instance`; 
 
   try {
-    const res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': EVOLUTION_GLOBAL_KEY
-      },
-      body: JSON.stringify({
-        "instanceName": instanceName,
-        "token": "",                      // Vacío para que asigne el token nativo por defecto
-        "qrcode": true,
-        "integration": "WHATSAPP-BAILEYS"  // Solución al error de "Invalid integration"
-      })
+    // 1. INTENTO DE RECUPERACIÓN: Solicitamos directamente el QR de la instancia que ya existe
+    let res = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
+      method: 'GET',
+      headers: { 'apikey': EVOLUTION_GLOBAL_KEY }
     });
 
-    // Diagnóstico en consola si la API devuelve un error de estructura
+    // 2. CONTROL DE FALLO: Si da 404 o no existe la instancia, la creamos en automático
+    if (!res.ok) {
+      console.log(`[Dashboard Core] Instancia ${instanceName} no activa. Procediendo a creación automática...`);
+      res = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_GLOBAL_KEY
+        },
+        body: JSON.stringify({
+          "instanceName": instanceName,
+          "token": "",
+          "qrcode": true,
+          "integration": "WHATSAPP-BAILEYS"
+        })
+      });
+    }
+
     if (!res.ok) {
       const errorText = await res.text();
       console.error("[Evolution API Error Detail]:", errorText);
-      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error 400: Parámetros rechazados por la API.</p>`;
+      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error al conectar con la instancia de Evolution.</p>`;
       return;
     }
 
     const data = await res.json();
 
-    // Validamos la respuesta estructurada de Evolution v2
-    if (data.qrcode && data.qrcode.base64) {
+    // 3. RENDERIZACIÓN DEL QR SEGURO
+    // Las rutas de Evolution v2 pueden devolver el código base64 directo o dentro del objeto code
+    const qrBase64 = data.qrcode?.base64 || data.code || (data.base64 ? data.base64 : null);
+
+    if (qrBase64) {
       container.innerHTML = `
         <div class="text-center space-y-3">
-          <img src="${data.qrcode.base64}" alt="Código QR" class="mx-auto rounded-lg shadow-md border border-slate-200 max-w-[220px]" />
+          <img src="${qrBase64.startsWith('data:') ? qrBase64 : `data:image/png;base64,${qrBase64}`}" alt="Código QR" class="mx-auto rounded-lg shadow-md border border-slate-200 max-w-[220px]" />
           <p class="text-[11px] text-amber-600 font-semibold animate-pulse">⚠️ Esperando escaneo desde el celular...</p>
         </div>`;
 
-      // Actualizamos o insertamos el canal en la base multi-tenant de Supabase utilizando el token interno devuelto o el seguro
+      // Persistencia en Supabase
       const finalToken = data.hash || data.token || EVOLUTION_GLOBAL_KEY;
       await supabaseClient.from('whatsapp_channels').upsert({
         lote_id: currentLote.id,
@@ -416,7 +428,12 @@ async function ejecutarFlujoConexionWhatsApp() {
       document.getElementById('wa-badge').className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
       document.getElementById('wa-instance-display').textContent = `Instancia: ${instanceName}`;
     } else {
-      container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">La instancia ya está activa o la API rechazó la solicitud.</p>`;
+      // Si ya está conectada y no requiere QR
+      container.innerHTML = `
+        <div class="text-center space-y-2 text-emerald-600">
+          <p class="text-sm font-bold">¡Canal Sincronizado Previamente!</p>
+          <p class="text-xs text-slate-400">La instancia ya se encuentra activa en el backend.</p>
+        </div>`;
     }
   } catch (error) {
     container.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Error de red al conectar con Railway.</p>`;
@@ -428,7 +445,7 @@ async function ejecutarFlujoConexionWhatsApp() {
 // GUARDIÁN RUTEADOR
 // ------------------------------------------------------------
 async function checkSessionAndLote() {
-  console.log('[Proyecto 360] Ejecutando análisis estricto de sesión...');
+  console.log('[Proyecto 360] Executing session check...');
   try {
     const { data: sessionData, error: sessionErr } = await supabaseClient.auth.getSession();
     if (sessionErr || !sessionData || !sessionData.session) {
