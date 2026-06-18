@@ -1,7 +1,6 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (PRODUCCIÓN FINAL CON PERSISTENCIA)
+// PROJECT 360 - dashboard.js (OPTIMIZADO CRONOLÓGICO Y CITAS)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
-// DEPURADO: Gestión de instancias delegada al Manager de Evolution API
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
@@ -42,7 +41,7 @@ function stopSync() {
 function startSync() {
   stopSync();
   fetchAndRenderAll();
-  checarEstatusWhatsApp(); // Verifica estatus multi-tenant al arrancar
+  checarEstatusWhatsApp();
   syncIntervalId = setInterval(fetchAndRenderAll, 10000); // 10 Segundos en vivo
 }
 
@@ -59,109 +58,127 @@ async function fetchAndRenderAll() {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN LEADS (PROSPECTOS CALIFICADOS POR IA)
+// SECCIÓN LEADS (MONITOR COMPLETO CRONOLÓGICO)
 // ------------------------------------------------------------
 async function fetchLeads() {
   const { data, error } = await supabaseClient
     .from('leads')
     .select('*')
     .eq('lote_id', currentLote.id)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }); // El más nuevo al inicio de la tabla 📅
 
   if (error) {
     console.error('[Leads Engine] Error de consulta:', error);
     return;
   }
   leadsCache = data || [];
-  renderLeads();
-  renderCitas();
-  renderMonitorMensajes();
-  renderLeadsCounters();
+  renderLeadsTable();
+  renderCitasCronologicas();
+  renderCounters();
 }
 
-function renderLeadsCounters() {
+function renderCounters() {
   const leadsCountEl = document.getElementById('leadsCount');
   const citasCountEl = document.getElementById('citasCount');
-  const pipeNuevoEl = document.getElementById('pipeNuevo');
-  const pipePendienteEl = document.getElementById('pipePendiente');
-  const pipeCitaEl = document.getElementById('pipeCita');
+  const citasBadgeEl = document.getElementById('citasBadge');
 
-  const pendientes = leadsCache.filter(l => l.status === 'Pendiente').length;
-  const citas = leadsCache.filter(l => !!l.fecha_cita).length;
-  const nuevos = leadsCache.filter(l => l.status === 'Nuevo').length;
+  const totalLeads = leadsCache.length;
+  const totalCitas = leadsCache.filter(l => !!l.fecha_cita).length;
 
-  if (leadsCountEl) leadsCountEl.textContent = pendientes;
-  if (citasCountEl) citasCountEl.textContent = citas;
-  if (pipeNuevoEl) pipeNuevoEl.textContent = `${nuevos} conversaciones en proceso`;
-  if (pipePendienteEl) pipePendienteEl.textContent = `${pendientes} leads listos en Dashboard`;
-  if (pipeCitaEl) pipeCitaEl.textContent = `${citas} citas registradas`;
+  if (leadsCountEl) leadsCountEl.textContent = totalLeads;
+  if (citasCountEl) citasCountEl.textContent = totalCitas;
+  
+  // Alerta o notificación visual en el Sidebar
+  if (citasBadgeEl) {
+    if (totalCitas > 0) {
+      citasBadgeEl.textContent = totalCitas;
+      citasBadgeEl.classList.remove('hidden');
+    } else {
+      citasBadgeEl.classList.add('hidden');
+    }
+  }
 }
 
-function renderLeads() {
-  const container = document.getElementById('leadsList');
-  if (!container) return;
+function renderLeadsTable() {
+  const tbody = document.getElementById('leadsTableBody');
+  if (!tbody) return;
 
   if (leadsCache.length === 0) {
-    container.innerHTML = '<p class="text-xs text-slate-400 p-4 text-center">Sin prospectos precalificados.</p>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-xs text-slate-400 p-8">Sin prospectos calificados registrados en este lote.</td></tr>';
     return;
   }
 
-  container.innerHTML = leadsCache.map(lead => `
-    <div class="flex items-center justify-between p-3 border-b border-slate-50 hover:bg-slate-50/60 transition">
-      <div>
-        <p class="font-semibold text-sm text-slate-800">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</p>
-        <p class="text-xs text-slate-500 font-mono">${escapeHtml(lead.telefono || '')}</p>
-        <span class="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Pendiente')}</span>
-      </div>
-      <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg hover:bg-indigo-700 transition font-medium">
-        Ver Perfil Pro
-      </button>
-    </div>
+  tbody.innerHTML = leadsCache.map(lead => `
+    <tr class="hover:bg-slate-50/60 transition border-b border-slate-100">
+      <td class="px-4 py-3.5 font-semibold text-slate-800 text-sm">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</td>
+      <td class="px-4 py-3.5 text-xs text-slate-500 font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
+      <td class="px-4 py-3.5 text-sm font-medium text-indigo-600">${escapeHtml(lead.auto_interes || 'General')}</td>
+      <td class="px-4 py-3.5 text-xs text-slate-400">${formatDateShort(lead.created_at)}</td>
+      <td class="px-4 py-3.5">
+        <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
+      </td>
+      <td class="px-4 py-3.5 text-right">
+        <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition font-medium">
+          Ver Perfil
+        </button>
+      </td>
+    </tr>
   `).join('');
 
-  container.querySelectorAll('.btn-ver-perfil').forEach(btn => {
+  tbody.querySelectorAll('.btn-ver-perfil').forEach(btn => {
     btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-lead-id')));
   });
 }
 
-function renderCitas() {
+// ------------------------------------------------------------
+// CITAS AGRUPADAS Y ORDENADAS POR FECHAS 📅
+// ------------------------------------------------------------
+function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
   if (!container) return;
-  const citas = leadsCache.filter(l => !!l.fecha_cita);
+
+  // Filtrar leads que tengan fecha de cita y ordenarlas de más cercana a más lejana
+  const citas = leadsCache
+    .filter(l => !!l.fecha_cita)
+    .sort((a, b) => new Date(a.fecha_cita) - new Date(b.fecha_cita));
 
   if (citas.length === 0) {
-    container.innerHTML = '<p class="text-xs text-slate-400 p-4 text-center">No hay citas agendadas el día de hoy.</p>';
+    container.innerHTML = '<p class="text-xs text-slate-400 p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
     return;
   }
 
-  container.innerHTML = citas.map(lead => `
-    <div class="flex items-center justify-between p-3 border-b border-slate-50">
-      <div>
-        <p class="font-semibold text-sm text-slate-800">${escapeHtml(lead.nombre || 'Cliente Patio')}</p>
-        <p class="text-xs text-slate-400 font-mono">${escapeHtml(lead.telefono || '')}</p>
+  // Agrupar citas por Día (ej. "Lunes, 17 de Junio")
+  const citasAgrupadas = {};
+  citas.forEach(cita => {
+    const fechaObj = new Date(cita.fecha_cita);
+    const diaTexto = fechaObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    
+    if (!citasAgrupadas[diaTexto]) {
+      citasAgrupadas[diaTexto] = [];
+    }
+    citasAgrupadas[diaTexto].push(cita);
+  });
+
+  // Renderizar la lista dividida por tarjetas de fecha
+  container.innerHTML = Object.keys(citasAgrupadas).map(dia => `
+    <div class="space-y-2">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">${dia}</div>
+      <div class="grid grid-cols-1 gap-2 pl-1">
+        ${citasAgrupadas[dia].map(lead => {
+          const hora = new Date(lead.fecha_cita).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+          return `
+            <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl hover:shadow-sm transition">
+              <div>
+                <p class="font-semibold text-sm text-slate-800">${escapeHtml(lead.nombre || 'Cliente Patio')}</p>
+                <p class="text-xs text-slate-400 font-mono">${escapeHtml(lead.phone_number || lead.telefono || '')} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(lead.auto_interes || 'General')}</span></p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">${hora} hrs</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
-      <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100">${formatDate(lead.fecha_cita)}</span>
-    </div>
-  `).join('');
-}
-
-function renderMonitorMensajes() {
-  const container = document.getElementById('monitorMensajesContainer');
-  if (!container) return;
-  const conMensajes = leadsCache.filter(l => l.ultimo_mensaje);
-
-  if (conMensajes.length === 0) {
-    container.innerHTML = '<p class="text-xs text-slate-400 p-4 text-center">Esperando tráfico de webhooks de n8n...</p>';
-    return;
-  }
-
-  container.innerHTML = conMensajes.map(lead => `
-    <div class="p-3 border-b border-slate-50">
-      <div class="flex justify-between">
-        <p class="text-xs font-bold text-slate-700 font-mono">${escapeHtml(lead.telefono || '')}</p>
-        <span class="text-[10px] text-indigo-500 font-medium bg-slate-100 px-1.5 rounded">${escapeHtml(lead.auto_interes || 'General')}</span>
-      </div>
-      <p class="text-xs text-slate-500 truncate mt-1 bg-white p-1.5 border border-slate-100 rounded italic">"${escapeHtml(lead.ultimo_mensaje)}"</p>
     </div>
   `).join('');
 }
@@ -171,7 +188,7 @@ function statusBadgeClass(status) {
     case 'Pendiente': return 'bg-amber-50 text-amber-700 border border-amber-200';
     case 'Calificado': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
     case 'Descartado': return 'bg-rose-50 text-rose-700 border border-rose-200';
-    default: return 'bg-slate-50 text-slate-600';
+    default: return 'bg-indigo-50 text-indigo-700 border border-indigo-100';
   }
 }
 
@@ -276,20 +293,17 @@ function openDrawer(leadId) {
   if (!lead) return;
 
   document.getElementById('drawerNombre').textContent = lead.nombre || '---';
-  document.getElementById('drawerTelefono').textContent = lead.telefono || '---';
+  document.getElementById('drawerTelefono').textContent = lead.phone_number || lead.telefono || '---';
   document.getElementById('drawerStatus').textContent = lead.status || '---';
   document.getElementById('drawerFechaCita').textContent = formatDate(lead.fecha_cita);
   document.getElementById('drawerInteres').textContent = lead.auto_interes || '---';
-  document.getElementById('drawerUltimoMensaje').textContent = lead.ultimo_mensaje || 'Sin mensajes capturados por n8n';
+  document.getElementById('drawerUltimoMensaje').textContent = lead.ultimo_mensaje || 'Conversación activa en WhatsApp';
   document.getElementById('drawerNotas').textContent = lead.notes || lead.notas || 'Sin anotaciones del bot.';
 
   document.getElementById('drawerPro').classList.add('drawer-open');
   document.getElementById('drawerOverlay').classList.remove('hidden');
 }
 
-// ------------------------------------------------------------
-// CONFIGURACIÓN E INTERFAZ GENERAL
-// ------------------------------------------------------------
 function closeDrawer() {
   document.getElementById('drawerPro').classList.remove('drawer-open');
   document.getElementById('drawerOverlay').classList.add('hidden');
@@ -315,66 +329,19 @@ function renderConfigLote() {
   document.querySelectorAll('.lote-nombre-display').forEach(el => el.textContent = currentLote.nombre);
 }
 
-// ------------------------------------------------------------
-// SECCIÓN DINÁMICA MULTI-TENANT DE WHATSAPP (MONITOREO SUPABASE)
-// ------------------------------------------------------------
+// MULTI-TENANT STATUS WHATSAPP
 async function checarEstatusWhatsApp() {
   if (!currentLote) return;
-  
   try {
-    const { data, error } = await supabaseClient
-      .from('whatsapp_channels')
-      .select('*')
-      .eq('lote_id', currentLote.id)
-      .maybeSingle();
-
-    const badge = document.getElementById('wa-badge');
-    const statusText = document.getElementById('wa-status-text');
-    const instanceDisplay = document.getElementById('wa-instance-display');
-    const container = document.getElementById('qr-container');
-
-    if (data) {
-      instanceDisplay.textContent = `Instancia: ${data.instance_name}`;
-      statusText.textContent = data.status_conexion;
-      
-      if (data.status_conexion === 'CONECTADO') {
-        badge.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
-        if (container) {
-          container.innerHTML = `
-            <div class="text-center space-y-2 text-emerald-600 p-6">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <p class="text-sm font-bold">¡Canal Multi-Tenant Vinculado y Operando!</p>
-              <p class="text-xs text-slate-400">La IA del lote se encuentra procesando y respondiendo los mensajes en vivo.</p>
-            </div>`;
-        }
-      } else {
-        badge.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
-        if (container) {
-          container.innerHTML = `
-            <div class="text-center space-y-2 text-slate-500 p-6">
-              <p class="text-xs font-semibold text-amber-600 font-mono">Status: WAITING_FOR_SCAN</p>
-              <p class="text-xs text-slate-400 mt-2">Por favor, realiza la vinculación del QR directamente desde tu Gestor de Evolution API.</p>
-              <p class="text-[10px] text-slate-400">El Dashboard se actualizará en verde de forma automática en cuanto detecte la conexión en la base de datos.</p>
-            </div>`;
-        }
-      }
-    } else {
-      // Si ni siquiera existe la fila en la tabla para este lote
-      if (container) {
-        container.innerHTML = `
-          <div class="text-center text-slate-400 p-6 text-xs">
-            <p>Esperando inicialización de datos en Supabase para este lote.</p>
-          </div>`;
-      }
-    }
+    const { data } = await supabaseClient.from('whatsapp_channels').select('*').eq('lote_id', currentLote.id).maybeSingle();
+    // Monitor interno silencioso en consola para resguardo multi-tenant
+    if (data) console.log(`[Multi-Tenant Node] Instancia vinculada activa: ${data.instance_name}`);
   } catch (err) {
-    console.error('Error al verificar estatus del canal:', err);
+    console.error(err);
   }
 }
 
-// ------------------------------------------------------------
 // GUARDIÁN RUTEADOR
-// ------------------------------------------------------------
 async function checkSessionAndLote() {
   console.log('[Proyecto 360] Executing session check...');
   try {
@@ -388,10 +355,7 @@ async function checkSessionAndLote() {
 
     currentUser = sessionData.session.user;
     
-    const { data: loteData, error: loteError } = await supabaseClient
-      .from('lotes')
-      .select('*')
-      .eq('profile_id', currentUser.id);
+    const { data: loteData } = await supabaseClient.from('lotes').select('*').eq('profile_id', currentUser.id);
 
     if (loteData && loteData.length > 0) {
       currentLote = loteData[0];
@@ -440,7 +404,7 @@ async function handleRegistroSubmit(e) {
     return;
   }
 
-  const { data: loteData, error: loteError } = await supabaseClient
+  const { data: loteData } = await supabaseClient
     .from('lotes')
     .insert({ profile_id: signUpData.user.id, nombre: nombreLote, whatsapp_number: phoneLote })
     .select().single();
@@ -452,9 +416,7 @@ async function handleRegistroSubmit(e) {
   startSync();
 }
 
-// ------------------------------------------------------------
-// INICIALIZADOR DE EVENTOS DOM
-// ------------------------------------------------------------
+// EVENTOS DOM
 document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
@@ -476,18 +438,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Enlaces SPA internos
   document.getElementById('to-login-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
   document.getElementById('to-registro-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
   document.getElementById('closeDrawerBtn').addEventListener('click', closeDrawer);
   document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
 
-  // Modales de Inventario
   const modalCar = document.getElementById('modalCarOverlay');
   document.getElementById('btnAbrirModalCar').addEventListener('click', () => modalCar.classList.remove('hidden'));
   document.getElementById('btnCerrarModalCar').addEventListener('click', () => modalCar.classList.add('hidden'));
 
-  // REGISTRO DE CARROS
   document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentLote) return;
@@ -512,7 +471,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await fetchCars();
   });
 
-  // Sidebar Móvil Control
   document.getElementById('openSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.remove('-translate-x-full'));
   document.getElementById('closeSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.add('-translate-x-full'));
 
@@ -520,7 +478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await checkSessionAndLote();
 });
 
-// Formateadores globales
+// Formateadores Globales
 function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -530,5 +488,9 @@ function formatCurrency(v) {
 }
 function formatDate(d) {
   if (!d) return '---';
-  return new Date(d).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' hrs';
+  return new Date(d).toLocaleString('es-MX', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }) + ' hrs';
+}
+function formatDateShort(d) {
+  if (!d) return '---';
+  return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
