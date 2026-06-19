@@ -286,7 +286,7 @@ function renderCars() {
 }
 
 // ------------------------------------------------------------
-// DRAWER PERFIL PRO
+// DRAWER PERFIL PRO (CON CALIFICACIÓN FINANCIERA CORREGIDO)
 // ------------------------------------------------------------
 function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
@@ -299,6 +299,26 @@ function openDrawer(leadId) {
   document.getElementById('drawerInteres').textContent = lead.auto_interes || '---';
   document.getElementById('drawerUltimoMensaje').textContent = lead.ultimo_mensaje || 'Conversación activa en WhatsApp';
   document.getElementById('drawerNotas').textContent = lead.notes || lead.notas || 'Sin anotaciones del bot.';
+
+  // Formateador dinámico para el Monto de Enganche (Traduce opciones 1, 2, 3)
+  let textoEnganche = '---';
+  if (lead.enganche) {
+    if (String(lead.enganche) === '1') textoEnganche = '$50,000 a $100,000';
+    else if (String(lead.enganche) === '2') textoEnganche = '$100,000 a $200,000';
+    else if (String(lead.enganche) === '3') textoEnganche = 'Más de $200,000';
+    else textoEnganche = lead.enganche;
+  }
+  document.getElementById('drawerEnganche').textContent = textoEnganche;
+
+  // Formateador dinámico para la Situación Laboral
+  let textoSituacion = '---';
+  if (lead.situacion_laboral) {
+    if (String(lead.situacion_laboral) === '1') textoSituacion = 'Empleado con nómina';
+    else if (String(lead.situacion_laboral) === '2') textoSituacion = 'Independiente / Negocio propio';
+    else if (String(lead.situacion_laboral) === '3') textoSituacion = 'No compruebo ingresos';
+    else textoSituacion = lead.situacion_laboral;
+  }
+  document.getElementById('drawerSituacion').textContent = textoSituacion;
 
   document.getElementById('drawerPro').classList.add('drawer-open');
   document.getElementById('drawerOverlay').classList.remove('hidden');
@@ -334,7 +354,6 @@ async function checarEstatusWhatsApp() {
   if (!currentLote) return;
   try {
     const { data } = await supabaseClient.from('whatsapp_channels').select('*').eq('lote_id', currentLote.id).maybeSingle();
-    // Monitor interno silencioso en consola para resguardo multi-tenant
     if (data) console.log(`[Multi-Tenant Node] Instancia vinculada activa: ${data.instance_name}`);
   } catch (err) {
     console.error(err);

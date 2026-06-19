@@ -125,7 +125,7 @@
     <div class="flex-1 flex flex-col min-w-0">
       <header class="bg-white border-b border-[#E2E8F0] px-4 md:px-8 h-16 flex items-center gap-4 sticky top-0 z-20">
         <button id="openSidebar" class="md:hidden w-9 h-9 rounded-lg border border-[#E2E8F0] flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
         <div class="min-w-0 flex-1">
           <p id="loteHeaderName" class="lote-nombre-display font-semibold text-base text-slate-900 truncate">Cargando patio...</p>
@@ -170,8 +170,7 @@
                     <th class="px-4 py-3 font-medium text-right">Acción</th>
                   </tr>
                 </thead>
-                <tbody id="leadsTableBody" class="divide-y divide-slate-100 text-slate-700">
-                  </tbody>
+                <tbody id="leadsTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
               </table>
             </div>
           </div>
@@ -224,8 +223,7 @@
               <h3 class="font-bold text-sm text-slate-800 uppercase tracking-wider text-xs">Calendario Operativo de Citas en Patio</h3>
               <p class="text-xs text-slate-400">Listado de prospectos organizados cronológicamente por su fecha de asistencia programada</p>
             </div>
-            <div class="space-y-6" id="citasListContainer">
-              </div>
+            <div class="space-y-6" id="citasListContainer"></div>
           </div>
         </section>
 
@@ -251,6 +249,7 @@
     </div>
   </div>
 
+  <!-- DRAWER PERFIL PRO EXTENDIDO CORREGIDO -->
   <div id="drawerOverlay" class="fixed inset-0 bg-black/20 z-40 hidden"></div>
   <aside id="drawerPro" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white border-l border-[#E2E8F0] z-50 transform translate-x-full flex flex-col">
     <div class="px-5 h-16 border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0">
@@ -268,6 +267,11 @@
       <p class="border-b border-slate-100 pb-1.5"><strong>Estatus Comercial:</strong> <span id="drawerStatus" class="ml-1 font-semibold">---</span></p>
       <p class="border-b border-slate-100 pb-1.5"><strong>Fecha Cita:</strong> <span id="drawerFechaCita" class="text-indigo-600 font-medium ml-1">---</span></p>
       <p class="border-b border-slate-100 pb-1.5"><strong>Auto de Interés:</strong> <span id="drawerInteres" class="text-slate-900 font-medium ml-1">---</span></p>
+      
+      <!-- NUEVOS CAMPOS ADICIONALES FINANCIEROS 🏎️ -->
+      <p class="border-b border-slate-100 pb-1.5"><strong>Monto Enganche:</strong> <span id="drawerEnganche" class="text-emerald-600 font-semibold ml-1">---</span></p>
+      <p class="border-b border-slate-100 pb-1.5"><strong>Situación Laboral:</strong> <span id="drawerSituacion" class="text-slate-900 font-medium ml-1">---</span></p>
+      
       <div class="border-b border-slate-100 pb-2">
         <strong class="block mb-1">Último Mensaje Analizado:</strong>
         <p id="drawerUltimoMensaje" class="text-xs text-slate-500 bg-white border border-slate-200 p-2.5 rounded-lg italic">---</p>
