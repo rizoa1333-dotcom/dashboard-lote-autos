@@ -177,6 +177,19 @@
         </section>
 
         <section id="section-inventario" class="dashboard-section space-y-6 hidden">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm">
+            <div>
+              <h2 class="font-bold text-sm text-slate-800 uppercase tracking-wider">Gestión Masiva de Unidades</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Sube layouts masivos en CSV o administra las unidades del patio</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="file" id="excelFileInput" accept=".csv" class="hidden">
+              <button id="btnImportarExcel" class="bg-emerald-600 text-white text-xs px-3 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm">
+                📥 Carga Masiva (CSV)
+              </button>
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
               <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Activo Total Real en Patio</p>
@@ -249,7 +262,6 @@
     </div>
   </div>
 
-  <!-- DRAWER PERFIL PRO EXTENDIDO CORREGIDO -->
   <div id="drawerOverlay" class="fixed inset-0 bg-black/20 z-40 hidden"></div>
   <aside id="drawerPro" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white border-l border-[#E2E8F0] z-50 transform translate-x-full flex flex-col">
     <div class="px-5 h-16 border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0">
@@ -268,7 +280,6 @@
       <p class="border-b border-slate-100 pb-1.5"><strong>Fecha Cita:</strong> <span id="drawerFechaCita" class="text-indigo-600 font-medium ml-1">---</span></p>
       <p class="border-b border-slate-100 pb-1.5"><strong>Auto de Interés:</strong> <span id="drawerInteres" class="text-slate-900 font-medium ml-1">---</span></p>
       
-      <!-- NUEVOS CAMPOS ADICIONALES FINANCIEROS 🏎️ -->
       <p class="border-b border-slate-100 pb-1.5"><strong>Monto Enganche:</strong> <span id="drawerEnganche" class="text-emerald-600 font-semibold ml-1">---</span></p>
       <p class="border-b border-slate-100 pb-1.5"><strong>Situación Laboral:</strong> <span id="drawerSituacion" class="text-slate-900 font-medium ml-1">---</span></p>
       
@@ -289,7 +300,7 @@
   <div id="modalCarOverlay" class="fixed inset-0 bg-black/40 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-xl border border-[#E2E8F0] shadow-xl max-w-md w-full p-6 space-y-4">
       <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-        <h3 class="font-bold text-base text-slate-900">Registrar Nuevo Vehículo</h3>
+        <h3 id="modalCarTitle" class="font-bold text-base text-slate-900">Registrar Nuevo Vehículo</h3>
         <button id="btnCerrarModalCar" class="text-slate-400 hover:text-slate-600">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -336,18 +347,23 @@
           <label class="block text-xs font-semibold text-slate-500 uppercase">Precio de Venta Full</label>
           <input type="number" id="carPrice" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="ej. 950000">
         </div>
+        
         <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase">URL de Imagen (Para Ficha WhatsApp)</label>
-          <input type="url" id="carImageUrl" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="https://ejemplo.com/foto.jpg">
+          <label class="block text-xs font-semibold text-slate-500 uppercase">Subir Fotografía del Auto</label>
+          <input type="file" id="carImageFile" accept="image/*" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none bg-white focus:border-[#0F172A]">
+          <input type="hidden" id="carImageUrl" value="">
+          <p id="uploadStatusText" class="text-[11px] text-slate-400 mt-1 italic"></p>
         </div>
+
         <div>
           <label class="block text-xs font-semibold text-slate-500 uppercase">Estatus Operativo Inicial</label>
           <select id="carStatus" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none bg-white focus:border-[#0F172A]">
             <option value="Disponible">Disponible</option>
             <option value="Apartado">Apartado</option>
+            <option value="Vendido">Vendido</option>
           </select>
         </div>
-        <button type="submit" class="w-full bg-[#0F172A] text-white text-sm font-semibold py-2 rounded-lg hover:bg-slate-800 transition-colors mt-3">
+        <button type="submit" id="btnSubmitCarForm" class="w-full bg-[#0F172A] text-white text-sm font-semibold py-2 rounded-lg hover:bg-slate-800 transition-colors mt-3">
           Guardar Unidad en Sistema
         </button>
       </form>

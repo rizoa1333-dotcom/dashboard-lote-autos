@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (OPTIMIZADO CRONOLÓGICO Y CITAS)
+// PROJECT 360 - dashboard.js (OPTIMIZADO CON CARGA MASIVA, STORAGE Y EDICIÓN)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
@@ -20,6 +20,7 @@ let syncIntervalId = null;
 
 let leadsCache = [];
 let carsCache = [];
+let editingCarId = null; // Guardián global para controlar el modo edición de autos ✏️
 
 // Cambiador Global de Vistas SPA
 function showView(viewId) {
@@ -65,7 +66,7 @@ async function fetchLeads() {
     .from('leads')
     .select('*')
     .eq('lote_id', currentLote.id)
-    .order('created_at', { ascending: false }); // El más nuevo al inicio de la tabla 📅
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('[Leads Engine] Error de consulta:', error);
@@ -88,7 +89,6 @@ function renderCounters() {
   if (leadsCountEl) leadsCountEl.textContent = totalLeads;
   if (citasCountEl) citasCountEl.textContent = totalCitas;
   
-  // Alerta o notificación visual en el Sidebar
   if (citasBadgeEl) {
     if (totalCitas > 0) {
       citasBadgeEl.textContent = totalCitas;
@@ -137,7 +137,6 @@ function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
   if (!container) return;
 
-  // Filtrar leads que tengan fecha de cita y ordenarlas de más cercana a más lejana
   const citas = leadsCache
     .filter(l => !!l.fecha_cita)
     .sort((a, b) => new Date(a.fecha_cita) - new Date(b.fecha_cita));
@@ -147,7 +146,6 @@ function renderCitasCronologicas() {
     return;
   }
 
-  // Agrupar citas por Día (ej. "Lunes, 17 de Junio")
   const citasAgrupadas = {};
   citas.forEach(cita => {
     const fechaObj = new Date(cita.fecha_cita);
@@ -159,7 +157,6 @@ function renderCitasCronologicas() {
     citasAgrupadas[diaTexto].push(cita);
   });
 
-  // Renderizar la lista dividida por tarjetas de fecha
   container.innerHTML = Object.keys(citasAgrupadas).map(dia => `
     <div class="space-y-2">
       <div class="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">${dia}</div>
@@ -193,7 +190,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN INVENTARIO (CARS)
+// SECCIÓN INVENTARIO (CARS + BOTÓN DE EDICIÓN ✏️)
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -264,6 +261,7 @@ function renderCars() {
           <div class="flex items-center gap-2">
             ${car.image_url ? `<a href="${car.image_url}" target="_blank" class="text-indigo-500 opacity-70 hover:opacity-100">🖼️</a>` : ''}
             <span>${escapeHtml(unidadNombre)}</span>
+            <button data-edit-id="${car.id}" class="btn-editar-car text-xs ml-1 opacity-50 hover:opacity-100 transition cursor-pointer" title="Editar Unidad">✏️</button>
           </div>
         </td>
         <td class="px-4 py-3.5 text-sm text-slate-500">${escapeHtml(String(car.year || ''))}</td>
@@ -276,6 +274,7 @@ function renderCars() {
     `;
   }).join('');
 
+  // Escuchador para marcar como vendido
   tbody.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
     btn.addEventListener('click', async () => {
       const { error } = await supabaseClient.from('cars').update({ status: 'Vendido' }).eq('id', btn.getAttribute('data-action-id'));
@@ -283,10 +282,39 @@ function renderCars() {
       await fetchCars();
     });
   });
+
+  // LOGICA DISPARADORA PARA MAPEAR DATOS AL FORMULARIO DE EDICIÓN ✏️
+  tbody.querySelectorAll('.btn-editar-car').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const carId = btn.getAttribute('data-edit-id');
+      const car = carsCache.find(c => String(c.id) === String(carId));
+      if (!car) return;
+
+      editingCarId = car.id; // Anclamos el ID global de edición
+
+      // Volcado de Supabase a los Inputs
+      document.getElementById('carBrand').value = car.brand || '';
+      document.getElementById('carModel').value = car.model || '';
+      document.getElementById('carYear').value = car.year || '';
+      document.getElementById('carPrice').value = car.price || '';
+      document.getElementById('carTransmision').value = car.transmision || 'Automática';
+      document.getElementById('carKilometraje').value = car.kilometraje || 0;
+      document.getElementById('carEnganche').value = car.enganche_minimo || 0;
+      document.getElementById('carStatus').value = car.status || 'Disponible';
+      document.getElementById('carImageUrl').value = car.image_url || '';
+      
+      // Ajustes estéticos del modal
+      document.getElementById('modalCarTitle').textContent = 'Editar Datos de Unidad';
+      document.getElementById('btnSubmitCarForm').textContent = 'Actualizar Cambios en Patio';
+      document.getElementById('uploadStatusText').textContent = car.image_url ? 'Imagen de resguardo activa. Suba otra para reemplazar. 🖼️' : '';
+
+      document.getElementById('modalCarOverlay').classList.remove('hidden');
+    });
+  });
 }
 
 // ------------------------------------------------------------
-// DRAWER PERFIL PRO (CON CALIFICACIÓN FINANCIERA CORREGIDO)
+// DRAWER PERFIL PRO (CON CALIFICACIÓN FINANCIERA)
 // ------------------------------------------------------------
 function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
@@ -300,7 +328,6 @@ function openDrawer(leadId) {
   document.getElementById('drawerUltimoMensaje').textContent = lead.ultimo_mensaje || 'Conversación activa en WhatsApp';
   document.getElementById('drawerNotas').textContent = lead.notes || lead.notas || 'Sin anotaciones del bot.';
 
-  // Formateador dinámico para el Monto de Enganche (Traduce opciones 1, 2, 3)
   let textoEnganche = '---';
   if (lead.enganche) {
     if (String(lead.enganche) === '1') textoEnganche = '$50,000 a $100,000';
@@ -310,7 +337,6 @@ function openDrawer(leadId) {
   }
   document.getElementById('drawerEnganche').textContent = textoEnganche;
 
-  // Formateador dinámico para la Situación Laboral
   let textoSituacion = '---';
   if (lead.situacion_laboral) {
     if (String(lead.situacion_laboral) === '1') textoSituacion = 'Empleado con nómina';
@@ -463,29 +489,152 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
 
   const modalCar = document.getElementById('modalCarOverlay');
-  document.getElementById('btnAbrirModalCar').addEventListener('click', () => modalCar.classList.remove('hidden'));
+  
+  // Resetear el modal a modo CREACIÓN al abrirlo voluntariamente
+  document.getElementById('btnAbrirModalCar').addEventListener('click', () => {
+    editingCarId = null;
+    document.getElementById('formNuevoCar').reset();
+    document.getElementById('carImageUrl').value = '';
+    document.getElementById('uploadStatusText').textContent = '';
+    document.getElementById('modalCarTitle').textContent = 'Registrar Nuevo Vehículo';
+    document.getElementById('btnSubmitCarForm').textContent = 'Guardar Unidad en Sistema';
+    modalCar.classList.remove('hidden');
+  });
+  
   document.getElementById('btnCerrarModalCar').addEventListener('click', () => modalCar.classList.add('hidden'));
 
+  // ------------------------------------------------------------
+  // ESCUCHADOR DE SUBIDA MASIVA POR EXCEL/CSV ARRIBA 📥
+  // ------------------------------------------------------------
+  const btnImportar = document.getElementById('btnImportarExcel');
+  const fileInput = document.getElementById('excelFileInput');
+
+  if (btnImportar && fileInput) {
+    btnImportar.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(event) {
+        const text = event.target.result;
+        const lineas = text.split('\n');
+        if (lineas.length <= 1) return;
+        
+        const headers = lineas[0].split(',').map(h => h.trim().toLowerCase());
+        const autosParaInsertar = [];
+
+        for (let i = 1; i < lineas.length; i++) {
+          if (!lineas[i].trim()) continue;
+          const celdas = lineas[i].split(',').map(c => c.trim());
+          
+          if (celdas.length >= 4) {
+            autosParaInsertar.push({
+              lote_id: currentLote.id,
+              brand: celdas[headers.indexOf('marca')] || celdas[headers.indexOf('brand')] || 'Genérico',
+              model: celdas[headers.indexOf('modelo')] || celdas[headers.indexOf('model')] || 'Unidad',
+              year: parseInt(celdas[headers.indexOf('año')]) || parseInt(celdas[headers.indexOf('year')]) || 2026,
+              price: parseFloat(celdas[headers.indexOf('precio')]) || parseFloat(celdas[headers.indexOf('price')]) || 0,
+              transmision: celdas[headers.indexOf('transmision')] || 'Automática',
+              kilometraje: parseFloat(celdas[headers.indexOf('kilometraje')]) || 0,
+              enganche_minimo: parseFloat(celdas[headers.indexOf('enganche')]) || 0,
+              status: 'Disponible',
+              image_url: 'https://via.placeholder.com/400x250?text=Sin+Foto'
+            });
+          }
+        }
+
+        if (autosParaInsertar.length > 0) {
+          const { error } = await supabaseClient.from('cars').insert(autosParaInsertar);
+          if (error) {
+            alert('Error en formato del CSV. Valida tus columnas.');
+            console.error(error);
+          } else {
+            alert(`¡Éxito bro! Se extrajeron y cargaron ${autosParaInsertar.length} autos en masa.`);
+            await fetchCars();
+          }
+        }
+        fileInput.value = '';
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // ------------------------------------------------------------
+  // LOGICA AUTOMATIZADA SUPABASE STORAGE (LINK PÚBLICO) 🖼️
+  // ------------------------------------------------------------
+  const imageInput = document.getElementById('carImageFile');
+  if (imageInput) {
+    imageInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const statusText = document.getElementById('uploadStatusText');
+      statusText.textContent = 'Subiendo imagen a la nube... ⏳';
+      statusText.className = 'text-[11px] text-amber-500 mt-1 italic';
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
+      const filePath = `${currentLote.id}/${fileName}`;
+
+      const { data, error } = await supabaseClient.storage
+        .from('car-images')
+        .upload(filePath, file);
+
+      if (error) {
+        console.error('Storage error details:', error);
+        statusText.textContent = 'Fallo de Storage. Valida permisos del Bucket.';
+        statusText.className = 'text-[11px] text-rose-500 mt-1 italic';
+        return;
+      }
+
+      const { data: publicUrlData } = supabaseClient.storage
+        .from('car-images')
+        .getPublicUrl(filePath);
+
+      document.getElementById('carImageUrl').value = publicUrlData.publicUrl;
+      statusText.textContent = '¡Imagen montada! Link inyectado al formulario. 🖼️';
+      statusText.className = 'text-[11px] text-emerald-600 mt-1 italic';
+    });
+  }
+
+  // FORMULARIO GENERAL: COMPORTAMIENTO COMBINADO (INSERT / UPDATE) ✏️
   document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentLote) return;
 
-    const brand = document.getElementById('carBrand').value.trim();
-    const model = document.getElementById('carModel').value.trim();
-    const year = parseInt(document.getElementById('carYear').value);
-    const price = parseFloat(document.getElementById('carPrice').value);
-    const image_url = document.getElementById('carImageUrl').value.trim() || 'https://via.placeholder.com/400x250?text=Sin+Foto';
-    const status = document.getElementById('carStatus').value;
-    const transmision = document.getElementById('carTransmision').value;
-    const kilometraje = parseFloat(document.getElementById('carKilometraje').value) || 0;
-    const enganche_minimo = parseFloat(document.getElementById('carEnganche').value) || 0;
+    const carData = {
+      lote_id: currentLote.id,
+      brand: document.getElementById('carBrand').value.trim(),
+      model: document.getElementById('carModel').value.trim(),
+      year: parseInt(document.getElementById('carYear').value),
+      price: parseFloat(document.getElementById('carPrice').value),
+      image_url: document.getElementById('carImageUrl').value.trim() || 'https://via.placeholder.com/400x250?text=Sin+Foto',
+      status: document.getElementById('carStatus').value,
+      transmision: document.getElementById('carTransmision').value,
+      kilometraje: parseFloat(document.getElementById('carKilometraje').value) || 0,
+      enganche_minimo: parseFloat(document.getElementById('carEnganche').value) || 0
+    };
 
-    const { error } = await supabaseClient.from('cars').insert({
-      lote_id: currentLote.id, brand, model, year, price, image_url, status, transmision, kilometraje, enganche_minimo
-    });
+    let response;
 
-    if (error) { alert('Fallo al insertar carro.'); return; }
+    if (editingCarId) {
+      // CIRUGÍA EN MODO EDICIÓN
+      response = await supabaseClient.from('cars').update(carData).eq('id', editingCarId);
+    } else {
+      // MODO REGISTRO TRADICIONAL
+      response = await supabaseClient.from('cars').insert(carData);
+    }
+
+    if (response.error) {
+      alert('Error operativo en base de datos al guardar carro.');
+      console.error(response.error);
+      return;
+    }
+
     e.target.reset();
+    editingCarId = null; // Reseteamos la variable de resguardo
     modalCar.classList.add('hidden');
     await fetchCars();
   });
