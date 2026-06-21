@@ -131,7 +131,7 @@ function renderLeadsTable() {
 }
 
 // ------------------------------------------------------------
-// CITAS AGRUPADAS Y ORDENADAS POR FECHAS 📅
+// CITAS AGRUPADAS Y ORDENADAS POR FECHAS 📅 (WHATSAPP INCLUIDO)
 // ------------------------------------------------------------
 function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
@@ -163,13 +163,25 @@ function renderCitasCronologicas() {
       <div class="grid grid-cols-1 gap-2 pl-1">
         ${citasAgrupadas[dia].map(lead => {
           const hora = new Date(lead.fecha_cita).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+          const numeroLimpio = lead.phone_number || lead.telefono || '';
+          const linkWhatsApp = numeroLimpio ? `https://wa.me/${numeroLimpio}` : '#';
+
           return `
             <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl hover:shadow-sm transition">
               <div>
                 <p class="font-semibold text-sm text-slate-800">${escapeHtml(lead.nombre || 'Cliente Patio')}</p>
-                <p class="text-xs text-slate-400 font-mono">${escapeHtml(lead.phone_number || lead.telefono || '')} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(lead.auto_interes || 'General')}</span></p>
+                <p class="text-xs text-slate-400 font-mono">${escapeHtml(numeroLimpio)} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(lead.auto_interes || 'General')}</span></p>
               </div>
-              <div class="text-right">
+              
+              <!-- ACCIONES DE CITA CON EL BOTÓN EXCLUSIVO DE WHATSAPP GREEN 🟢 -->
+              <div class="flex items-center gap-2">
+                ${numeroLimpio ? `
+                  <a href="${linkWhatsApp}" target="_blank" class="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-lg transition-colors flex items-center justify-center shadow-sm" title="Contactar por WhatsApp">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.006 5.291 5.303 0 11.802 0c3.148.001 6.107 1.226 8.332 3.454a11.751 11.751 0 0 1 3.453 8.353c-.006 6.509-5.303 11.799-11.802 11.799-1.996-.001-3.956-.508-5.701-1.474L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.432.001 9.851-4.395 9.856-9.799.002-2.618-1.013-5.08-2.859-6.93C16.378 2.025 13.926.983 11.317.983c-5.433 0-9.85 4.397-9.855 9.802-.001 1.763.481 3.322 1.393 4.821L1.87 21.077l5.777-1.513zm12.333-5.01c-.296-.149-1.754-.867-2.024-.966-.271-.099-.467-.149-.664.149-.197.297-.763.966-.934 1.164-.173.199-.344.223-.64.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.664-1.6-.91-2.193-.239-.574-.482-.496-.664-.505-.172-.009-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.877 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.754-.717 2.001-1.409.248-.693.248-1.288.173-1.409-.074-.122-.272-.198-.57-.347z"/>
+                    </svg>
+                  </a>
+                ` : ''}
                 <span class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">${hora} hrs</span>
               </div>
             </div>
@@ -292,7 +304,7 @@ function renderCars() {
 
       editingCarId = car.id; // Anclamos el ID global de edición
 
-      // Volcado de Supabase a los Inputs
+      // Volcado de Supabase to Inputs
       document.getElementById('carBrand').value = car.brand || '';
       document.getElementById('carModel').value = car.model || '';
       document.getElementById('carYear').value = car.year || '';
@@ -368,6 +380,7 @@ function initSidebarNav() {
   });
 }
 
+// RESTO DEL CORE (DUEÑO, REGISTRO, LOGIN)
 function renderConfigLote() {
   if (!currentLote) return;
   if (document.getElementById('configNombreLote')) document.getElementById('configNombreLote').value = currentLote.nombre || '';
@@ -503,9 +516,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   document.getElementById('btnCerrarModalCar').addEventListener('click', () => modalCar.classList.add('hidden'));
 
-  // ------------------------------------------------------------
   // ESCUCHADOR DE SUBIDA MASIVA POR EXCEL/CSV ARRIBA 📥
-  // ------------------------------------------------------------
   const btnImportar = document.getElementById('btnImportarExcel');
   const fileInput = document.getElementById('excelFileInput');
 
@@ -561,9 +572,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // ------------------------------------------------------------
   // LOGICA AUTOMATIZADA SUPABASE STORAGE (LINK PÚBLICO) 🖼️
-  // ------------------------------------------------------------
   const imageInput = document.getElementById('carImageFile');
   if (imageInput) {
     imageInput.addEventListener('change', async (e) => {
@@ -620,10 +629,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let response;
 
     if (editingCarId) {
-      // CIRUGÍA EN MODO EDICIÓN
       response = await supabaseClient.from('cars').update(carData).eq('id', editingCarId);
     } else {
-      // MODO REGISTRO TRADICIONAL
       response = await supabaseClient.from('cars').insert(carData);
     }
 
@@ -634,7 +641,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     e.target.reset();
-    editingCarId = null; // Reseteamos la variable de resguardo
+    editingCarId = null;
     modalCar.classList.add('hidden');
     await fetchCars();
   });
