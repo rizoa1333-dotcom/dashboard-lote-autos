@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (OPTIMIZADO CON CARGA MASIVA, STORAGE Y EDICIÓN)
+// PROJECT 360 - dashboard.js (OPTIMIZADO CON HISTÓRICO MENSUAL DE VENTAS)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
@@ -173,7 +173,6 @@ function renderCitasCronologicas() {
                 <p class="text-xs text-slate-400 font-mono">${escapeHtml(numeroLimpio)} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(lead.auto_interes || 'General')}</span></p>
               </div>
               
-              <!-- ACCIONES DE CITA CON EL BOTÓN EXCLUSIVO DE WHATSAPP GREEN 🟢 -->
               <div class="flex items-center gap-2">
                 ${numeroLimpio ? `
                   <a href="${linkWhatsApp}" target="_blank" class="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-lg transition-colors flex items-center justify-center shadow-sm" title="Contactar por WhatsApp">
@@ -228,17 +227,33 @@ function renderCarsCounter() {
   }
 }
 
+// LÓGICA BI: CALCULO DE MÉTRICAS + REPORTE MENSUAL HISTÓRICO 📈
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
+  const mensualesContainer = document.getElementById('ventasMensualesContainer');
 
   let valorTotal = 0;
   let gananciasTotales = 0;
+
+  // Estructura limpia para agrupar los 12 meses
+  const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const reporteMensual = mesesNombres.map(mes => ({ name: mes, unidades: 0, dinero: 0 }));
 
   carsCache.forEach(car => {
     const precio = Number(car.price) || 0;
     if (car.status === 'Vendido') {
       gananciasTotales += precio;
+
+      // Extraer el mes del timestamp 'updated_at' de Supabase
+      const fechaVenta = car.updated_at ? new Date(car.updated_at) : new Date(car.created_at);
+      const numeroMes = fechaVenta.getMonth(); // Regresa 0 para Enero, 11 para Diciembre
+      
+      // Acumular si el año corresponde al actual (2026)
+      if (fechaVenta.getFullYear() === 2026 && numeroMes >= 0 && numeroMes < 12) {
+        reporteMensual[numeroMes].unidades += 1;
+        reporteMensual[numeroMes].dinero += precio;
+      }
     } else {
       valorTotal += precio;
     }
@@ -246,6 +261,32 @@ function calcularMetricasInventario() {
 
   if (invValorTotalEl) invValorTotalEl.textContent = formatCurrency(valorTotal);
   if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = formatCurrency(gananciasTotales);
+
+  // INYECCIÓN DINÁMICA DEL REPORTE HISTÓRICO MENSUAL EN EL DOM
+  if (mensualesContainer) {
+    // Filtrar para mostrar solo los meses que ya llevan al menos una venta para no saturar visualmente
+    const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
+
+    if (mesesConVentas.length === 0) {
+      mensualesContainer.innerHTML = `<p class="text-xs text-slate-400 italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
+    } else {
+      mensualesContainer.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+          ${mesesConVentas.map(mes => `
+            <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
+              <div>
+                <p class="text-xs font-bold text-slate-700">${mes.name}</p>
+                <p class="text-[10px] text-slate-400 font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-extrabold text-emerald-600">${formatCurrency(mes.dinero)}</p>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+  }
 }
 
 function renderCars() {
