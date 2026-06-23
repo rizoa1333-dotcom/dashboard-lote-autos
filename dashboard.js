@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (OPTIMIZADO CON HISTÓRICO BI)
+// PROJECT 360 - dashboard.js (PRO MENSUAL GROUPING + BI ENGINE)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
@@ -59,7 +59,7 @@ async function fetchAndRenderAll() {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN LEADS (MONITOR COMPLETO CRONOLÓGICO CON MES DE REGISTRO)
+// SECCIÓN LEADS (MONITOR TOTALMENTE AGRUPADO POR MES CRONOLÓGICO)
 // ------------------------------------------------------------
 async function fetchLeads() {
   const { data, error } = await supabaseClient
@@ -82,12 +82,15 @@ function renderCounters() {
   const leadsCountEl = document.getElementById('leadsCount');
   const citasCountEl = document.getElementById('citasCount');
   const citasBadgeEl = document.getElementById('citasBadge');
+  const conversionRateCountEl = document.getElementById('conversionRateCount');
 
   const totalLeads = leadsCache.length;
   const totalCitas = leadsCache.filter(l => !!l.fecha_cita).length;
+  const tasaConversion = totalLeads > 0 ? ((totalCitas / totalLeads) * 100).toFixed(1) : "0.0";
 
   if (leadsCountEl) leadsCountEl.textContent = totalLeads;
   if (citasCountEl) citasCountEl.textContent = totalCitas;
+  if (conversionRateCountEl) conversionRateCountEl.textContent = `${tasaConversion}%`;
   
   if (citasBadgeEl) {
     if (totalCitas > 0) {
@@ -100,47 +103,81 @@ function renderCounters() {
 }
 
 function renderLeadsTable() {
-  const tbody = document.getElementById('leadsTableBody');
-  if (!tbody) return;
+  const container = document.getElementById('leadsGroupedContainer');
+  if (!container) return;
 
   if (leadsCache.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-xs text-slate-400 p-8">Sin prospectos calificados registrados en este lote.</td></tr>';
+    container.innerHTML = '<div class="bg-white border border-[#E2E8F0] rounded-xl p-8 text-center text-xs text-slate-400 shadow-sm">Sin prospectos calificados registrados en este lote.</div>';
     return;
   }
 
-  // Estructura limpia para mapear el mes de creación (Igual que en tu inventario)
   const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  
+  // Agrupar leads por Nombre de Mes
+  const leadsAgrupadosPorMes = {};
+  leadsCache.forEach(lead => {
+    const fecha = lead.created_at ? new Date(lead.created_at) : new Date();
+    const nombreMes = mesesNombres[fecha.getMonth()];
+    
+    if (!leadsAgrupadosPorMes[nombreMes]) {
+      leadsAgrupadosPorMes[nombreMes] = [];
+    }
+    leadsAgrupadosPorMes[nombreMes].push(lead);
+  });
 
-  tbody.innerHTML = leadsCache.map(lead => {
-    // EXTRAER EL MES DEL TIMESTAMP DE SUPABASE
-    const fechaRegistro = lead.created_at ? new Date(lead.created_at) : new Date();
-    const nombreMes = mesesNombres[fechaRegistro.getMonth()];
-    const formatoFechaVisual = `${fechaRegistro.getDate()}-${nombreMes.slice(0, 3)}, ${fechaRegistro.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+  // INYECCIÓN VISUAL DE BLOQUES MENSUALES INDEPENDIENTES (ESTILO REQUERIDO)
+  container.innerHTML = Object.keys(leadsAgrupadosPorMes).map(mes => `
+    <div class="space-y-2.5">
+      <!-- BLOQUE DE CABECERA MENSUAL -->
+      <div class="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-100/80 px-4 py-2 rounded-lg border border-slate-200 inline-block shadow-sm">
+        📅 Registros de ${mes}
+      </div>
+      
+      <!-- TABLA DEL MES ESPECÍFICO -->
+      <div class="bg-white border border-[#E2E8F0] rounded-xl p-2 shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead>
+              <tr class="text-slate-400 border-b border-[#E2E8F0] text-xs uppercase font-semibold">
+                <th class="px-4 py-3 font-medium">Nombre Completo</th>
+                <th class="px-4 py-3 font-medium">Teléfono / WhatsApp</th>
+                <th class="px-4 py-3 font-medium">Auto de Interés</th>
+                <th class="px-4 py-3 font-medium">Hora Registro</th>
+                <th class="px-4 py-3 font-medium">Estatus</th>
+                <th class="px-4 py-3 font-medium text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-700">
+              ${leadsAgrupadosPorMes[mes].map(lead => {
+                const fechaReg = lead.created_at ? new Date(lead.created_at) : new Date();
+                const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const diaVisual = fechaReg.getDate();
+                
+                return `
+                  <tr class="hover:bg-slate-50/60 transition">
+                    <td class="px-4 py-3.5 font-semibold text-slate-800 text-sm">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</td>
+                    <td class="px-4 py-3.5 text-xs text-slate-500 font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
+                    <td class="px-4 py-3.5 text-sm font-medium text-indigo-600">${escapeHtml(lead.auto_interes || 'General')}</td>
+                    <td class="px-4 py-3.5 text-xs text-slate-400">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
+                    <td class="px-4 py-3.5">
+                      <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
+                    </td>
+                    <td class="px-4 py-3.5 text-right">
+                      <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition font-medium">
+                        Ver Perfil
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `).join('');
 
-    return `
-      <tr class="hover:bg-slate-50/60 transition border-b border-slate-100">
-        <td class="px-4 py-3.5 font-semibold text-slate-800 text-sm">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</td>
-        <td class="px-4 py-3.5 text-xs text-slate-500 font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
-        <td class="px-4 py-3.5 text-sm font-medium text-indigo-600">${escapeHtml(lead.auto_interes || 'General')}</td>
-        
-        <td class="px-4 py-3.5 text-xs">
-          <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md font-medium text-[11px] border border-slate-200 shadow-sm mr-1.5">${nombreMes}</span>
-          <span class="text-slate-400 block sm:inline mt-0.5 sm:mt-0">${formatoFechaVisual}</span>
-        </td>
-
-        <td class="px-4 py-3.5">
-          <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
-        </td>
-        <td class="px-4 py-3.5 text-right">
-          <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition font-medium">
-            Ver Perfil
-          </button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  tbody.querySelectorAll('.btn-ver-perfil').forEach(btn => {
+  container.querySelectorAll('.btn-ver-perfil').forEach(btn => {
     btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-lead-id')));
   });
 }
@@ -206,15 +243,6 @@ function renderCitasCronologicas() {
   `).join('');
 }
 
-function statusBadgeClass(status) {
-  switch (status) {
-    case 'Pendiente': return 'bg-amber-50 text-amber-700 border border-amber-200';
-    case 'Calificado': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-    case 'Descartado': return 'bg-rose-50 text-rose-700 border border-rose-200';
-    default: return 'bg-indigo-50 text-indigo-700 border border-indigo-100';
-  }
-}
-
 // ------------------------------------------------------------
 // SECCIÓN INVENTARIO (CARS + BOTÓN DE EDICIÓN ✏️)
 // ------------------------------------------------------------
@@ -242,7 +270,6 @@ function renderCarsCounter() {
   }
 }
 
-// LÓGICA BI AVOLUCIONADA: CALCULO DE MÉTRICAS + REPORTE MENSUAL HISTÓRICO + TELEMETRÍA 📈
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
@@ -251,7 +278,6 @@ function calcularMetricasInventario() {
   let valorTotal = 0;
   let gananciasTotales = 0;
 
-  // Estructura limpia para agrupar los 12 meses
   const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const reporteMensual = mesesNombres.map(mes => ({ name: mes, unidades: 0, dinero: 0 }));
 
@@ -260,11 +286,9 @@ function calcularMetricasInventario() {
     if (car.status === 'Vendido') {
       gananciasTotales += precio;
 
-      // Extraer el mes del timestamp 'updated_at' de Supabase
       const fechaVenta = car.updated_at ? new Date(car.updated_at) : new Date(car.created_at);
-      const numeroMes = fechaVenta.getMonth(); // Regresa 0 para Enero, 11 para Diciembre
+      const numeroMes = fechaVenta.getMonth();
       
-      // Acumular si el año corresponde al actual (2026)
       if (fechaVenta.getFullYear() === 2026 && numeroMes >= 0 && numeroMes < 12) {
         reporteMensual[numeroMes].unidades += 1;
         reporteMensual[numeroMes].dinero += precio;
@@ -277,15 +301,7 @@ function calcularMetricasInventario() {
   if (invValorTotalEl) invValorTotalEl.textContent = formatCurrency(valorTotal);
   if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = formatCurrency(gananciasTotales);
 
-  // LOGICA ADICIONAL BI: TELEMETRÍA DE LA TASA DE CONVERSIÓN EN CONSOLA (LISTA PARA MAÑANA)
-  const totalLeads = leadsCache.length;
-  const totalCitas = leadsCache.filter(l => !!l.fecha_cita).length;
-  const tasaConversion = totalLeads > 0 ? ((totalCitas / totalLeads) * 100).toFixed(1) : 0;
-  console.log(`[BI Telemetry] Tasa de Conversión Actual del Lote: ${tasaConversion}%`);
-
-  // INYECCIÓN DINÁMICA DEL REPORTE HISTÓRICO MENSUAL EN EL DOM
   if (mensualesContainer) {
-    // Filtrar para mostrar solo los meses que ya llevan al menos una venta para no saturar visualmente
     const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
 
     if (mesesConVentas.length === 0) {
@@ -348,7 +364,6 @@ function renderCars() {
     `;
   }).join('');
 
-  // Escuchador para marcar como vendido
   tbody.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
     btn.addEventListener('click', async () => {
       const { error } = await supabaseClient.from('cars').update({ status: 'Vendido' }).eq('id', btn.getAttribute('data-action-id'));
@@ -357,16 +372,14 @@ function renderCars() {
     });
   });
 
-  // LOGICA DISPARADORA PARA MAPEAR DATOS AL FORMULARIO DE EDICIÓN ✏️
   tbody.querySelectorAll('.btn-editar-car').forEach(btn => {
     btn.addEventListener('click', () => {
       const carId = btn.getAttribute('data-edit-id');
       const car = carsCache.find(c => String(c.id) === String(carId));
       if (!car) return;
 
-      editingCarId = car.id; // Anclamos el ID global de edición
+      editingCarId = car.id;
 
-      // Volcado de Supabase to Inputs
       document.getElementById('carBrand').value = car.brand || '';
       document.getElementById('carModel').value = car.model || '';
       document.getElementById('carYear').value = car.year || '';
@@ -377,7 +390,6 @@ function renderCars() {
       document.getElementById('carStatus').value = car.status || 'Disponible';
       document.getElementById('carImageUrl').value = car.image_url || '';
       
-      // Ajustes estéticos del modal
       document.getElementById('modalCarTitle').textContent = 'Editar Datos de Unidad';
       document.getElementById('btnSubmitCarForm').textContent = 'Actualizar Cambios en Patio';
       document.getElementById('uploadStatusText').textContent = car.image_url ? 'Imagen de resguardo activa. Suba otra para reemplazar. 🖼️' : '';
@@ -388,7 +400,7 @@ function renderCars() {
 }
 
 // ------------------------------------------------------------
-// DRAWER PERFIL PRO (CON CALIFICACIÓN FINANCIERA)
+// DRAWER PERFIL PRO
 // ------------------------------------------------------------
 function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
@@ -442,7 +454,6 @@ function initSidebarNav() {
   });
 }
 
-// RESTO DEL CORE (DUEÑO, REGISTRO, LOGIN)
 function renderConfigLote() {
   if (!currentLote) return;
   if (document.getElementById('configNombreLote')) document.getElementById('configNombreLote').value = currentLote.nombre || '';
@@ -450,7 +461,6 @@ function renderConfigLote() {
   document.querySelectorAll('.lote-nombre-display').forEach(el => el.textContent = currentLote.nombre);
 }
 
-// MULTI-TENANT STATUS WHATSAPP
 async function checarEstatusWhatsApp() {
   if (!currentLote) return;
   try {
@@ -461,9 +471,7 @@ async function checarEstatusWhatsApp() {
   }
 }
 
-// GUARDIÁN RUTEADOR
 async function checkSessionAndLote() {
-  console.log('[Proyecto 360] Executing session check...');
   try {
     const { data: sessionData, error: sessionErr } = await supabaseClient.auth.getSession();
     if (sessionErr || !sessionData || !sessionData.session) {
@@ -474,7 +482,6 @@ async function checkSessionAndLote() {
     }
 
     currentUser = sessionData.session.user;
-    
     const { data: loteData } = await supabaseClient.from('lotes').select('*').eq('profile_id', currentUser.id);
 
     if (loteData && loteData.length > 0) {
@@ -536,7 +543,6 @@ async function handleRegistroSubmit(e) {
   startSync();
 }
 
-// EVENTOS DOM
 document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
@@ -565,7 +571,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const modalCar = document.getElementById('modalCarOverlay');
   
-  // Resetear el modal a modo CREACIÓN al abrirlo voluntariamente
   document.getElementById('btnAbrirModalCar').addEventListener('click', () => {
     editingCarId = null;
     document.getElementById('formNuevoCar').reset();
@@ -578,7 +583,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   document.getElementById('btnCerrarModalCar').addEventListener('click', () => modalCar.classList.add('hidden'));
 
-  // ESCUCHADOR DE SUBIDA MASIVA POR EXCEL/CSV ARRIBA 📥
   const btnImportar = document.getElementById('btnImportarExcel');
   const fileInput = document.getElementById('excelFileInput');
 
@@ -634,7 +638,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // LOGICA AUTOMATIZADA SUPABASE STORAGE (LINK PÚBLICO) 🖼️
   const imageInput = document.getElementById('carImageFile');
   if (imageInput) {
     imageInput.addEventListener('change', async (e) => {
@@ -654,7 +657,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         .upload(filePath, file);
 
       if (error) {
-        console.error('Storage error details:', error);
         statusText.textContent = 'Fallo de Storage. Valida permisos del Bucket.';
         statusText.className = 'text-[11px] text-rose-500 mt-1 italic';
         return;
@@ -670,7 +672,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // FORMULARIO GENERAL: COMPORTAMIENTO COMBINADO (INSERT / UPDATE) ✏️
   document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentLote) return;
@@ -689,7 +690,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     let response;
-
     if (editingCarId) {
       response = await supabaseClient.from('cars').update(carData).eq('id', editingCarId);
     } else {
@@ -698,7 +698,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (response.error) {
       alert('Error operativo en base de datos al guardar carro.');
-      console.error(response.error);
       return;
     }
 

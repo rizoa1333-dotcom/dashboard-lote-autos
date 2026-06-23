@@ -11,6 +11,7 @@
 </head>
 <body class="bg-[#F8FAFC] text-slate-900 min-h-screen flex flex-col md:flex-row justify-center items-center">
 
+  <!-- VISTA REGISTRO -->
   <main id="view-registro" class="bg-white p-8 rounded-xl border border-[#E2E8F0] shadow-sm max-w-md w-full space-y-6 my-4 mx-4">
     <div class="text-center">
       <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Crea tu cuenta SaaS</h2>
@@ -45,6 +46,7 @@
     <p class="text-center text-xs text-slate-400">¿Ya tienes cuenta? <button type="button" id="to-login-btn" class="text-slate-900 font-medium underline">Inicia sesión</button></p>
   </main>
 
+  <!-- VISTA LOGIN -->
   <main id="view-login" class="bg-white p-8 rounded-xl border border-[#E2E8F0] shadow-sm max-w-md w-full space-y-6 hidden my-4 mx-4">
     <div class="text-center">
       <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Proyecto360</h2>
@@ -70,10 +72,12 @@
     <p class="text-center text-xs text-slate-400">¿Eres un lote nuevo? <button type="button" id="to-registro-btn" class="text-slate-900 font-medium underline">Regístrate aquí</button></p>
   </main>
 
+  <!-- DASHBOARD PRINCIPAL -->
   <div id="view-dashboard" class="w-full min-h-screen flex flex-col md:flex-row hidden self-stretch items-stretch justify-start bg-[#F8FAFC]">
     
     <div id="overlay" class="fixed inset-0 bg-black/20 z-30 hidden"></div>
 
+    <!-- SIDEBAR -->
     <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-64 bg-white border-r border-[#E2E8F0] flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-200">
       <div class="px-6 py-5 flex items-center gap-3 border-b border-[#E2E8F0]">
         <div class="w-9 h-9 rounded-lg bg-[#0F172A] flex items-center justify-center">
@@ -122,6 +126,7 @@
       </div>
     </aside>
 
+    <!-- ÁREA DE CONTENIDO -->
     <div class="flex-1 flex flex-col min-w-0">
       <header class="bg-white border-b border-[#E2E8F0] px-4 md:px-8 h-16 flex items-center gap-4 sticky top-0 z-20">
         <button id="openSidebar" class="md:hidden w-9 h-9 rounded-lg border border-[#E2E8F0] flex items-center justify-center">
@@ -137,8 +142,9 @@
 
       <main class="p-4 md:p-8 space-y-6 flex-1 overflow-y-auto">
         
+        <!-- MONITOR GENERAL CON LAS KPI CARDS AMPLIADAS DE BI -->
         <section id="section-panel" class="dashboard-section space-y-6">
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
               <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Citas Activas</p>
               <p id="citasCount" class="text-3xl font-bold mt-2 text-slate-900">0</p>
@@ -151,31 +157,24 @@
               <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Unidades en Patio</p>
               <p id="carsCount" class="text-3xl font-bold mt-2 text-slate-900">0</p>
             </div>
+            <!-- NUEVA MÉTRICA DE CONVERSIÓN PREMIUM -->
+            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm bg-indigo-50/30 border-indigo-100">
+              <p class="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Conversión Leads a Cita</p>
+              <p id="conversionRateCount" class="text-3xl font-extrabold mt-2 text-indigo-700">0.0%</p>
+            </div>
           </div>
 
-          <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm w-full">
-            <div class="mb-4">
-              <h3 class="font-bold text-slate-800 uppercase tracking-wider text-xs">Monitor General de Leads Calificados por IA</h3>
-              <p class="text-xs text-slate-400">Listado cronológico de prospectos e interés de compra en tiempo real</p>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm text-left">
-                <thead>
-                  <tr class="text-slate-400 border-b border-[#E2E8F0] text-xs uppercase font-semibold">
-                    <th class="px-4 py-3 font-medium">Nombre Completo</th>
-                    <th class="px-4 py-3 font-medium">Teléfono / WhatsApp</th>
-                    <th class="px-4 py-3 font-medium">Auto de Interés</th>
-                    <th class="px-4 py-3 font-medium">Mes / Registro</th>
-                    <th class="px-4 py-3 font-medium">Estatus</th>
-                    <th class="px-4 py-3 font-medium text-right">Acción</th>
-                  </tr>
-                </thead>
-                <tbody id="leadsTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
-              </table>
-            </div>
+          <!-- CONTENEDOR DE MONITORES MENSUALES AGRUPADOS CRONOLÓGICAMENTE -->
+          <div class="mb-4">
+            <h3 class="font-bold text-slate-800 uppercase tracking-wider text-xs">Monitor General de Leads Calificados por IA</h3>
+            <p class="text-xs text-slate-400">Listado cronológico organizado por mes de registro y telemetría en tiempo real</p>
           </div>
+
+          <!-- Aquí el JavaScript inyectará las tablas estructuradas por mes de forma automática -->
+          <div id="leadsGroupedContainer" class="space-y-6"></div>
         </section>
 
+        <!-- SECCIÓN CONTROL DE INVENTARIO -->
         <section id="section-inventario" class="dashboard-section space-y-6 hidden">
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm">
             <div>
@@ -238,6 +237,7 @@
           </div>
         </section>
 
+        <!-- SECCIÓN CITAS AGENDADAS -->
         <section id="section-citas" class="dashboard-section space-y-6 hidden">
           <div class="bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-sm">
             <div class="mb-4">
@@ -248,6 +248,7 @@
           </div>
         </section>
 
+        <!-- SECCIÓN CONFIGURACIÓN -->
         <section id="section-configuracion" class="dashboard-section space-y-6 hidden">
           <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm max-w-md">
             <h3 class="font-bold text-sm text-slate-800 mb-4 uppercase tracking-wider text-xs">Datos de la Cuenta Multi-Tenant</h3>
@@ -270,6 +271,7 @@
     </div>
   </div>
 
+  <!-- DRAWER PERFIL PRO EXTENDIDO -->
   <div id="drawerOverlay" class="fixed inset-0 bg-black/20 z-40 hidden"></div>
   <aside id="drawerPro" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white border-l border-[#E2E8F0] z-50 transform translate-x-full flex flex-col">
     <div class="px-5 h-16 border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0">
@@ -304,6 +306,7 @@
     </div>
   </aside>
 
+  <!-- MODAL AUTOS -->
   <div id="modalCarOverlay" class="fixed inset-0 bg-black/40 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-xl border border-[#E2E8F0] shadow-xl max-w-md w-full p-6 space-y-4">
       <div class="flex justify-between items-center border-b border-slate-100 pb-3">
