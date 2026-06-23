@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (PRO MENSUAL GROUPING + BI ENGINE)
+// PROJECT 360 - dashboard.js (PRO MENSUAL GROUPING + ADVANCED BI)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
@@ -59,7 +59,7 @@ async function fetchAndRenderAll() {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN LEADS (MONITOR TOTALMENTE AGRUPADO POR MES CRONOLÓGICO)
+// SECCIÓN LEADS (MONITOR COMPLETO CON BANNER MENSUAL ARRIBA)
 // ------------------------------------------------------------
 async function fetchLeads() {
   const { data, error } = await supabaseClient
@@ -76,21 +76,19 @@ async function fetchLeads() {
   renderLeadsTable();
   renderCitasCronologicas();
   renderCounters();
+  procesarMetricasBI(); // Ejecución en segundo plano para actualizar el panel de BI
 }
 
 function renderCounters() {
   const leadsCountEl = document.getElementById('leadsCount');
   const citasCountEl = document.getElementById('citasCount');
   const citasBadgeEl = document.getElementById('citasBadge');
-  const conversionRateCountEl = document.getElementById('conversionRateCount');
 
   const totalLeads = leadsCache.length;
   const totalCitas = leadsCache.filter(l => !!l.fecha_cita).length;
-  const tasaConversion = totalLeads > 0 ? ((totalCitas / totalLeads) * 100).toFixed(1) : "0.0";
 
   if (leadsCountEl) leadsCountEl.textContent = totalLeads;
   if (citasCountEl) citasCountEl.textContent = totalCitas;
-  if (conversionRateCountEl) conversionRateCountEl.textContent = `${tasaConversion}%`;
   
   if (citasBadgeEl) {
     if (totalCitas > 0) {
@@ -113,7 +111,7 @@ function renderLeadsTable() {
 
   const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   
-  // Agrupar leads por Nombre de Mes
+  // Agrupar leads por Nombre de Mes de creación
   const leadsAgrupadosPorMes = {};
   leadsCache.forEach(lead => {
     const fecha = lead.created_at ? new Date(lead.created_at) : new Date();
@@ -125,15 +123,13 @@ function renderLeadsTable() {
     leadsAgrupadosPorMes[nombreMes].push(lead);
   });
 
-  // INYECCIÓN VISUAL DE BLOQUES MENSUALES INDEPENDIENTES (ESTILO REQUERIDO)
+  // INYECCIÓN DE BANNER GRIS ARRIBA DE LA TABLA (MÉTODO REQUERIDO)
   container.innerHTML = Object.keys(leadsAgrupadosPorMes).map(mes => `
     <div class="space-y-2.5">
-      <!-- BLOQUE DE CABECERA MENSUAL -->
-      <div class="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-100/80 px-4 py-2 rounded-lg border border-slate-200 inline-block shadow-sm">
+      <div class="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-100/90 px-4 py-2 rounded-lg border border-slate-200 inline-block shadow-sm">
         📅 Registros de ${mes}
       </div>
       
-      <!-- TABLA DEL MES ESPECÍFICO -->
       <div class="bg-white border border-[#E2E8F0] rounded-xl p-2 shadow-sm">
         <div class="overflow-x-auto">
           <table class="w-full text-sm text-left">
@@ -180,6 +176,84 @@ function renderLeadsTable() {
   container.querySelectorAll('.btn-ver-perfil').forEach(btn => {
     btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-lead-id')));
   });
+}
+
+// ------------------------------------------------------------
+// MOTOR PREMIUM DE BUSINESS INTELLIGENCE (MÉTRICAS DEL SAAS) 📊
+// ------------------------------------------------------------
+function procesarMetricasBI() {
+  const tasaConversionEl = document.getElementById('biTasaConversion');
+  const sinIngresosEl = document.getElementById('biSinIngresosRate');
+  const topAutosContainer = document.getElementById('biTopAutosList');
+  const engancheContainer = document.getElementById('biEngancheList');
+
+  const totalLeads = leadsCache.length;
+  if (totalLeads === 0) {
+    if (topAutosContainer) topAutosContainer.innerHTML = '<p class="text-xs text-slate-400 italic">Esperando recolección de leads...</p>';
+    if (engancheContainer)  engancheContainer.innerHTML = '<p class="text-xs text-slate-400 italic">Esperando recolección de leads...</p>';
+    return;
+  }
+
+  // 1. Tasa de Conversión
+  const totalCitas = leadsCache.filter(l => !!l.fecha_cita).length;
+  if (tasaConversionEl) tasaConversionEl.textContent = `${((totalCitas / totalLeads) * 100).toFixed(1)}%`;
+
+  // 2. Riesgo de Ingresos (Opción '3' = No compruebo ingresos)
+  const sinIngresosCount = leadsCache.filter(l => String(l.situacion_laboral) === '3' || String(l.situacion_laboral).toLowerCase().includes('no compruebo')).length;
+  if (sinIngresosEl) sinIngresosEl.textContent = `${((sinIngresosCount / totalLeads) * 100).toFixed(1)}%`;
+
+  // 3. Top Autos Solicitados (Agrupación Avanzada de Strings)
+  const autoContador = {};
+  leadsCache.forEach(l => {
+    if (!l.auto_interes || l.auto_interes === 'General' || l.auto_interes === 'null') return;
+    autoContador[l.auto_interes] = (autoContador[l.auto_interes] || 0) + 1;
+  });
+
+  const autosOrdenados = Object.keys(autoContador)
+    .map(key => ({ modelo: key, cuenta: autoContador[key] }))
+    .sort((a, b) => b.cuenta - a.cuenta)
+    .slice(0, 3); // Top 3
+
+  if (topAutosContainer) {
+    if (autosOrdenados.length === 0) {
+      topAutosContainer.innerHTML = '<p class="text-xs text-slate-400 italic">Falta recolectar modelos de interés en el chat.</p>';
+    } else {
+      topAutosContainer.innerHTML = autosOrdenados.map((a, index) => `
+        <div class="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+          <p class="font-medium text-slate-700 truncate max-w-[200px]"><span class="font-bold text-indigo-600 mr-1.5">#${index+1}</span> ${escapeHtml(a.modelo)}</p>
+          <span class="bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-md border border-indigo-100">${a.cuenta} ${a.cuenta === 1 ? 'búsqueda' : 'búsquedas'}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  // 4. Distribución por Rango de Enganche (Mapeado de Opciones del Bot)
+  let rango1 = 0, rango2 = 0, rango3 = 0;
+  leadsCache.forEach(l => {
+    const e = String(l.enganche);
+    if (e === '1' || l.enganche === '$50,000 a $100,000') rango1++;
+    else if (e === '2' || l.enganche === '$100,000 a $200,000') rango2++;
+    else if (e === '3' || l.enganche === 'Más de $200,000') rango3++;
+  });
+
+  if (engancheContainer) {
+    engancheContainer.innerHTML = `
+      <div class="space-y-2 text-xs text-slate-700">
+        <div class="flex justify-between items-center bg-slate-50 p-2 border border-slate-100 rounded-lg">
+          <p class="font-medium text-slate-500">$50,000 a $100,000</p>
+          <span class="font-extrabold text-slate-800">${rango1} prospectos</span>
+        </div>
+        <div class="flex justify-between items-center bg-emerald-50/40 border border-emerald-100 p-2 rounded-lg">
+          <p class="font-medium text-emerald-600">$100,000 a $200,000</p>
+          <span class="font-extrabold text-emerald-700">${rango2} prospectos</span>
+        </div>
+        <div class="flex justify-between items-center bg-indigo-50/40 border border-indigo-100 p-2 rounded-lg">
+          <p class="font-medium text-indigo-600">Más de $200,000</p>
+          <span class="font-extrabold text-indigo-700">${rango3} prospectos</span>
+        </div>
+      </div>
+    `;
+  }
 }
 
 // ------------------------------------------------------------
@@ -244,7 +318,7 @@ function renderCitasCronologicas() {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN INVENTARIO (CARS + BOTÓN DE EDICIÓN ✏️)
+// SECCIÓN INVENTARIO
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
