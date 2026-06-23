@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (OPTIMIZADO CON HISTÓRICO MENSUAL DE VENTAS)
+// PROJECT 360 - dashboard.js (OPTIMIZADO CON HISTÓRICO BI)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
@@ -59,7 +59,7 @@ async function fetchAndRenderAll() {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN LEADS (MONITOR COMPLETO CRONOLÓGICO)
+// SECCIÓN LEADS (MONITOR COMPLETO CRONOLÓGICO CON MES DE REGISTRO)
 // ------------------------------------------------------------
 async function fetchLeads() {
   const { data, error } = await supabaseClient
@@ -108,22 +108,37 @@ function renderLeadsTable() {
     return;
   }
 
-  tbody.innerHTML = leadsCache.map(lead => `
-    <tr class="hover:bg-slate-50/60 transition border-b border-slate-100">
-      <td class="px-4 py-3.5 font-semibold text-slate-800 text-sm">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</td>
-      <td class="px-4 py-3.5 text-xs text-slate-500 font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
-      <td class="px-4 py-3.5 text-sm font-medium text-indigo-600">${escapeHtml(lead.auto_interes || 'General')}</td>
-      <td class="px-4 py-3.5 text-xs text-slate-400">${formatDateShort(lead.created_at)}</td>
-      <td class="px-4 py-3.5">
-        <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
-      </td>
-      <td class="px-4 py-3.5 text-right">
-        <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition font-medium">
-          Ver Perfil
-        </button>
-      </td>
-    </tr>
-  `).join('');
+  // Estructura limpia para mapear el mes de creación (Igual que en tu inventario)
+  const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+  tbody.innerHTML = leadsCache.map(lead => {
+    // EXTRAER EL MES DEL TIMESTAMP DE SUPABASE
+    const fechaRegistro = lead.created_at ? new Date(lead.created_at) : new Date();
+    const nombreMes = mesesNombres[fechaRegistro.getMonth()];
+    const formatoFechaVisual = `${fechaRegistro.getDate()}-${nombreMes.slice(0, 3)}, ${fechaRegistro.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+
+    return `
+      <tr class="hover:bg-slate-50/60 transition border-b border-slate-100">
+        <td class="px-4 py-3.5 font-semibold text-slate-800 text-sm">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</td>
+        <td class="px-4 py-3.5 text-xs text-slate-500 font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
+        <td class="px-4 py-3.5 text-sm font-medium text-indigo-600">${escapeHtml(lead.auto_interes || 'General')}</td>
+        
+        <td class="px-4 py-3.5 text-xs">
+          <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md font-medium text-[11px] border border-slate-200 shadow-sm mr-1.5">${nombreMes}</span>
+          <span class="text-slate-400 block sm:inline mt-0.5 sm:mt-0">${formatoFechaVisual}</span>
+        </td>
+
+        <td class="px-4 py-3.5">
+          <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
+        </td>
+        <td class="px-4 py-3.5 text-right">
+          <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition font-medium">
+            Ver Perfil
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   tbody.querySelectorAll('.btn-ver-perfil').forEach(btn => {
     btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-lead-id')));
@@ -131,7 +146,7 @@ function renderLeadsTable() {
 }
 
 // ------------------------------------------------------------
-// CITAS AGRUPADAS Y ORDENADAS POR FECHAS 📅 (WHATSAPP INCLUIDO)
+// CITAS AGRUPADAS Y ORDENADAS POR FECHAS 📅
 // ------------------------------------------------------------
 function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
@@ -227,7 +242,7 @@ function renderCarsCounter() {
   }
 }
 
-// LÓGICA BI: CALCULO DE MÉTRICAS + REPORTE MENSUAL HISTÓRICO 📈
+// LÓGICA BI AVOLUCIONADA: CALCULO DE MÉTRICAS + REPORTE MENSUAL HISTÓRICO + TELEMETRÍA 📈
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
@@ -262,6 +277,12 @@ function calcularMetricasInventario() {
   if (invValorTotalEl) invValorTotalEl.textContent = formatCurrency(valorTotal);
   if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = formatCurrency(gananciasTotales);
 
+  // LOGICA ADICIONAL BI: TELEMETRÍA DE LA TASA DE CONVERSIÓN EN CONSOLA (LISTA PARA MAÑANA)
+  const totalLeads = leadsCache.length;
+  const totalCitas = leadsCache.filter(l => !!l.fecha_cita).length;
+  const tasaConversion = totalLeads > 0 ? ((totalCitas / totalLeads) * 100).toFixed(1) : 0;
+  console.log(`[BI Telemetry] Tasa de Conversión Actual del Lote: ${tasaConversion}%`);
+
   // INYECCIÓN DINÁMICA DEL REPORTE HISTÓRICO MENSUAL EN EL DOM
   if (mensualesContainer) {
     // Filtrar para mostrar solo los meses que ya llevan al menos una venta para no saturar visualmente
@@ -273,7 +294,7 @@ function calcularMetricasInventario() {
       mensualesContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
           ${mesesConVentas.map(mes => `
-            <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
+            <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl shadow-sm">
               <div>
                 <p class="text-xs font-bold text-slate-700">${mes.name}</p>
                 <p class="text-[10px] text-slate-400 font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
