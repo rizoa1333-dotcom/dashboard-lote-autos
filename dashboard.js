@@ -76,7 +76,7 @@ async function fetchLeads() {
   renderLeadsTable();
   renderCitasCronologicas();
   renderCounters();
-  procesarMetricasBI(); // Ejecución en segundo plano para actualizar el panel de BI
+  procesarMetricasBI(); // Dynamic BI Update
 }
 
 function renderCounters() {
@@ -202,7 +202,7 @@ function procesarMetricasBI() {
   const sinIngresosCount = leadsCache.filter(l => String(l.situacion_laboral) === '3' || String(l.situacion_laboral).toLowerCase().includes('no compruebo')).length;
   if (sinIngresosEl) sinIngresosEl.textContent = `${((sinIngresosCount / totalLeads) * 100).toFixed(1)}%`;
 
-  // 3. Top Autos Solicitados (Agrupación Avanzada de Strings)
+  // 3. Top Autos Solicitados
   const autoContador = {};
   leadsCache.forEach(l => {
     if (!l.auto_interes || l.auto_interes === 'General' || l.auto_interes === 'null') return;
@@ -212,7 +212,7 @@ function procesarMetricasBI() {
   const autosOrdenados = Object.keys(autoContador)
     .map(key => ({ modelo: key, cuenta: autoContador[key] }))
     .sort((a, b) => b.cuenta - a.cuenta)
-    .slice(0, 3); // Top 3
+    .slice(0, 3);
 
   if (topAutosContainer) {
     if (autosOrdenados.length === 0) {
@@ -227,7 +227,7 @@ function procesarMetricasBI() {
     }
   }
 
-  // 4. Distribución por Rango de Enganche (Mapeado de Opciones del Bot)
+  // 4. Distribución por Rango de Enganche
   let rango1 = 0, rango2 = 0, rango3 = 0;
   leadsCache.forEach(l => {
     const e = String(l.enganche);
@@ -317,8 +317,17 @@ function renderCitasCronologicas() {
   `).join('');
 }
 
+function statusBadgeClass(status) {
+  switch (status) {
+    case 'Pendiente': return 'bg-amber-50 text-amber-700 border border-amber-200';
+    case 'Calificado': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+    case 'Descartado': return 'bg-rose-50 text-rose-700 border border-rose-200';
+    default: return 'bg-indigo-50 text-indigo-700 border border-indigo-100';
+  }
+}
+
 // ------------------------------------------------------------
-// SECCIÓN INVENTARIO
+// RESTO DEL CORE (INVENTARIO, RUTEADOR, LOGIN, EVENTOS)
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -473,9 +482,6 @@ function renderCars() {
   });
 }
 
-// ------------------------------------------------------------
-// DRAWER PERFIL PRO
-// ------------------------------------------------------------
 function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
@@ -746,7 +752,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
+  document.getElementById('carDataSubmit') || document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentLote) return;
 
