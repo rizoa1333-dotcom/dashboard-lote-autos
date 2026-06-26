@@ -20,6 +20,7 @@ let syncIntervalId = null;
 
 let leadsCache = [];
 let carsCache = [];
+let citasCache = []; // Guardián global para el almacenamiento de citas 📅
 let editingCarId = null; // Guardián global para controlar el modo edición de autos ✏️
 
 // Cambiador Global de Vistas SPA
@@ -52,14 +53,15 @@ async function fetchAndRenderAll() {
     return;
   }
   try {
-    await Promise.all([fetchLeads(), fetchCars()]);
+    // Sincronización triple en paralelo de la base de datos
+    await Promise.all([fetchLeads(), fetchCars(), fetchCitasReal()]);
   } catch (err) {
     console.error('[Sync Core] Error de refresco automatizado:', err);
   }
 }
 
 // ------------------------------------------------------------
-// SECCIÓN LEADS (MONITOR COMPLETO CON BANNER MENSUAL ARRIBA)
+// SECCIÓN LEADS (MONITOR DE PROSPECTOS GENERALES)
 // ------------------------------------------------------------
 async function fetchLeads() {
   const { data, error } = await supabaseClient
@@ -74,9 +76,27 @@ async function fetchLeads() {
   }
   leadsCache = data || [];
   renderLeadsTable();
-  renderCitasCronologicas();
   renderCounters();
   procesarMetricasBI(); // Dynamic BI Update
+}
+
+// ------------------------------------------------------------
+// SECCIÓN CITAS REALES (EXTRACCIÓN MULTI-TENANT DIRECTA) 📅
+// ------------------------------------------------------------
+async function fetchCitasReal() {
+  const { data, error } = await supabaseClient
+    .from('citas')
+    .select('*')
+    .eq('lote_id', currentLote.id)
+    .order('fecha_cita', { ascending: true });
+
+  if (error) {
+    console.error('[Citas Engine] Error de consulta a tabla citas:', error);
+    return;
+  }
+  citasCache = data || [];
+  renderCitasCronologicas();
+  renderCounters();
 }
 
 function renderCounters() {
@@ -85,7 +105,7 @@ function renderCounters() {
   const citasBadgeEl = document.getElementById('citasBadge');
 
   const totalLeads = leadsCache.length;
-  const totalCitas = leadsCache.filter(l => !!l.fecha_cita).length;
+  const totalCitas = citasCache.length; // Cuenta real de la tabla citas
 
   if (leadsCountEl) leadsCountEl.textContent = totalLeads;
   if (citasCountEl) citasCountEl.textContent = totalCitas;
@@ -111,7 +131,6 @@ function renderLeadsTable() {
 
   const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   
-  // Agrupar leads por Nombre de Mes de creación
   const leadsAgrupadosPorMes = {};
   leadsCache.forEach(lead => {
     const fecha = lead.created_at ? new Date(lead.created_at) : new Date();
@@ -123,7 +142,6 @@ function renderLeadsTable() {
     leadsAgrupadosPorMes[nombreMes].push(lead);
   });
 
-  // INYECCIÓN DE BANNER GRIS ARRIBA DE LA TABLA (MÉTODO REQUERIDO)
   container.innerHTML = Object.keys(leadsAgrupadosPorMes).map(mes => `
     <div class="space-y-2.5">
       <div class="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-100/90 px-4 py-2 rounded-lg border border-slate-200 inline-block shadow-sm">
@@ -194,8 +212,8 @@ function procesarMetricasBI() {
     return;
   }
 
-  // 1. Tasa de Conversión
-  const totalCitas = leadsCache.filter(l => !!l.fecha_cita).length;
+  // 1. Tasa de Conversión Real (Basada en volumen de la tabla citas)
+  const totalCitas = citasCache.length;
   if (tasaConversionEl) tasaConversionEl.textContent = `${((totalCitas / totalLeads) * 100).toFixed(1)}%`;
 
   // 2. Riesgo de Ingresos (Opción '3' = No compruebo ingresos)
@@ -257,15 +275,14 @@ function procesarMetricasBI() {
 }
 
 // ------------------------------------------------------------
-// CITAS AGRUPADAS Y ORDENADAS POR FECHAS 📅
+// CITAS AGRUPADAS Y ORDENADAS POR FECHAS (CORREGIDO PARA TABLA CITAS) 📅
 // ------------------------------------------------------------
 function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
   if (!container) return;
 
-  const citas = leadsCache
-    .filter(l => !!l.fecha_cita)
-    .sort((a, b) => new Date(a.fecha_cita) - new Date(b.fecha_cita));
+  // Renderizar usando la memoria exclusiva de la tabla citas
+  const citas = citasCache;
 
   if (citas.length === 0) {
     container.innerHTML = '<p class="text-xs text-slate-400 p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
@@ -274,7 +291,10 @@ function renderCitasCronologicas() {
 
   const citasAgrupadas = {};
   citas.forEach(cita => {
-    const fechaObj = new Date(cita.fecha_cita);
+    if (!cita.fecha_cita) return;
+    
+    // Convertimos la fecha limpia (YYYY-MM-DD) forzando el huso horario local para evitar desajustes
+    const fechaObj = new Date(cita.fecha_cita + 'T00:00:00');
     const diaTexto = fechaObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     
     if (!citasAgrupadas[diaTexto]) {
@@ -287,16 +307,17 @@ function renderCitasCronologicas() {
     <div class="space-y-2">
       <div class="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">${dia}</div>
       <div class="grid grid-cols-1 gap-2 pl-1">
-        ${citasAgrupadas[dia].map(lead => {
-          const hora = new Date(lead.fecha_cita).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-          const numeroLimpio = lead.phone_number || lead.telefono || '';
+        ${citasAgrupadas[dia].map(cita => {
+          // Parsea la hora de Postgres (HH:mm:ss) de forma segura tomándole los primeros 5 caracteres (HH:mm)
+          const horaVisual = cita.hora_cita ? cita.hora_cita.slice(0, 5) : '12:00';
+          const numeroLimpio = cita.telefono || '';
           const linkWhatsApp = numeroLimpio ? `https://wa.me/${numeroLimpio}` : '#';
 
           return `
             <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl hover:shadow-sm transition">
               <div>
-                <p class="font-semibold text-sm text-slate-800">${escapeHtml(lead.nombre || 'Cliente Patio')}</p>
-                <p class="text-xs text-slate-400 font-mono">${escapeHtml(numeroLimpio)} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(lead.auto_interes || 'General')}</span></p>
+                <p class="font-semibold text-sm text-slate-800">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
+                <p class="text-xs text-slate-400 font-mono">${escapeHtml(numeroLimpio)} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
               </div>
               
               <div class="flex items-center gap-2">
@@ -307,7 +328,7 @@ function renderCitasCronologicas() {
                     </svg>
                   </a>
                 ` : ''}
-                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">${hora} hrs</span>
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">${horaVisual} hrs</span>
               </div>
             </div>
           `;
@@ -327,7 +348,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// RESTO DEL CORE (INVENTARIO, RUTEADOR, LOGIN, EVENTOS)
+// SECCIÓN INVENTARIO (CONTROL GLOBAL DE UNIDADES) 🏎️
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -482,14 +503,28 @@ function renderCars() {
   });
 }
 
+// ------------------------------------------------------------
+// MODAL DRAWER (PERFIL DE PROSPECTO EXTENDIDO)
+// ------------------------------------------------------------
 function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
+  // Intentamos vincular de forma dinámica si este lead cuenta con una cita en la tabla 'citas'
+  const citaAsociada = citasCache.find(c => String(c.telefono) === String(lead.phone_number || lead.telefono));
+
   document.getElementById('drawerNombre').textContent = lead.nombre || '---';
   document.getElementById('drawerTelefono').textContent = lead.phone_number || lead.telefono || '---';
   document.getElementById('drawerStatus').textContent = lead.status || '---';
-  document.getElementById('drawerFechaCita').textContent = formatDate(lead.fecha_cita);
+  
+  // Renderizado dinámico de la fecha de la cita desde la tabla cruzada citas
+  if (citaAsociada && citaAsociada.fecha_cita) {
+    const horaClean = citaAsociada.hora_cita ? citaAsociada.hora_cita.slice(0, 5) : '12:00';
+    document.getElementById('drawerFechaCita').textContent = `${citaAsociada.fecha_cita} a las ${horaClean} hrs`;
+  } else {
+    document.getElementById('drawerFechaCita').textContent = '---';
+  }
+
   document.getElementById('drawerInteres').textContent = lead.auto_interes || '---';
   document.getElementById('drawerUltimoMensaje').textContent = lead.ultimo_mensaje || 'Conversación activa en WhatsApp';
   document.getElementById('drawerNotas').textContent = lead.notes || lead.notas || 'Sin anotaciones del bot.';
