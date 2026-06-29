@@ -338,12 +338,18 @@ function renderCitasCronologicas() {
   `).join('');
 }
 
+// FORMATOS VISUALES PARA LOS NUEVOS ESTADOS DE PRE-PERFILACIÓN MULTIMEDIA 🎨
 function statusBadgeClass(status) {
   switch (status) {
     case 'Pendiente': return 'bg-amber-50 text-amber-700 border border-amber-200';
     case 'Calificado': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
     case 'Descartado': return 'bg-rose-50 text-rose-700 border border-rose-200';
-    default: return 'bg-indigo-50 text-indigo-700 border border-indigo-100';
+    // Estilos personalizados premium para los nuevos estados multimedia de n8n
+    case 'Esperando_INE': return 'bg-indigo-50 text-indigo-700 border border-indigo-200 animate-pulse';
+    case 'Esperando_Domicilio': return 'bg-purple-50 text-purple-700 border border-purple-200 animate-pulse';
+    case 'Esperando_Ingresos': return 'bg-cyan-50 text-cyan-700 border border-cyan-200 animate-pulse';
+    case 'Completado': return 'bg-emerald-600 text-white border border-emerald-700 font-extrabold';
+    default: return 'bg-slate-100 text-slate-700 border border-slate-200';
   }
 }
 
@@ -504,20 +510,18 @@ function renderCars() {
 }
 
 // ------------------------------------------------------------
-// MODAL DRAWER (PERFIL DE PROSPECTO EXTENDIDO)
+// MODAL DRAWER (PERFIL DE PROSPECTO EXTENDIDO + RENDER OCR MULTIMEDIA)
 // ------------------------------------------------------------
 function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
-  // Intentamos vincular de forma dinámica si este lead cuenta con una cita en la tabla 'citas'
   const citaAsociada = citasCache.find(c => String(c.telefono) === String(lead.phone_number || lead.telefono));
 
   document.getElementById('drawerNombre').textContent = lead.nombre || '---';
   document.getElementById('drawerTelefono').textContent = lead.phone_number || lead.telefono || '---';
   document.getElementById('drawerStatus').textContent = lead.status || '---';
   
-  // Renderizado dinámico de la fecha de la cita desde la tabla cruzada citas
   if (citaAsociada && citaAsociada.fecha_cita) {
     const horaClean = citaAsociada.hora_cita ? citaAsociada.hora_cita.slice(0, 5) : '12:00';
     document.getElementById('drawerFechaCita').textContent = `${citaAsociada.fecha_cita} a las ${horaClean} hrs`;
@@ -546,6 +550,24 @@ function openDrawer(leadId) {
     else textoSituacion = lead.situacion_laboral;
   }
   document.getElementById('drawerSituacion').textContent = textoSituacion;
+
+  // REGLAS FRONTEND: EXPEDIENTE DIGITAL ASOCIADO A N8N MULTIMEDIA
+  const expedienteContainer = document.getElementById('drawerExpedienteDocs');
+  if (expedienteContainer) {
+    const docIneHtml = lead.url_ine 
+      ? `<a href="${lead.url_ine}" target="_blank" class="w-full flex items-center justify-between bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100/70 transition"><span>🪪 Identificación (INE)</span> <span class="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded">Ver Archivo</span></a>`
+      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100"><span>🪪 Identificación (INE)</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
+
+    const docDomicilioHtml = lead.url_comprobante_domicilio 
+      ? `<a href="${lead.url_comprobante_domicilio}" target="_blank" class="w-full flex items-center justify-between bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100/70 transition"><span>🏡 Comprobante Domicilio</span> <span class="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded">Ver Archivo</span></a>`
+      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100"><span>🏡 Comprobante Domicilio</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
+
+    const docIngresosHtml = lead.url_comprobante_ingresos 
+      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100/70 transition"><span>📊 Estados de Cuenta</span> <span class="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded">Ver Archivo</span></a>`
+      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100"><span>📊 Estados de Cuenta</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
+
+    expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
+  }
 
   document.getElementById('drawerPro').classList.add('drawer-open');
   document.getElementById('drawerOverlay').classList.remove('hidden');
