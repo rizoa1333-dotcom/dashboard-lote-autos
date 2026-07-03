@@ -22,6 +22,7 @@ let leadsCache = [];
 let carsCache = [];
 let citasCache = []; // Guardián global para el almacenamiento de citas 📅
 let editingCarId = null; // Guardián global para controlar el modo edición de autos ✏️
+let activeLeadId = null; // MEJORA 3: Guardián del lead activo en pantalla para el live chat live tracking 🛰️
 
 // Cambiador Global de Vistas SPA
 function showView(viewId) {
@@ -55,6 +56,11 @@ async function fetchAndRenderAll() {
   try {
     // Sincronización triple en paralelo de la base de datos
     await Promise.all([fetchLeads(), fetchCars(), fetchCitasReal()]);
+    
+    // MEJORA 3: Si el dueño tiene abierto un expediente, refresca el chat automáticamente en segundo plano
+    if (activeLeadId) {
+      await refreshChatLive(activeLeadId);
+    }
   } catch (err) {
     console.error('[Sync Core] Error de refresco automatizado:', err);
   }
@@ -167,9 +173,20 @@ function renderLeadsTable() {
                 const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
                 const diaVisual = fechaReg.getDate();
                 
+                // MEJORA 2: Validación visual si el lead ya cargó algún documento multimedia desde n8n
+                const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
+                const badgeDocumentos = tieneDocumentos 
+                  ? `<span class="ml-2 inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-md shadow-xs">📎 Papeles Recibidos</span>`
+                  : '';
+                
                 return `
                   <tr class="hover:bg-slate-50/60 transition">
-                    <td class="px-4 py-3.5 font-semibold text-slate-800 text-sm">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</td>
+                    <td class="px-4 py-3.5 font-semibold text-slate-800 text-sm">
+                      <div class="flex items-center justify-start flex-wrap gap-1">
+                        <span>${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</span>
+                        ${badgeDocumentos}
+                      </div>
+                    </td>
                     <td class="px-4 py-3.5 text-xs text-slate-500 font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
                     <td class="px-4 py-3.5 text-sm font-medium text-indigo-600">${escapeHtml(lead.auto_interes || 'General')}</td>
                     <td class="px-4 py-3.5 text-xs text-slate-400">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
@@ -177,7 +194,7 @@ function renderLeadsTable() {
                       <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
                     </td>
                     <td class="px-4 py-3.5 text-right">
-                      <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition font-medium">
+                      <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition font-medium cursor-pointer">
                         Ver Perfil
                       </button>
                     </td>
@@ -275,13 +292,12 @@ function procesarMetricasBI() {
 }
 
 // ------------------------------------------------------------
-// CITAS AGRUPADAS Y ORDENADAS POR FECHAS (CORREGIDO PARA TABLA CITAS) 📅
+// CITAS AGRUPADAS Y ORDENADAS POR FECHAS (MEJORA 1: AUTONOMÍA COMPLETA) 📅
 // ------------------------------------------------------------
 function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
   if (!container) return;
 
-  // Renderizar usando la memoria exclusiva de la tabla citas
   const citas = citasCache;
 
   if (citas.length === 0) {
@@ -293,7 +309,6 @@ function renderCitasCronologicas() {
   citas.forEach(cita => {
     if (!cita.fecha_cita) return;
     
-    // Convertimos la fecha limpia (YYYY-MM-DD) forzando el huso horario local para evitar desajustes
     const fechaObj = new Date(cita.fecha_cita + 'T00:00:00');
     const diaTexto = fechaObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     
@@ -308,27 +323,21 @@ function renderCitasCronologicas() {
       <div class="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">${dia}</div>
       <div class="grid grid-cols-1 gap-2 pl-1">
         ${citasAgrupadas[dia].map(cita => {
-          // Parsea la hora de Postgres (HH:mm:ss) de forma segura tomándole los primeros 5 caracteres (HH:mm)
           const horaVisual = cita.hora_cita ? cita.hora_cita.slice(0, 5) : '12:00';
-          const numeroLimpio = cita.telefono || '';
-          const linkWhatsApp = numeroLimpio ? `https://wa.me/${numeroLimpio}` : '#';
 
+          // MEJORA 1: Remoción total del botón de link externo de WhatsApp e inyección de botón de Liberar Horario
           return `
             <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl hover:shadow-sm transition">
               <div>
                 <p class="font-semibold text-sm text-slate-800">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
-                <p class="text-xs text-slate-400 font-mono">${escapeHtml(numeroLimpio)} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
+                <p class="text-xs text-slate-400 font-mono">Tel: ${escapeHtml(cita.telefono || 'Sin número')} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
               </div>
               
-              <div class="flex items-center gap-2">
-                ${numeroLimpio ? `
-                  <a href="${linkWhatsApp}" target="_blank" class="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-lg transition-colors flex items-center justify-center shadow-sm" title="Contactar por WhatsApp">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.006 5.291 5.303 0 11.802 0c3.148.001 6.107 1.226 8.332 3.454a11.751 11.751 0 0 1 3.453 8.353c-.006 6.509-5.303 11.799-11.802 11.799-1.996-.001-3.956-.508-5.701-1.474L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.432.001 9.851-4.395 9.856-9.799.002-2.618-1.013-5.08-2.859-6.93C16.378 2.025 13.926.983 11.317.983c-5.433 0-9.85 4.397-9.855 9.802-.001 1.763.481 3.322 1.393 4.821L1.87 21.077l5.777-1.513zm12.333-5.01c-.296-.149-1.754-.867-2.024-.966-.271-.099-.467-.149-.664.149-.197.297-.763.966-.934 1.164-.173.199-.344.223-.64.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.664-1.6-.91-2.193-.239-.574-.482-.496-.664-.505-.172-.009-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.877 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.754-.717 2.001-1.409.248-.693.248-1.288.173-1.409-.074-.122-.272-.198-.57-.347z"/>
-                    </svg>
-                  </a>
-                ` : ''}
+              <div class="flex items-center gap-3">
                 <span class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">${horaVisual} hrs</span>
+                <button data-cita-id="${cita.id}" class="btn-cancelar-cita bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white p-1.5 rounded-lg transition border border-rose-100 flex items-center justify-center cursor-pointer shadow-xs" title="Liberar Horario Ocupado">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
               </div>
             </div>
           `;
@@ -336,15 +345,28 @@ function renderCitasCronologicas() {
       </div>
     </div>
   `).join('');
+
+  // MEJORA 1: Listener asíncrono para detonar la liberación de horarios en Supabase
+  container.querySelectorAll('.btn-cancelar-cita').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const citaId = btn.getAttribute('data-cita-id');
+      if (!confirm('¿Seguro que deseas cancelar esta cita y liberar el horario para que el bot pueda volver a agendar?')) return;
+      
+      const { error } = await supabaseClient.from('citas').delete().eq('id', citaId);
+      if (error) {
+        alert('Error operativo al cancelar cita.');
+        return;
+      }
+      await fetchCitasReal();
+    });
+  });
 }
 
-// FORMATOS VISUALES PARA LOS NUEVOS ESTADOS DE PRE-PERFILACIÓN MULTIMEDIA 🎨
 function statusBadgeClass(status) {
   switch (status) {
     case 'Pendiente': return 'bg-amber-50 text-amber-700 border border-amber-200';
     case 'Calificado': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
     case 'Descartado': return 'bg-rose-50 text-rose-700 border border-rose-200';
-    // Estilos personalizados premium para los nuevos estados multimedia de n8n
     case 'Esperando_INE': return 'bg-indigo-50 text-indigo-700 border border-indigo-200 animate-pulse';
     case 'Esperando_Domicilio': return 'bg-purple-50 text-purple-700 border border-purple-200 animate-pulse';
     case 'Esperando_Ingresos': return 'bg-cyan-50 text-cyan-700 border border-cyan-200 animate-pulse';
@@ -396,10 +418,12 @@ function calcularMetricasInventario() {
     if (car.status === 'Vendido') {
       gananciasTotales += precio;
 
+      // CORRECCIÓN: Métodos UTC nativos para evitar rebotes de zona horaria en la facturación mensual
       const fechaVenta = car.updated_at ? new Date(car.updated_at) : new Date(car.created_at);
-      const numeroMes = fechaVenta.getMonth();
+      const numeroMes = fechaVenta.getUTCMonth();
+      const anioVenta = fechaVenta.getUTCFullYear();
       
-      if (fechaVenta.getFullYear() === 2026 && numeroMes >= 0 && numeroMes < 12) {
+      if (anioVenta === 2026 && numeroMes >= 0 && numeroMes < 12) {
         reporteMensual[numeroMes].unidades += 1;
         reporteMensual[numeroMes].dinero += precio;
       }
@@ -516,18 +540,18 @@ async function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
+  // MEJORA 3: Registrar el ID del lead activo en la memoria global del ecosistema
+  activeLeadId = lead.id;
+
   const citaAsociada = citasCache.find(c => String(c.telefono) === String(lead.phone_number || lead.telefono));
 
-  // Inyección de Meta-data estática e identificadores
   document.getElementById('crmLeadIdDisplay').textContent = lead.id ? String(lead.id).slice(-8).toUpperCase() : '---';
   document.getElementById('drawerNombre').textContent = lead.nombre || '---';
   document.getElementById('drawerTelefono').textContent = lead.phone_number || lead.telefono || '---';
   
-  // Setear Iniciales del Avatar para look empresarial
   const iniciales = (lead.nombre || 'P W').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   document.getElementById('crmAvatarInitials').textContent = iniciales;
 
-  // Render Status con Estilos Dinámicos
   const statusEl = document.getElementById('drawerStatus');
   statusEl.textContent = lead.status || 'Calificado';
   statusEl.className = `inline-block text-[10px] font-black px-2.5 py-0.5 rounded-full tracking-wide uppercase mt-1 ${statusBadgeClass(lead.status)}`;
@@ -561,7 +585,6 @@ async function openDrawer(leadId) {
   }
   document.getElementById('drawerSituacion').textContent = textoSituacion;
 
-  // REGLAS FRONTEND: EXPEDIENTE DIGITAL ASOCIADO A N8N MULTIMEDIA
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
   if (expedienteContainer) {
     const docIneHtml = lead.url_ine 
@@ -579,60 +602,74 @@ async function openDrawer(leadId) {
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
   }
 
-  // EXTRACCIÓN DINÁMICA DEL HISTORIAL DEL CHAT DESDE SUPABASE 💬
-  const chatContainer = document.getElementById('crmChatHistoryContainer');
-  if (chatContainer) {
-    chatContainer.innerHTML = '<div class="text-slate-400 text-center italic py-4 animate-pulse">Sincronizando chat encriptado...</div>';
-    
-    const phoneFilter = lead.phone_number || lead.telefono;
-    const { data: messages, error: chatErr } = await supabaseClient
-      .from('chat_history')
-      .select('*')
-      .eq('phone_number', phoneFilter)
-      .order('created_at', { ascending: true });
-
-    if (chatErr) {
-      console.error('[CRM Chat Error]:', chatErr);
-      chatContainer.innerHTML = '<div class="text-rose-500 text-center italic py-2">Error al recuperar telemetría de conversación.</div>';
-    } else if (!messages || messages.length === 0) {
-      chatContainer.innerHTML = `
-        <div class="my-auto text-center space-y-2 p-6">
-          <p class="text-slate-400 font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
-          <p class="text-[11px] text-slate-400 bg-white border border-slate-200 rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
-        </div>`;
-    } else {
-      chatContainer.innerHTML = messages.map(msg => {
-        // Validación del rol del mensaje para pintar la interfaz
-        const isBot = String(msg.role).toLowerCase() === 'assistant' || String(msg.role).toLowerCase() === 'bot' || !!msg.response;
-        const textContent = msg.message || msg.content || msg.response || '---';
-        
-        if (isBot) {
-          return `
-            <div class="self-start max-w-[85%] bg-white border border-slate-200 text-slate-800 p-3 rounded-2xl rounded-tl-none shadow-xs space-y-1">
-              <p class="font-bold text-[10px] text-indigo-600 uppercase tracking-wide">🤖 Cerebro IA</p>
-              <p class="leading-relaxed select-text">${escapeHtml(textContent)}</p>
-            </div>
-          `;
-        } else {
-          return `
-            <div class="self-end max-w-[85%] bg-slate-900 text-white p-3 rounded-2xl rounded-tr-none shadow-xs space-y-1 text-right">
-              <p class="font-bold text-[10px] text-slate-400 uppercase tracking-wide">👤 Prospecto</p>
-              <p class="leading-relaxed text-left select-text">${escapeHtml(textContent)}</p>
-            </div>
-          `;
-        }
-      }).join('');
-      
-      // Auto-scroll al último mensaje del feed
-      setTimeout(() => { chatContainer.scrollTop = chatContainer.scrollHeight; }, 50);
-    }
-  }
+  // Ejecución inicial del renderizador del chat
+  await refreshChatLive(lead.id);
 
   document.getElementById('drawerPro').classList.add('drawer-open');
   document.getElementById('drawerOverlay').classList.remove('hidden');
 }
 
+// MEJORA 3: Función asíncrona dedicada exclusiva para alimentar el chat live tracking continuo sin parpadeos
+async function refreshChatLive(leadId) {
+  const lead = leadsCache.find(l => String(l.id) === String(leadId));
+  if (!lead) return;
+
+  const chatContainer = document.getElementById('crmChatHistoryContainer');
+  if (!chatContainer) return;
+
+  const phoneFilter = lead.phone_number || lead.telefono;
+  const { data: messages, error: chatErr } = await supabaseClient
+    .from('chat_history')
+    .select('*')
+    .eq('phone_number', phoneFilter)
+    .order('created_at', { ascending: true });
+
+  if (chatErr) {
+    console.error('[CRM Live Chat Error]:', chatErr);
+    return;
+  }
+
+  if (!messages || messages.length === 0) {
+    chatContainer.innerHTML = `
+      <div class="my-auto text-center space-y-2 p-6">
+        <p class="text-slate-400 font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
+        <p class="text-[11px] text-slate-400 bg-white border border-slate-200 rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
+      </div>`;
+    return;
+  }
+
+  // Guardar posición del scroll antes de actualizar para no jalonear la pantalla si el usuario lee hacia arriba
+  const despegadoDelFondo = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight > 100;
+
+  chatContainer.innerHTML = messages.map(msg => {
+    const isBot = String(msg.role).toLowerCase() === 'assistant' || String(msg.role).toLowerCase() === 'bot' || !!msg.response;
+    const textContent = msg.message || msg.content || msg.response || '---';
+    
+    if (isBot) {
+      return `
+        <div class="self-start max-w-[85%] bg-white border border-slate-200 text-slate-800 p-3 rounded-2xl rounded-tl-none shadow-xs space-y-1">
+          <p class="font-bold text-[10px] text-indigo-600 uppercase tracking-wide">🤖 Cerebro IA</p>
+          <p class="leading-relaxed select-text">${escapeHtml(textContent)}</p>
+        </div>
+      `;
+    } else {
+      return `
+        <div class="self-end max-w-[85%] bg-slate-900 text-white p-3 rounded-2xl rounded-tr-none shadow-xs space-y-1 text-right">
+          <p class="font-bold text-[10px] text-slate-400 uppercase tracking-wide">👤 Prospecto</p>
+          <p class="leading-relaxed text-left select-text">${escapeHtml(textContent)}</p>
+        </div>
+      `;
+    }
+  }).join('');
+  
+  // Auto-scroll inteligente: Solo baja si el usuario estaba leyendo los últimos mensajes
+  if (!despegadoDelFondo) {
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+}
+
 function closeDrawer() {
+  activeLeadId = null; // MEJORA 3: Limpiar el puntero global para detener consultas del chat en segundo plano
   document.getElementById('drawerPro').classList.remove('drawer-open');
   document.getElementById('drawerOverlay').classList.add('hidden');
 }
