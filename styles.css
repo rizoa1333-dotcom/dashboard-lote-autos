@@ -50,16 +50,20 @@
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
-/* Clases del Drawer Lateral Derecho */
+/* Clases del Ultra-CRM Lateral Derecho Avanzado */
 #drawerPro {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .drawer-open {
   transform: translateX(0) !important;
+}
+
+/* Estilo premium de scroll exclusivo para el feed de WhatsApp */
+#crmChatHistoryContainer {
+  scroll-behavior: smooth;
 }
 
 /* Enfoque de campos globales */

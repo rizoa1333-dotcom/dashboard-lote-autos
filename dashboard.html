@@ -28,7 +28,7 @@
       </div>
       <hr class="border-[#E2E8F0]">
       <div>
-        <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider">Correo Administrador</label>
+        <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider">Correo Administrator</label>
         <input type="email" id="registroEmail" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="correo@ejemplo.com">
       </div>
       <div>
@@ -296,43 +296,113 @@
     </div>
   </div>
 
-  <div id="drawerOverlay" class="fixed inset-0 bg-black/20 z-40 hidden"></div>
-  <aside id="drawerPro" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white border-l border-[#E2E8F0] z-50 transform translate-x-full flex flex-col">
-    <div class="px-5 h-16 border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0">
+  <!-- PANEL ULTRA-PREMIUM: FICHA DE CONFIGURACIÓN DE LEAD EN 3 COLUMNAS TIPO CRM ENTERPRISE -->
+  <div id="drawerOverlay" class="fixed inset-0 bg-black/40 z-40 hidden backdrop-blur-xs transition-opacity"></div>
+  <aside id="drawerPro" class="fixed top-0 right-0 h-full w-full lg:w-[85vw] bg-[#F8FAFC] border-l border-[#E2E8F0] z-50 transform translate-x-full flex flex-col shadow-2xl transition-transform duration-300">
+    <!-- Encabezado de Acción Rápida -->
+    <div class="px-6 h-16 bg-white border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0 z-10 shadow-xs">
       <div>
-        <p class="font-bold text-sm text-slate-900">Perfil del Prospecto Extendido</p>
-        <p class="text-xs text-slate-400 font-mono">Telemetría de Lead Disparado</p>
+        <p class="font-bold text-base text-slate-900 tracking-tight flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          Expediente Comercial Unificado (SaaS CRM)
+        </p>
+        <p class="text-xs text-slate-400 font-mono tracking-wide">ID Lead Enlazado: <span id="crmLeadIdDisplay" class="font-bold">---</span></p>
       </div>
-      <button id="closeDrawerBtn" class="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-slate-400 hover:text-slate-600">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <button id="closeDrawerBtn" class="w-9 h-9 rounded-xl border border-[#E2E8F0] bg-white flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition shadow-xs cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div class="p-5 border-b border-[#E2E8F0] space-y-3.5 bg-slate-50/50 text-sm text-slate-700 overflow-y-auto flex-1">
-      <p class="border-b border-slate-100 pb-1.5"><strong>Nombre:</strong> <span id="drawerNombre" class="text-slate-900 font-medium ml-1">---</span></p>
-      <p class="border-b border-slate-100 pb-1.5"><strong>Teléfono:</strong> <span id="drawerTelefono" class="text-slate-600 font-mono ml-1">---</span></p>
-      <p class="border-b border-slate-100 pb-1.5"><strong>Estatus Comercial:</strong> <span id="drawerStatus" class="ml-1 font-semibold">---</span></p>
-      <p class="border-b border-slate-100 pb-1.5"><strong>Fecha Cita:</strong> <span id="drawerFechaCita" class="text-indigo-600 font-medium ml-1">---</span></p>
-      <p class="border-b border-slate-100 pb-1.5"><strong>Auto de Interés:</strong> <span id="drawerInteres" class="text-slate-900 font-medium ml-1">---</span></p>
-      <p class="border-b border-slate-100 pb-1.5"><strong>Monto Enganche:</strong> <span id="drawerEnganche" class="text-emerald-600 font-semibold ml-1">---</span></p>
-      <p class="border-b border-slate-100 pb-1.5"><strong>Situación Laboral:</strong> <span id="drawerSituacion" class="text-slate-900 font-medium ml-1">---</span></p>
+
+    <!-- Cuerpo del Ecosistema del Lead: Reconfiguración Dinámica de 3 Columnas -->
+    <div class="flex-1 overflow-hidden flex flex-col lg:flex-row items-stretch justify-start min-h-0">
       
-      <div class="border-b border-slate-100 pb-3 mt-2">
-        <strong class="block mb-2 text-slate-800 text-xs uppercase tracking-wider">📂 Expediente Financiero Digital (OCR)</strong>
-        <div id="drawerExpedienteDocs" class="space-y-2">
+      <!-- COLUMNA 1: Tarjeta estática de Identidad y Pre-Perfilamiento Comercial -->
+      <div class="w-full lg:w-80 bg-white border-b lg:border-b-0 lg:border-r border-[#E2E8F0] p-6 overflow-y-auto space-y-5 flex-shrink-0">
+        <div class="text-center pb-4 border-b border-slate-100">
+          <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-xl mb-3 shadow-md font-mono" id="crmAvatarInitials">--</div>
+          <h4 id="drawerNombre" class="font-bold text-lg text-slate-900 truncate">---</h4>
+          <span id="drawerStatus" class="inline-block text-[10px] font-black px-2.5 py-0.5 rounded-full tracking-wide uppercase mt-1">---</span>
+        </div>
+
+        <div class="space-y-4 text-sm">
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Contacto Directo</label>
+            <p id="drawerTelefono" class="text-slate-700 font-semibold font-mono mt-0.5">---</p>
           </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Unidad de Interés</label>
+            <p id="drawerInteres" class="text-indigo-600 font-bold text-sm mt-0.5">---</p>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cita en Patio Programada</label>
+            <p id="drawerFechaCita" class="text-slate-800 font-semibold mt-0.5">---</p>
+          </div>
+          <hr class="border-slate-100">
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Capacidad de Enganche</label>
+            <p id="drawerEnganche" class="text-emerald-600 font-bold mt-0.5">---</p>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Estatus Laboral</label>
+            <p id="drawerSituacion" class="text-slate-700 font-medium mt-0.5">---</p>
+          </div>
+        </div>
+
+        <div class="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5 space-y-1.5">
+          <label class="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">🧠 Calificación del Asesor IA</label>
+          <p id="drawerNotas" class="text-xs text-slate-600 leading-relaxed italic">---</p>
+        </div>
       </div>
 
-      <div class="border-b border-slate-100 pb-2">
-        <strong class="block mb-1">Último Mensaje Analizado:</strong>
-        <p id="drawerUltimoMensaje" class="text-xs text-slate-500 bg-white border border-slate-200 p-2.5 rounded-lg italic">---</p>
+      <!-- COLUMNA 2: Historial Conversacional en Tiempo Real del Canal de WhatsApp -->
+      <div class="flex-1 bg-slate-50 flex flex-col min-w-0 border-b lg:border-b-0 lg:border-r border-[#E2E8F0]">
+        <div class="px-5 h-11 bg-white border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0">
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Historial de Conversación Directa (WhatsApp API)
+          </p>
+        </div>
+        <!-- Feed de Burbujas -->
+        <div id="crmChatHistoryContainer" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs flex flex-col">
+          <!-- Inyectado dinámicamente por JS -->
+        </div>
+        <!-- Barra de Información Estática de Lectura -->
+        <div class="p-3 bg-white border-t border-[#E2E8F0] text-center text-[11px] text-slate-400 font-medium tracking-wide flex items-center justify-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+          Monitoreo protegido bajo RLS multi-tenant y encriptación de extremo a extremo
+        </div>
       </div>
-      <div>
-        <strong class="block mb-1">Notas de Calificación Avanzada:</strong>
-        <p id="drawerNotas" class="text-xs text-slate-600 bg-amber-50/60 border border-amber-100 p-2.5 rounded-lg">---</p>
+
+      <!-- COLUMNA 3: Expediente Financiero Digital y Repositorio Documental -->
+      <div class="w-full lg:w-72 bg-white p-6 overflow-y-auto space-y-5 flex-shrink-0">
+        <div>
+          <h5 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Expediente Digital
+          </h5>
+          <p class="text-[11px] text-slate-400 leading-normal">Layout documental indexado de forma automatizada por el motor multimedia de n8n</p>
+        </div>
+
+        <div id="drawerExpedienteDocs" class="space-y-2.5">
+          <!-- Inyectado dinámicamente por JS -->
+        </div>
+
+        <hr class="border-slate-100">
+
+        <div class="space-y-2">
+          <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Último Mensaje Analizado</label>
+          <div id="drawerUltimoMensaje" class="text-xs text-slate-600 bg-slate-50 border border-slate-200 p-3 rounded-xl italic leading-relaxed">
+            ---
+          </div>
+        </div>
       </div>
+
     </div>
-    <div class="p-4 border-t border-[#E2E8F0] bg-slate-50 text-center flex-shrink-0">
-       <p class="text-[11px] text-slate-400 tracking-wider font-mono uppercase">Registro Pro 360 Activo</p>
+
+    <!-- Pie del CRM -->
+    <div class="px-6 h-12 bg-white border-t border-[#E2E8F0] flex items-center justify-between flex-shrink-0 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+      <span>Módulo CRM Integrado</span>
+      <span>Enterprise Pro 360 v2.5</span>
     </div>
   </aside>
 

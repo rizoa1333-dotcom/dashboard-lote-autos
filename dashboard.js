@@ -510,23 +510,33 @@ function renderCars() {
 }
 
 // ------------------------------------------------------------
-// MODAL DRAWER (PERFIL DE PROSPECTO EXTENDIDO + RENDER OCR MULTIMEDIA)
+// MODAL DRAWER LATERAL ULTRA-CRM (INTEGRACIÓN 3 COLUMNAS + CHAT LIVE) 🗂️
 // ------------------------------------------------------------
-function openDrawer(leadId) {
+async function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
   const citaAsociada = citasCache.find(c => String(c.telefono) === String(lead.phone_number || lead.telefono));
 
+  // Inyección de Meta-data estática e identificadores
+  document.getElementById('crmLeadIdDisplay').textContent = lead.id ? String(lead.id).slice(-8).toUpperCase() : '---';
   document.getElementById('drawerNombre').textContent = lead.nombre || '---';
   document.getElementById('drawerTelefono').textContent = lead.phone_number || lead.telefono || '---';
-  document.getElementById('drawerStatus').textContent = lead.status || '---';
+  
+  // Setear Iniciales del Avatar para look empresarial
+  const iniciales = (lead.nombre || 'P W').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  document.getElementById('crmAvatarInitials').textContent = iniciales;
+
+  // Render Status con Estilos Dinámicos
+  const statusEl = document.getElementById('drawerStatus');
+  statusEl.textContent = lead.status || 'Calificado';
+  statusEl.className = `inline-block text-[10px] font-black px-2.5 py-0.5 rounded-full tracking-wide uppercase mt-1 ${statusBadgeClass(lead.status)}`;
   
   if (citaAsociada && citaAsociada.fecha_cita) {
     const horaClean = citaAsociada.hora_cita ? citaAsociada.hora_cita.slice(0, 5) : '12:00';
-    document.getElementById('drawerFechaCita').textContent = `${citaAsociada.fecha_cita} a las ${horaClean} hrs`;
+    document.getElementById('drawerFechaCita').textContent = `${citaAsociada.fecha_cita} a las ${horaClean} hrs 📅`;
   } else {
-    document.getElementById('drawerFechaCita').textContent = '---';
+    document.getElementById('drawerFechaCita').textContent = 'Sin cita agendada';
   }
 
   document.getElementById('drawerInteres').textContent = lead.auto_interes || '---';
@@ -567,6 +577,55 @@ function openDrawer(leadId) {
       : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100"><span>📊 Estados de Cuenta</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
 
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
+  }
+
+  // EXTRACCIÓN DINÁMICA DEL HISTORIAL DEL CHAT DESDE SUPABASE 💬
+  const chatContainer = document.getElementById('crmChatHistoryContainer');
+  if (chatContainer) {
+    chatContainer.innerHTML = '<div class="text-slate-400 text-center italic py-4 animate-pulse">Sincronizando chat encriptado...</div>';
+    
+    const phoneFilter = lead.phone_number || lead.telefono;
+    const { data: messages, error: chatErr } = await supabaseClient
+      .from('chat_history')
+      .select('*')
+      .eq('phone_number', phoneFilter)
+      .order('created_at', { ascending: true });
+
+    if (chatErr) {
+      console.error('[CRM Chat Error]:', chatErr);
+      chatContainer.innerHTML = '<div class="text-rose-500 text-center italic py-2">Error al recuperar telemetría de conversación.</div>';
+    } else if (!messages || messages.length === 0) {
+      chatContainer.innerHTML = `
+        <div class="my-auto text-center space-y-2 p-6">
+          <p class="text-slate-400 font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
+          <p class="text-[11px] text-slate-400 bg-white border border-slate-200 rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
+        </div>`;
+    } else {
+      chatContainer.innerHTML = messages.map(msg => {
+        // Validación del rol del mensaje para pintar la interfaz
+        const isBot = String(msg.role).toLowerCase() === 'assistant' || String(msg.role).toLowerCase() === 'bot' || !!msg.response;
+        const textContent = msg.message || msg.content || msg.response || '---';
+        
+        if (isBot) {
+          return `
+            <div class="self-start max-w-[85%] bg-white border border-slate-200 text-slate-800 p-3 rounded-2xl rounded-tl-none shadow-xs space-y-1">
+              <p class="font-bold text-[10px] text-indigo-600 uppercase tracking-wide">🤖 Cerebro IA</p>
+              <p class="leading-relaxed select-text">${escapeHtml(textContent)}</p>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="self-end max-w-[85%] bg-slate-900 text-white p-3 rounded-2xl rounded-tr-none shadow-xs space-y-1 text-right">
+              <p class="font-bold text-[10px] text-slate-400 uppercase tracking-wide">👤 Prospecto</p>
+              <p class="leading-relaxed text-left select-text">${escapeHtml(textContent)}</p>
+            </div>
+          `;
+        }
+      }).join('');
+      
+      // Auto-scroll al último mensaje del feed
+      setTimeout(() => { chatContainer.scrollTop = chatContainer.scrollHeight; }, 50);
+    }
   }
 
   document.getElementById('drawerPro').classList.add('drawer-open');
