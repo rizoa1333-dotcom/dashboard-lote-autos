@@ -426,7 +426,7 @@ function renderCarsCounter() {
   }
 }
 
-// FIX DE ZONA HORARIA APLICADO: getMonth() y getFullYear() locales para evitar el retraso a junio
+// FIX DE ZONA HORARIA COMPLETO: getMonth() y getFullYear() locales activos para pintar Julio sin desfases
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
@@ -444,12 +444,12 @@ function calcularMetricasInventario() {
       gananciasTotales += precio;
 
       try {
-        const fechaTarget = car.updated_at || car.created_at;
+        const fechaTarget = car.created_at; // Usamos created_at como fallback de tiempo nativo y estable
         if (fechaTarget) {
           const fechaVenta = new Date(fechaTarget);
           
           if (!isNaN(fechaVenta.getTime())) {
-            // AJUSTE CRÍTICO: Se lee el mes y año local del navegador para procesar Julio correctamente
+            // Ajustado a Zona Horaria de México local
             const numeroMes = fechaVenta.getMonth();
             const anioVenta = fechaVenta.getFullYear();
             
@@ -546,8 +546,12 @@ function renderCars() {
 
   tbody.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const { error } = await supabaseClient.from('cars').update({ status: 'Vendido', updated_at: new Date().toISOString() }).eq('id', btn.getAttribute('data-action-id'));
-      if (error) alert('Error al actualizar estatus');
+      // FIX OPERATIVO: Eliminado el campo 'updated_at' que no existía en la BD y causaba el Bad Request 400
+      const { error } = await supabaseClient.from('cars').update({ status: 'Vendido' }).eq('id', btn.getAttribute('data-action-id'));
+      if (error) {
+        alert('Error al actualizar estatus');
+        console.error(error);
+      }
       await fetchCars();
     });
   });
@@ -630,7 +634,6 @@ async function openDrawer(leadId) {
   }
   document.getElementById('drawerSituacion').textContent = textoSituacion;
 
-  // CORRECCIÓN MULTIMEDIA A TEXTO PLANO: Se adaptó para renderizar las celdas de texto capturadas de la INE y Dirección de forma limpia
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
   if (expedienteContainer) {
     const docIneHtml = lead.url_ine 
@@ -717,6 +720,7 @@ function closeDrawer() {
   document.getElementById('drawerOverlay').classList.add('hidden');
 }
 
+// Inicializador de Navegación Lateral
 function initSidebarNav() {
   const navButtons = document.querySelectorAll('.nav-btn');
   navButtons.forEach(btn => {
