@@ -426,7 +426,7 @@ function renderCarsCounter() {
   }
 }
 
-// FIX CRÍTICO EX UTC: Parche de validación total para evitar errores en la consola al calcular métricas
+// FIX DE ZONA HORARIA APLICADO: getMonth() y getFullYear() locales para evitar el retraso a junio
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
@@ -444,27 +444,25 @@ function calcularMetricasInventario() {
       gananciasTotales += precio;
 
       try {
-        // Validación del objeto de fecha para evitar crasheos si viene vacío o null
         const fechaTarget = car.updated_at || car.created_at;
         if (fechaTarget) {
           const fechaVenta = new Date(fechaTarget);
           
           if (!isNaN(fechaVenta.getTime())) {
-            const numeroMes = fechaVenta.getUTCMonth();
-            const anioVenta = fechaVenta.getUTCFullYear(); // CORREGIDO: getUTCForYear cambiado a getUTCFullYear nativo
+            // AJUSTE CRÍTICO: Se lee el mes y año local del navegador para procesar Julio correctamente
+            const numeroMes = fechaVenta.getMonth();
+            const anioVenta = fechaVenta.getFullYear();
             
             if (anioVenta === 2026 && numeroMes >= 0 && numeroMes < 12) {
               reporteMensual[numeroMes].unidades += 1;
               reporteMensual[numeroMes].dinero += precio;
             }
           } else {
-            // Fallback de contingencia por si la fecha tiene un formato roto
             const mesActual = new Date().getMonth();
             reporteMensual[mesActual].unidades += 1;
             reporteMensual[mesActual].dinero += precio;
           }
         } else {
-          // Fallback por si la celda está completamente vacía en Supabase
           const mesActual = new Date().getMonth();
           reporteMensual[mesActual].unidades += 1;
           reporteMensual[mesActual].dinero += precio;
