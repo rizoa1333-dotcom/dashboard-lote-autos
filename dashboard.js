@@ -187,7 +187,12 @@ function renderLeadsTable() {
                       </div>
                     </td>
                     <td class="px-4 py-3.5 text-xs text-slate-500 font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
-                    <td class="px-4 py-3.5 text-sm font-medium text-indigo-600">${escapeHtml(lead.auto_interes || 'General')}</td>
+                    <td class="px-4 py-3.5 text-sm font-medium">
+                      <div class="flex flex-col">
+                        <span class="text-indigo-600">${escapeHtml(lead.auto_interes || 'General')}</span>
+                        ${lead.auto_sugerido ? `<span class="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded mt-1 font-bold inline-block w-fit">✨ Sugerido: ${escapeHtml(lead.auto_sugerido)}</span>` : ''}
+                      </div>
+                    </td>
                     <td class="px-4 py-3.5 text-xs text-slate-400">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
                     <td class="px-4 py-3.5">
                       <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
@@ -439,7 +444,7 @@ function calcularMetricasInventario() {
 
       const fechaVenta = car.updated_at ? new Date(car.updated_at) : new Date(car.created_at);
       const numeroMes = fechaVenta.getUTCMonth();
-      const anioVenta = fechaVenta.getUTCFullYear();
+      const anioVenta = fechaVenta.getUTCForYear();
       
       if (anioVenta === 2026 && numeroMes >= 0 && numeroMes < 12) {
         reporteMensual[numeroMes].unidades += 1;
