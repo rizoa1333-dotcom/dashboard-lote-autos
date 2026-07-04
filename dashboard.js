@@ -426,7 +426,7 @@ function renderCarsCounter() {
   }
 }
 
-// FIX DE ZONA HORARIA COMPLETO: getMonth() y getFullYear() locales activos para pintar Julio sin desfases
+// SOLUCIÓN TOTAL AUTOMATIZADA: El script lee la columna 'fecha_venta' dinámica para actualizarse mes con mes solo
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
@@ -444,12 +444,12 @@ function calcularMetricasInventario() {
       gananciasTotales += precio;
 
       try {
-        const fechaTarget = car.created_at; // Usamos created_at como fallback de tiempo nativo y estable
+        // LÓGICA INTELIGENTE: Si existe fecha_venta real en Supabase la usa, si no, usa created_at
+        const fechaTarget = car.fecha_venta || car.created_at;
         if (fechaTarget) {
           const fechaVenta = new Date(fechaTarget);
           
           if (!isNaN(fechaVenta.getTime())) {
-            // Ajustado a Zona Horaria de México local
             const numeroMes = fechaVenta.getMonth();
             const anioVenta = fechaVenta.getFullYear();
             
@@ -546,8 +546,14 @@ function renderCars() {
 
   tbody.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
     btn.addEventListener('click', async () => {
-      // FIX OPERATIVO: Eliminado el campo 'updated_at' que no existía en la BD y causaba el Bad Request 400
-      const { error } = await supabaseClient.from('cars').update({ status: 'Vendido' }).eq('id', btn.getAttribute('data-action-id'));
+      // INYECTAMOS LA FECHA REAL DEL DÍA: Guardamos la fecha de hoy en formato YYYY-MM-DD para alimentar el sistema mes con mes
+      const hoyParaBD = new Date().toISOString().split('T')[0]; 
+      
+      const { error } = await supabaseClient
+        .from('cars')
+        .update({ status: 'Vendido', fecha_venta: hoyParaBD }) // Le manda la fecha real de la venta
+        .eq('id', btn.getAttribute('data-action-id'));
+        
       if (error) {
         alert('Error al actualizar estatus');
         console.error(error);
@@ -720,7 +726,6 @@ function closeDrawer() {
   document.getElementById('drawerOverlay').classList.add('hidden');
 }
 
-// Inicializador de Navegación Lateral
 function initSidebarNav() {
   const navButtons = document.querySelectorAll('.nav-btn');
   navButtons.forEach(btn => {
