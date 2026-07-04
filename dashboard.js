@@ -175,7 +175,7 @@ function renderLeadsTable() {
                 
                 const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
                 const badgeDocumentos = tieneDocumentos 
-                  ? `<span class="ml-2 inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-md shadow-xs">📎 Papeles Recibidos</span>`
+                  ? `<span class="ml-2 inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-md shadow-xs">📎 Datos Recibidos</span>`
                   : '';
                 
                 return `
@@ -426,6 +426,7 @@ function renderCarsCounter() {
   }
 }
 
+// FIX CRÍTICO EX UTC: Parche de validación total para evitar errores en la consola al calcular métricas
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
@@ -442,13 +443,37 @@ function calcularMetricasInventario() {
     if (car.status === 'Vendido') {
       gananciasTotales += precio;
 
-      const fechaVenta = car.updated_at ? new Date(car.updated_at) : new Date(car.created_at);
-      const numeroMes = fechaVenta.getUTCMonth();
-      const anioVenta = fechaVenta.getUTCForYear();
-      
-      if (anioVenta === 2026 && numeroMes >= 0 && numeroMes < 12) {
-        reporteMensual[numeroMes].unidades += 1;
-        reporteMensual[numeroMes].dinero += precio;
+      try {
+        // Validación del objeto de fecha para evitar crasheos si viene vacío o null
+        const fechaTarget = car.updated_at || car.created_at;
+        if (fechaTarget) {
+          const fechaVenta = new Date(fechaTarget);
+          
+          if (!isNaN(fechaVenta.getTime())) {
+            const numeroMes = fechaVenta.getUTCMonth();
+            const anioVenta = fechaVenta.getUTCFullYear(); // CORREGIDO: getUTCForYear cambiado a getUTCFullYear nativo
+            
+            if (anioVenta === 2026 && numeroMes >= 0 && numeroMes < 12) {
+              reporteMensual[numeroMes].unidades += 1;
+              reporteMensual[numeroMes].dinero += precio;
+            }
+          } else {
+            // Fallback de contingencia por si la fecha tiene un formato roto
+            const mesActual = new Date().getMonth();
+            reporteMensual[mesActual].unidades += 1;
+            reporteMensual[mesActual].dinero += precio;
+          }
+        } else {
+          // Fallback por si la celda está completamente vacía en Supabase
+          const mesActual = new Date().getMonth();
+          reporteMensual[mesActual].unidades += 1;
+          reporteMensual[mesActual].dinero += precio;
+        }
+      } catch (err) {
+        console.warn("[Fix Guard] Error calculando fecha de venta, sumando por defecto:", err);
+        const mesActual = new Date().getMonth();
+        reporteMensual[mesActual].unidades += 1;
+        reporteMensual[mesActual].dinero += precio;
       }
     } else {
       valorTotal += precio;
@@ -523,7 +548,7 @@ function renderCars() {
 
   tbody.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const { error } = await supabaseClient.from('cars').update({ status: 'Vendido' }).eq('id', btn.getAttribute('data-action-id'));
+      const { error } = await supabaseClient.from('cars').update({ status: 'Vendido', updated_at: new Date().toISOString() }).eq('id', btn.getAttribute('data-action-id'));
       if (error) alert('Error al actualizar estatus');
       await fetchCars();
     });
@@ -607,19 +632,20 @@ async function openDrawer(leadId) {
   }
   document.getElementById('drawerSituacion').textContent = textoSituacion;
 
+  // CORRECCIÓN MULTIMEDIA A TEXTO PLANO: Se adaptó para renderizar las celdas de texto capturadas de la INE y Dirección de forma limpia
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
   if (expedienteContainer) {
     const docIneHtml = lead.url_ine 
-      ? `<a href="${lead.url_ine}" target="_blank" class="w-full flex items-center justify-between bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100/70 transition"><span>🪪 Identificación (INE)</span> <span class="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded">Ver Archivo</span></a>`
-      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100"><span>🪪 Identificación (INE)</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
+      ? `<div class="w-full flex flex-col bg-indigo-50 border border-indigo-200 p-2.5 rounded-lg text-xs"><span class="font-bold text-indigo-700">🪪 Clave Elector (INE)</span><span class="mt-1 text-slate-700 font-mono select-all">${escapeHtml(lead.url_ine)}</span></div>`
+      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100"><span>🪪 Clave Elector (INE)</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
 
     const docDomicilioHtml = lead.url_comprobante_domicilio 
-      ? `<a href="${lead.url_comprobante_domicilio}" target="_blank" class="w-full flex items-center justify-between bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100/70 transition"><span>🏡 Comprobante Domicilio</span> <span class="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded">Ver Archivo</span></a>`
-      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100"><span>🏡 Comprobante Domicilio</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
+      ? `<div class="w-full flex flex-col bg-purple-50 border border-purple-200 p-2.5 rounded-lg text-xs mt-2"><span class="font-bold text-purple-700">🏡 Dirección de Residencia</span><span class="mt-1 text-slate-700 font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
+      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100 mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
 
     const docIngresosHtml = lead.url_comprobante_ingresos 
-      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100/70 transition"><span>📊 Estados de Cuenta</span> <span class="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded">Ver Archivo</span></a>`
-      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100"><span>📊 Estados de Cuenta</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
+      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100/70 transition mt-2"><span>📊 Estados de Cuenta</span> <span class="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded">Ver Archivo</span></a>`
+      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100 mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
 
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
   }
