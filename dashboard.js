@@ -22,7 +22,7 @@ let leadsCache = [];
 let carsCache = [];
 let citasCache = []; // Guardián global para el almacenamiento de citas 📅
 let editingCarId = null; // Guardián global para controlar el modo edición de autos ✏️
-let activeLeadId = null; // MEJORA 3: Guardián del lead activo en pantalla para el live chat live tracking 🛰️
+let activeLeadId = null; // Guardián del lead activo en pantalla para el live chat live tracking 🛰️
 
 // Cambiador Global de Vistas SPA
 function showView(viewId) {
@@ -57,7 +57,7 @@ async function fetchAndRenderAll() {
     // Sincronización triple en paralelo de la base de datos
     await Promise.all([fetchLeads(), fetchCars(), fetchCitasReal()]);
     
-    // MEJORA 3: Si el dueño tiene abierto un expediente, refresca el chat automáticamente en segundo plano
+    // Si el dueño tiene abierto un expediente, refresca el chat automáticamente en segundo plano
     if (activeLeadId) {
       await refreshChatLive(activeLeadId);
     }
@@ -173,7 +173,6 @@ function renderLeadsTable() {
                 const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
                 const diaVisual = fechaReg.getDate();
                 
-                // MEJORA 2: Validación visual si el lead ya cargó algún documento multimedia desde n8n
                 const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
                 const badgeDocumentos = tieneDocumentos 
                   ? `<span class="ml-2 inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-md shadow-xs">📎 Papeles Recibidos</span>`
@@ -229,15 +228,12 @@ function procesarMetricasBI() {
     return;
   }
 
-  // 1. Tasa de Conversión Real (Basada en volumen de la tabla citas)
   const totalCitas = citasCache.length;
   if (tasaConversionEl) tasaConversionEl.textContent = `${((totalCitas / totalLeads) * 100).toFixed(1)}%`;
 
-  // 2. Riesgo de Ingresos (Opción '3' = No compruebo ingresos)
   const sinIngresosCount = leadsCache.filter(l => String(l.situacion_laboral) === '3' || String(l.situacion_laboral).toLowerCase().includes('no compruebo')).length;
   if (sinIngresosEl) sinIngresosEl.textContent = `${((sinIngresosCount / totalLeads) * 100).toFixed(1)}%`;
 
-  // 3. Top Autos Solicitados
   const autoContador = {};
   leadsCache.forEach(l => {
     if (!l.auto_interes || l.auto_interes === 'General' || l.auto_interes === 'null') return;
@@ -262,7 +258,6 @@ function procesarMetricasBI() {
     }
   }
 
-  // 4. Distribución por Rango de Enganche
   let rango1 = 0, rango2 = 0, rango3 = 0;
   leadsCache.forEach(l => {
     const e = String(l.enganche);
@@ -292,7 +287,7 @@ function procesarMetricasBI() {
 }
 
 // ------------------------------------------------------------
-// CITAS AGRUPADAS Y ORDENADAS POR FECHAS (MEJORA 1: AUTONOMÍA COMPLETA) 📅
+// CITAS CRONOLÓGICAS (CORREGIDO CON LA COLUMNA estado_lead) 📅
 // ------------------------------------------------------------
 function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
@@ -324,20 +319,40 @@ function renderCitasCronologicas() {
       <div class="grid grid-cols-1 gap-2 pl-1">
         ${citasAgrupadas[dia].map(cita => {
           const horaVisual = cita.hora_cita ? cita.hora_cita.slice(0, 5) : '12:00';
+          
+          // Mapeo correcto utilizando la columna física 'estado_lead' de Supabase
+          const esCancelada = cita.estado_lead === 'Cancelada';
+          
+          const claseContenedor = esCancelada 
+            ? 'bg-rose-50/40 border-rose-100 opacity-75' 
+            : 'bg-white border-slate-100 hover:shadow-sm';
+            
+          const claseTextoNombre = esCancelada 
+            ? 'text-slate-500 line-through' 
+            : 'text-slate-800';
 
-          // MEJORA 1: Remoción total del botón de link externo de WhatsApp e inyección de botón de Liberar Horario
+          const botonAccion = esCancelada
+            ? `<button data-cita-id="${cita.id}" data-action="delete" class="btn-gestion-cita bg-slate-100 text-slate-500 hover:bg-slate-200 p-1.5 rounded-lg transition border border-slate-200 flex items-center justify-center cursor-pointer shadow-xs" title="Limpiar del historial">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+               </button>`
+            : `<button data-cita-id="${cita.id}" data-action="cancel" class="btn-gestion-cita bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white p-1.5 rounded-lg transition border border-rose-100 flex items-center justify-center cursor-pointer shadow-xs" title="Marcar como Cancelada">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+               </button>`;
+
+          const indicadorEstatus = esCancelada
+            ? `<span class="text-[10px] font-black text-rose-700 bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-md tracking-wide uppercase shadow-xs">❌ Cancelada por IA</span>`
+            : `<span class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">${horaVisual} hrs</span>`;
+
           return `
-            <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl hover:shadow-sm transition">
+            <div class="flex items-center justify-between p-3 border rounded-xl transition ${claseContenedor}">
               <div>
-                <p class="font-semibold text-sm text-slate-800">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
+                <p class="font-semibold text-sm ${claseTextoNombre}">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
                 <p class="text-xs text-slate-400 font-mono">Tel: ${escapeHtml(cita.telefono || 'Sin número')} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
               </div>
               
               <div class="flex items-center gap-3">
-                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">${horaVisual} hrs</span>
-                <button data-cita-id="${cita.id}" class="btn-cancelar-cita bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white p-1.5 rounded-lg transition border border-rose-100 flex items-center justify-center cursor-pointer shadow-xs" title="Liberar Horario Ocupado">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
+                ${indicadorEstatus}
+                ${botonAccion}
               </div>
             </div>
           `;
@@ -346,16 +361,20 @@ function renderCitasCronologicas() {
     </div>
   `).join('');
 
-  // MEJORA 1: Listener asíncrono para detonar la liberación de horarios en Supabase
-  container.querySelectorAll('.btn-cancelar-cita').forEach(btn => {
+  // Manejador asíncrono para mutar o eliminar de la base de datos usando estado_lead
+  container.querySelectorAll('.btn-gestion-cita').forEach(btn => {
     btn.addEventListener('click', async () => {
       const citaId = btn.getAttribute('data-cita-id');
-      if (!confirm('¿Seguro que deseas cancelar esta cita y liberar el horario para que el bot pueda volver a agendar?')) return;
+      const accion = btn.getAttribute('data-action');
       
-      const { error } = await supabaseClient.from('citas').delete().eq('id', citaId);
-      if (error) {
-        alert('Error operativo al cancelar cita.');
-        return;
+      if (accion === 'cancel') {
+        if (!confirm('¿Deseas marcar esta cita como Cancelada manualmente? Esto liberará el horario de forma inmediata.')) return;
+        const { error } = await supabaseClient.from('citas').update({ estado_lead: 'Cancelada' }).eq('id', citaId);
+        if (error) return alert('Error al actualizar estatus.');
+      } else {
+        if (!confirm('¿Deseas eliminar definitivamente este registro histórico de la pantalla?')) return;
+        const { error } = await supabaseClient.from('citas').delete().eq('id', citaId);
+        if (error) return alert('Error al eliminar registro.');
       }
       await fetchCitasReal();
     });
@@ -418,7 +437,6 @@ function calcularMetricasInventario() {
     if (car.status === 'Vendido') {
       gananciasTotales += precio;
 
-      // CORRECCIÓN: Métodos UTC nativos para evitar rebotes de zona horaria en la facturación mensual
       const fechaVenta = car.updated_at ? new Date(car.updated_at) : new Date(car.created_at);
       const numeroMes = fechaVenta.getUTCMonth();
       const anioVenta = fechaVenta.getUTCFullYear();
@@ -534,13 +552,12 @@ function renderCars() {
 }
 
 // ------------------------------------------------------------
-// MODAL DRAWER LATERAL ULTRA-CRM (INTEGRACIÓN 3 COLUMNAS + CHAT LIVE) 🗂️
+// MODAL DRAWER LATERAL ULTRA-CRM (INTEGRACIÓN CHAT LIVE) 🗂️
 // ------------------------------------------------------------
 async function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
-  // MEJORA 3: Registrar el ID del lead activo en la memoria global del ecosistema
   activeLeadId = lead.id;
 
   const citaAsociada = citasCache.find(c => String(c.telefono) === String(lead.phone_number || lead.telefono));
@@ -602,14 +619,13 @@ async function openDrawer(leadId) {
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
   }
 
-  // Ejecución inicial del renderizador del chat
   await refreshChatLive(lead.id);
 
   document.getElementById('drawerPro').classList.add('drawer-open');
   document.getElementById('drawerOverlay').classList.remove('hidden');
 }
 
-// MEJORA 3: Función asíncrona dedicada exclusiva para alimentar el chat live tracking continuo sin parpadeos
+// Función dedicada para alimentar el chat live tracking continuo sin parpadeos
 async function refreshChatLive(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
@@ -638,7 +654,6 @@ async function refreshChatLive(leadId) {
     return;
   }
 
-  // Guardar posición del scroll antes de actualizar para no jalonear la pantalla si el usuario lee hacia arriba
   const despegadoDelFondo = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight > 100;
 
   chatContainer.innerHTML = messages.map(msg => {
@@ -662,14 +677,13 @@ async function refreshChatLive(leadId) {
     }
   }).join('');
   
-  // Auto-scroll inteligente: Solo baja si el usuario estaba leyendo los últimos mensajes
   if (!despegadoDelFondo) {
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 }
 
 function closeDrawer() {
-  activeLeadId = null; // MEJORA 3: Limpiar el puntero global para detener consultas del chat en segundo plano
+  activeLeadId = null; 
   document.getElementById('drawerPro').classList.remove('drawer-open');
   document.getElementById('drawerOverlay').classList.add('hidden');
 }
