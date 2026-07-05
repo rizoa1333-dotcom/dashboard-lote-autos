@@ -1,38 +1,39 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Superficies — negro asfalto de fondo, tarjeta en gris pizarra sutil */
-  --bg: #0A0B0E;
-  --bg-elevated: #0F1115;
-  --surface: #161B26;
-  --surface-hover: #1B212D;
-  --surface-2: #1F2530;
+  /* Superficies — gris neutro profundo, sin negro puro */
+  --bg: #0F1219;
+  --bg-elevated: #12151C;
+  --surface: #161922;
+  --surface-hover: #1C202A;
+  --surface-2: #20242F;
 
   --border: rgba(255,255,255,0.05);
   --border-strong: rgba(255,255,255,0.10);
 
-  --text: #F3F4F6;
-  --text-dim: #9CA3AF;
-  --text-faint: #5C6272;
+  --text: #F5F5F4;
+  --text-dim: #6B7280;
+  --text-faint: #4B5563;
 
-  /* Acento primario: ámbar tablero (headlight/needle) — reservado para
-     micro-etiquetas y estados, nunca para cifras grandes */
-  --amber: #E3A23D;
-  --amber-soft: rgba(227,162,61,0.10);
-  --amber-strong: #F0B85A;
+  /* Acento neutro: hueso plano para botones primarios y logotipo.
+     Sin gradientes, sin brillo. */
+  --amber: #8A8F98;
+  --amber-soft: rgba(138,143,152,0.10);
+  --amber-strong: #A9AEB6;
 
-  /* Temperatura de leads: rojo/ámbar/cian — mapea directo al concepto de negocio */
-  --hot: #E5573F;
-  --hot-soft: rgba(229,87,63,0.10);
-  --warm: #E3A23D;
-  --warm-soft: rgba(227,162,61,0.10);
-  --cold: #3FA7D6;
-  --cold-soft: rgba(63,167,214,0.10);
+  /* Temperatura de leads y estados: tonos editoriales desaturados,
+     uso restringido a puntos y bordes de 1-3px, nunca a bloques grandes */
+  --hot: #A9584A;
+  --hot-soft: rgba(169,88,74,0.10);
+  --warm: #9C8552;
+  --warm-soft: rgba(156,133,82,0.10);
+  --cold: #5B7A93;
+  --cold-soft: rgba(91,122,147,0.10);
 
-  --success: #34C97C;
-  --success-soft: rgba(52,201,124,0.10);
-  --danger: #E5573F;
-  --danger-soft: rgba(229,87,63,0.10);
+  --success: #4B8B72;
+  --success-soft: rgba(75,139,114,0.10);
+  --danger: #A9584A;
+  --danger-soft: rgba(169,88,74,0.10);
 }
 
 * {
@@ -60,12 +61,11 @@ html, body {
   background-color: var(--surface-2) !important;
   color: var(--text) !important;
   font-weight: 600;
-  box-shadow: inset 2px 0 0 var(--amber) !important;
 }
 .nav-btn {
   color: var(--text-dim);
   background-color: transparent;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 .nav-btn:hover {
   background-color: var(--surface);
@@ -94,8 +94,8 @@ input, select, textarea {
 input::placeholder, textarea::placeholder { color: var(--text-faint); }
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--amber) !important;
-  box-shadow: 0 0 0 3px var(--amber-soft) !important;
+  border-color: var(--border-strong) !important;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.05) !important;
 }
 
 /* ---------- Sistema de tarjetas ---------- */
@@ -121,14 +121,19 @@ input:focus, select:focus, textarea:focus {
   color: var(--text);
 }
 
-/* Etiqueta discreta de estado: punto de color + texto pequeño en gris.
-   Único lugar donde el color puede aparecer junto a una cifra. */
+/* Etiqueta discreta de estado: punto sólido = activo/publicado,
+   punto hueco = pendiente. Sin color, la jerarquía es tipográfica. */
 .status-dot {
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
+  background: var(--text-dim);
   flex-shrink: 0;
+}
+.status-dot-outline {
+  background: transparent;
+  border: 1px solid var(--text-faint);
 }
 
 /* ---------- Badges ---------- */
@@ -153,19 +158,19 @@ input:focus, select:focus, textarea:focus {
 
 /* ---------- Botones ---------- */
 .btn-primary {
-  background: linear-gradient(180deg, var(--amber-strong), var(--amber));
-  color: #16130A;
+  background: var(--text);
+  color: var(--bg);
   font-weight: 600;
-  transition: filter 0.15s ease;
+  transition: opacity 0.2s ease;
 }
-.btn-primary:hover { filter: brightness(1.08); }
-.btn-primary:disabled { opacity: 0.5; filter: none; cursor: not-allowed; }
+.btn-primary:hover { opacity: 0.85; }
+.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .btn-ghost {
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text);
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 .btn-ghost:hover { background: var(--surface-hover); border-color: var(--border-strong); }
 
@@ -173,11 +178,11 @@ input:focus, select:focus, textarea:focus {
 .car-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.2s ease;
 }
-.car-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+.car-card:hover { border-color: var(--border-strong); }
 .car-card-img {
   aspect-ratio: 16/10;
   object-fit: cover;
@@ -196,7 +201,7 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid var(--border);
   border-left-width: 3px;
   border-radius: 10px;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 .kanban-card:hover { background: var(--surface-hover); }
 .kanban-card.temp-caliente { border-left-color: var(--hot); }
@@ -208,7 +213,7 @@ input:focus, select:focus, textarea:focus {
   border: 1.5px dashed var(--border-strong);
   border-radius: 12px;
   background: var(--bg-elevated);
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 .dropzone.drag-active {
   border-color: var(--amber);

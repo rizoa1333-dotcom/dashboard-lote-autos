@@ -174,7 +174,7 @@ function renderLeadsTable() {
   if (!container) return;
 
   if (leadsCache.length === 0) {
-    container.innerHTML = '<div class="card p-8 text-center text-xs text-[#5C6272]">Sin prospectos calificados registrados en este lote.</div>';
+    container.innerHTML = '<div class="card p-8 text-center text-xs text-[#4B5563]">Sin prospectos calificados registrados en este lote.</div>';
     return;
   }
 
@@ -193,7 +193,7 @@ function renderLeadsTable() {
 
   container.innerHTML = Object.keys(leadsAgrupadosPorMes).map(mes => `
     <div class="space-y-2.5">
-      <div class="text-xs font-bold text-[#9298A6] uppercase tracking-wider bg-[#14161C] px-4 py-2 rounded-lg border border-[#232838] inline-block">
+      <div class="text-xs font-bold text-[#6B7280] uppercase tracking-wider bg-[#161922] px-4 py-2 rounded-lg border border-[#272A30] inline-block">
         📅 Registros de ${mes}
       </div>
 
@@ -201,7 +201,7 @@ function renderLeadsTable() {
         <div class="overflow-x-auto">
           <table class="w-full text-sm text-left">
             <thead>
-              <tr class="text-[#5C6272] border-b border-[#232838] text-xs uppercase font-semibold">
+              <tr class="text-[#4B5563] border-b border-[#272A30] text-xs uppercase font-semibold">
                 <th class="px-4 py-3 font-medium">Nombre Completo</th>
                 <th class="px-4 py-3 font-medium">Teléfono / WhatsApp</th>
                 <th class="px-4 py-3 font-medium">Auto de Interés</th>
@@ -210,7 +210,7 @@ function renderLeadsTable() {
                 <th class="px-4 py-3 font-medium text-right">Acción</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#1D2028] text-[#EDEEF2]">
+            <tbody class="divide-y divide-[#20242F] text-[#F5F5F4]">
               ${leadsAgrupadosPorMes[mes].map(lead => {
                 const fechaReg = lead.created_at ? new Date(lead.created_at) : new Date();
                 const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -222,21 +222,21 @@ function renderLeadsTable() {
                   : '';
 
                 return `
-                  <tr class="hover:bg-[#191C23] transition">
+                  <tr class="hover:bg-[#1C202A] transition">
                     <td class="px-4 py-3.5 font-semibold text-sm">
                       <div class="flex items-center justify-start flex-wrap gap-1">
                         <span>${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</span>
                         ${badgeDocumentos}
                       </div>
                     </td>
-                    <td class="px-4 py-3.5 text-xs text-[#9298A6] font-mono privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
+                    <td class="px-4 py-3.5 text-xs text-[#6B7280] font-mono privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
                     <td class="px-4 py-3.5 text-sm font-medium">
                       <div class="flex flex-col">
                         <span style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</span>
                         ${lead.auto_sugerido ? `<span class="badge badge-success mt-1 w-fit">✨ Sugerido: ${escapeHtml(lead.auto_sugerido)}</span>` : ''}
                       </div>
                     </td>
-                    <td class="px-4 py-3.5 text-xs text-[#5C6272]">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
+                    <td class="px-4 py-3.5 text-xs text-[#4B5563]">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
                     <td class="px-4 py-3.5">
                       <span class="badge ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
                     </td>
@@ -305,10 +305,10 @@ function renderPipelineKanban() {
       <div data-lead-id="${lead.id}" class="btn-kanban-card kanban-card ${tempClass} p-3 cursor-pointer">
         <div class="flex items-start justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0">
-            <div class="w-7 h-7 rounded-lg bg-[#1D2028] flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0">${escapeHtml(iniciales)}</div>
+            <div class="w-7 h-7 rounded-lg bg-[#20242F] flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0">${escapeHtml(iniciales)}</div>
             <div class="min-w-0">
               <p class="text-xs font-semibold truncate">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</p>
-              <p class="text-[10px] text-[#5C6272] font-mono truncate privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
+              <p class="text-[10px] text-[#4B5563] font-mono truncate privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
             </div>
           </div>
         </div>
@@ -317,7 +317,7 @@ function renderPipelineKanban() {
     `;
   };
 
-  const emptyMsg = '<p class="text-[11px] text-[#5C6272] italic px-2 py-3">Sin prospectos en esta etapa.</p>';
+  const emptyMsg = '<p class="text-[11px] text-[#4B5563] italic px-2 py-3">Sin prospectos en esta etapa.</p>';
 
   contCaliente.innerHTML = grupos.caliente.length ? grupos.caliente.map(l => renderCard(l, 'temp-caliente')).join('') : emptyMsg;
   contTemplado.innerHTML = grupos.templado.length ? grupos.templado.map(l => renderCard(l, 'temp-templado')).join('') : emptyMsg;
@@ -339,8 +339,8 @@ function procesarMetricasBI() {
 
   const totalLeads = leadsCache.length;
   if (totalLeads === 0) {
-    if (topAutosContainer) topAutosContainer.innerHTML = '<p class="text-xs text-[#5C6272] italic">Esperando recolección de leads...</p>';
-    if (engancheContainer) engancheContainer.innerHTML = '<p class="text-xs text-[#5C6272] italic">Esperando recolección de leads...</p>';
+    if (topAutosContainer) topAutosContainer.innerHTML = '<p class="text-xs text-[#4B5563] italic">Esperando recolección de leads...</p>';
+    if (engancheContainer) engancheContainer.innerHTML = '<p class="text-xs text-[#4B5563] italic">Esperando recolección de leads...</p>';
     return;
   }
 
@@ -363,12 +363,12 @@ function procesarMetricasBI() {
 
   if (topAutosContainer) {
     if (autosOrdenados.length === 0) {
-      topAutosContainer.innerHTML = '<p class="text-xs text-[#5C6272] italic">Falta recolectar modelos de interés en el chat.</p>';
+      topAutosContainer.innerHTML = '<p class="text-xs text-[#4B5563] italic">Falta recolectar modelos de interés en el chat.</p>';
     } else {
       topAutosContainer.innerHTML = autosOrdenados.map((a, index) => `
         <div class="flex items-center justify-between text-xs bg-[var(--surface-2)] p-2.5 rounded-lg">
-          <p class="font-medium truncate max-w-[200px]"><span class="font-bold mr-1.5 text-[#9CA3AF]">#${index+1}</span> ${escapeHtml(a.modelo)}</p>
-          <span class="text-[11px] text-[#9CA3AF] font-semibold">${a.cuenta} ${a.cuenta === 1 ? 'búsqueda' : 'búsquedas'}</span>
+          <p class="font-medium truncate max-w-[200px]"><span class="font-bold mr-1.5 text-[#6B7280]">#${index+1}</span> ${escapeHtml(a.modelo)}</p>
+          <span class="text-[11px] text-[#6B7280] font-semibold">${a.cuenta} ${a.cuenta === 1 ? 'búsqueda' : 'búsquedas'}</span>
         </div>
       `).join('');
     }
@@ -386,16 +386,16 @@ function procesarMetricasBI() {
     engancheContainer.innerHTML = `
       <div class="space-y-2 text-xs">
         <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg">
-          <p class="font-medium text-[#9298A6]">$50,000 a $100,000</p>
-          <span class="font-semibold text-[#F3F4F6]">${rango1} prospectos</span>
+          <p class="font-medium text-[#6B7280]">$50,000 a $100,000</p>
+          <span class="font-semibold text-[#F5F5F4]">${rango1} prospectos</span>
         </div>
         <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg">
-          <p class="font-medium text-[#9298A6]">$100,000 a $200,000</p>
-          <span class="font-semibold text-[#F3F4F6]">${rango2} prospectos</span>
+          <p class="font-medium text-[#6B7280]">$100,000 a $200,000</p>
+          <span class="font-semibold text-[#F5F5F4]">${rango2} prospectos</span>
         </div>
         <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg">
-          <p class="font-medium text-[#9298A6]">Más de $200,000</p>
-          <span class="font-semibold text-[#F3F4F6]">${rango3} prospectos</span>
+          <p class="font-medium text-[#6B7280]">Más de $200,000</p>
+          <span class="font-semibold text-[#F5F5F4]">${rango3} prospectos</span>
         </div>
       </div>
     `;
@@ -412,7 +412,7 @@ function renderCitasCronologicas() {
   const citas = citasCache;
 
   if (citas.length === 0) {
-    container.innerHTML = '<p class="text-xs text-[#5C6272] p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
+    container.innerHTML = '<p class="text-xs text-[#4B5563] p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
     return;
   }
 
@@ -431,7 +431,7 @@ function renderCitasCronologicas() {
 
   container.innerHTML = Object.keys(citasAgrupadas).map(dia => `
     <div class="space-y-2">
-      <div class="text-xs font-bold text-[#5C6272] uppercase tracking-wider bg-[#14161C] px-3 py-1.5 rounded-md border border-[#232838]">${dia}</div>
+      <div class="text-xs font-bold text-[#4B5563] uppercase tracking-wider bg-[#161922] px-3 py-1.5 rounded-md border border-[#272A30]">${dia}</div>
       <div class="grid grid-cols-1 gap-2 pl-1">
         ${citasAgrupadas[dia].map(cita => {
           const horaVisual = cita.hora_cita ? cita.hora_cita.slice(0, 5) : '12:00';
@@ -442,8 +442,8 @@ function renderCitasCronologicas() {
             : 'card-hover';
 
           const claseTextoNombre = esCancelada
-            ? 'text-[#5C6272] line-through'
-            : 'text-[#EDEEF2]';
+            ? 'text-[#4B5563] line-through'
+            : 'text-[#F5F5F4]';
 
           const botonAccion = esCancelada
             ? `<button data-cita-id="${cita.id}" data-action="delete" class="btn-gestion-cita btn-ghost p-1.5 rounded-lg flex items-center justify-center cursor-pointer" title="Limpiar del historial">
@@ -461,7 +461,7 @@ function renderCitasCronologicas() {
             <div class="flex items-center justify-between p-3 card ${claseContenedor}">
               <div>
                 <p class="font-semibold text-sm ${claseTextoNombre}">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
-                <p class="text-xs text-[#5C6272] font-mono">Tel: ${escapeHtml(cita.telefono || 'Sin número')} • Interés: <span style="color: var(--cold);" class="font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
+                <p class="text-xs text-[#4B5563] font-mono">Tel: ${escapeHtml(cita.telefono || 'Sin número')} • Interés: <span style="color: var(--cold);" class="font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
               </div>
 
               <div class="flex items-center gap-3">
@@ -594,18 +594,18 @@ function calcularMetricasInventario() {
     const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
 
     if (mesesConVentas.length === 0) {
-      mensualesContainer.innerHTML = `<p class="text-xs text-[#5C6272] italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
+      mensualesContainer.innerHTML = `<p class="text-xs text-[#4B5563] italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
     } else {
       mensualesContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
           ${mesesConVentas.map(mes => `
-            <div class="flex items-center justify-between p-3 bg-[#14161C] border border-[#232838] rounded-xl">
+            <div class="flex items-center justify-between p-3 bg-[#161922] border border-[#272A30] rounded-xl">
               <div>
                 <p class="text-xs font-bold">${mes.name}</p>
-                <p class="text-[10px] text-[#5C6272] font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
+                <p class="text-[10px] text-[#4B5563] font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
               </div>
               <div class="text-right">
-                <p class="text-sm font-extrabold stat-mono" style="color: var(--success);">${formatCurrency(mes.dinero)}</p>
+                <p class="text-sm font-extrabold stat-mono" style="color: var(--text);">${formatCurrency(mes.dinero)}</p>
               </div>
             </div>
           `).join('')}
@@ -653,7 +653,7 @@ function renderCars() {
   if (!grid) return;
 
   if (carsCache.length === 0) {
-    grid.innerHTML = '<div class="card p-8 text-center text-xs text-[#5C6272] col-span-full">No hay unidades vehiculares en exhibición.</div>';
+    grid.innerHTML = '<div class="card p-8 text-center text-xs text-[#4B5563] col-span-full">No hay unidades vehiculares en exhibición.</div>';
     return;
   }
 
@@ -663,15 +663,15 @@ function renderCars() {
     const esVendido = car.status === 'Vendido';
 
     const estaPublicado = car.redes_status === 'Publicado';
-    const dotRedesColor = estaPublicado ? 'var(--success)' : 'var(--amber)';
-    const textoRedes = estaPublicado ? 'Publicado en redes' : 'Pendiente de publicar';
+    const dotRedesClass = estaPublicado ? 'status-dot' : 'status-dot status-dot-outline';
+    const textoRedes = estaPublicado ? 'Publicado' : 'Pendiente de publicar';
 
-    const dotCatalogColor = car.status === 'Apartado' ? 'var(--amber)' : 'var(--success)';
+    const dotCatalogClass = car.status === 'Apartado' ? 'status-dot status-dot-outline' : 'status-dot';
     const textoCatalog = car.status === 'Apartado' ? 'Apartado' : 'Disponible';
 
     const botonEstatus = !esVendido
-      ? `<button data-action-id="${car.id}" class="btn-marcar-vendido internal-only text-[11px] px-2.5 py-1 rounded-md font-semibold transition" style="background: var(--success); color: #06210F;">Marcar Vendido</button>`
-      : `<span class="text-xs text-[#5C6272] font-medium italic internal-only">Unidad Entregada</span>`;
+      ? `<button data-action-id="${car.id}" class="btn-marcar-vendido internal-only text-[11px] px-2.5 py-1 rounded-md font-semibold transition" style="background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);">Marcar Vendido</button>`
+      : `<span class="text-xs text-[#4B5563] font-medium italic internal-only">Unidad Entregada</span>`;
 
     const salud = calcularSaludInventario(car);
     const saludColorClass = salud.percent >= 100 ? 'health-high' : salud.percent >= 50 ? 'health-mid' : 'health-low';
@@ -679,28 +679,28 @@ function renderCars() {
     return `
       <div class="car-card flex flex-col ${esVendido ? 'status-vendido' : ''}">
         <img src="${car.image_url || 'https://via.placeholder.com/400x250?text=Sin+Foto'}" class="car-card-img" alt="${escapeHtml(unidadNombre)}">
-        <div class="p-4 flex flex-col gap-2 flex-1">
+        <div class="p-5 flex flex-col gap-2 flex-1">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 flex-1">
               <p class="font-semibold text-sm truncate">${escapeHtml(unidadNombre || 'Unidad')}</p>
               <div class="flex items-center gap-1.5 mt-1.5 internal-only">
-                <span class="status-dot" style="background: ${dotRedesColor};"></span>
-                <span class="text-[11px] text-[#5C6272]">${textoRedes}</span>
+                <span class="${dotRedesClass}"></span>
+                <span class="text-[11px] text-[#4B5563]">${textoRedes}</span>
               </div>
               <div class="flex items-center gap-1.5 mt-1.5 catalog-only">
-                <span class="status-dot" style="background: ${dotCatalogColor};"></span>
-                <span class="text-[11px] text-[#5C6272]">${textoCatalog}</span>
+                <span class="${dotCatalogClass}"></span>
+                <span class="text-[11px] text-[#4B5563]">${textoCatalog}</span>
               </div>
             </div>
             <button data-edit-id="${car.id}" class="btn-editar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
           </div>
 
-          <p class="text-[11px] text-[#5C6272] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
+          <p class="text-[11px] text-[#4B5563] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
           <p class="text-lg font-bold stat-mono">${formatCurrency(car.price)}</p>
-          <p class="catalog-only text-[11px] text-[#9CA3AF] -mt-1">Financiamiento disponible desde <span class="font-semibold" style="color: var(--success);">${formatCurrency(car.enganche_minimo)}</span></p>
+          <p class="catalog-only text-[11px] text-[#6B7280] -mt-1">Financiamiento disponible desde <span class="font-semibold" style="color: var(--text);">${formatCurrency(car.enganche_minimo)}</span></p>
 
           <div class="internal-only space-y-1.5 pt-1">
-            <div class="flex items-center justify-between text-[9px] text-[#5C6272] uppercase font-bold tracking-wider">
+            <div class="flex items-center justify-between text-[9px] text-[#4B5563] uppercase font-bold tracking-wider">
               <span>Salud de Inventario</span>
               <span>${salud.percent}%</span>
             </div>
@@ -710,7 +710,7 @@ function renderCars() {
             </div>
           </div>
 
-          <div class="flex items-center justify-between mt-auto pt-2 border-t border-[#232838] internal-only">
+          <div class="flex items-center justify-between mt-auto pt-2 border-t border-[#272A30] internal-only">
             ${botonEstatus}
             <button data-market-id="${car.id}" class="btn-promocionar text-[11px] btn-ghost px-2.5 py-1.5 rounded-lg font-medium">✨ Promocionar</button>
           </div>
@@ -990,16 +990,16 @@ async function openDrawer(leadId) {
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
   if (expedienteContainer) {
     const docIneHtml = lead.url_ine
-      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F3F4F6]"><span class="status-dot" style="background: var(--cold);"></span>🪪 Clave Elector (INE)</span><span class="mt-1 text-[#9298A6] font-mono select-all">${escapeHtml(lead.url_ine)}</span></div>`
-      : `<div class="w-full flex items-center justify-between bg-[#14161C] text-[#5C6272] text-xs px-3 py-2 rounded-lg border border-[#232838]"><span>🪪 Clave Elector (INE)</span> <span class="text-[10px] italic">Pendiente</span></div>`;
+      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>🪪 Clave Elector (INE)</span><span class="mt-1 text-[#6B7280] font-mono select-all">${escapeHtml(lead.url_ine)}</span></div>`
+      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#4B5563] text-xs px-3 py-2 rounded-lg border border-[#272A30]"><span>🪪 Clave Elector (INE)</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     const docDomicilioHtml = lead.url_comprobante_domicilio
-      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs mt-2" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F3F4F6]"><span class="status-dot" style="background: #B79CFF;"></span>🏡 Dirección de Residencia</span><span class="mt-1 text-[#9298A6] font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
-      : `<div class="w-full flex items-center justify-between bg-[#14161C] text-[#5C6272] text-xs px-3 py-2 rounded-lg border border-[#232838] mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] italic">Pendiente</span></div>`;
+      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs mt-2" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>🏡 Dirección de Residencia</span><span class="mt-1 text-[#6B7280] font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
+      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#4B5563] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     const docIngresosHtml = lead.url_comprobante_ingresos
-      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg mt-2 transition" style="background: var(--surface-2);"><span class="flex items-center gap-1.5 text-[#F3F4F6]"><span class="status-dot" style="background: var(--success);"></span>📊 Estados de Cuenta</span> <span class="text-[10px] text-[#9CA3AF] font-semibold">Ver Archivo →</span></a>`
-      : `<div class="w-full flex items-center justify-between bg-[#14161C] text-[#5C6272] text-xs px-3 py-2 rounded-lg border border-[#232838] mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] italic">Pendiente</span></div>`;
+      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg mt-2 transition" style="background: var(--surface-2);"><span class="flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>📊 Estados de Cuenta</span> <span class="text-[10px] text-[#6B7280] font-semibold">Ver Archivo →</span></a>`
+      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#4B5563] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
   }
@@ -1032,8 +1032,8 @@ async function refreshChatLive(leadId) {
   if (!messages || messages.length === 0) {
     chatContainer.innerHTML = `
       <div class="my-auto text-center space-y-2 p-6">
-        <p class="text-[#5C6272] font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
-        <p class="text-[11px] text-[#5C6272] bg-[#14161C] border border-[#232838] rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
+        <p class="text-[#4B5563] font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
+        <p class="text-[11px] text-[#4B5563] bg-[#161922] border border-[#272A30] rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
       </div>`;
     return;
   }
@@ -1046,14 +1046,14 @@ async function refreshChatLive(leadId) {
 
     if (isBot) {
       return `
-        <div class="self-start max-w-[85%] bg-[#14161C] border border-[#232838] p-3 rounded-2xl rounded-tl-none space-y-1">
+        <div class="self-start max-w-[85%] bg-[#161922] border border-[#272A30] p-3 rounded-2xl rounded-tl-none space-y-1">
           <p class="font-bold text-[10px] uppercase tracking-wide" style="color: var(--cold);">🤖 Cerebro IA</p>
           <p class="leading-relaxed select-text">${escapeHtml(textContent)}</p>
         </div>
       `;
     } else {
       return `
-        <div class="self-end max-w-[85%] p-3 rounded-2xl rounded-tr-none space-y-1 text-right" style="background: var(--amber-strong); color: #16130A;">
+        <div class="self-end max-w-[85%] p-3 rounded-2xl rounded-tr-none space-y-1 text-right" style="background: var(--text); color: var(--bg);">
           <p class="font-bold text-[10px] uppercase tracking-wide opacity-70">👤 Prospecto</p>
           <p class="leading-relaxed text-left select-text">${escapeHtml(textContent)}</p>
         </div>
