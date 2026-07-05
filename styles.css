@@ -215,3 +215,171 @@ input:focus, select:focus, textarea:focus {
 table thead tr { color: var(--text-faint); border-color: var(--border); }
 table tbody tr { border-color: var(--border); }
 table tbody tr:hover { background: var(--surface-hover); }
+
+/* ============================================================
+   BENTO GRID — Panel "Monitor General"
+   Bloques modulares de ancho variable sobre una retícula de 12
+   columnas. Cada bloque declara cuántas columnas ocupa; el
+   grid decide el resto. Nada de alturas fijas ni recortes.
+   ============================================================ */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px;
+}
+.bento-span-3  { grid-column: span 3; }
+.bento-span-4  { grid-column: span 4; }
+.bento-span-6  { grid-column: span 6; }
+.bento-span-8  { grid-column: span 8; }
+.bento-span-12 { grid-column: span 12; }
+
+@media (max-width: 1024px) {
+  .bento-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .bento-span-3, .bento-span-4 { grid-column: span 3; }
+  .bento-span-6, .bento-span-8, .bento-span-12 { grid-column: span 6; }
+}
+@media (max-width: 640px) {
+  .bento-grid { grid-template-columns: 1fr; gap: 14px; }
+  .bento-span-3, .bento-span-4, .bento-span-6, .bento-span-8, .bento-span-12 { grid-column: span 1; }
+}
+
+/* ============================================================
+   OPORTUNIDADES RESCATADAS — bloque insignia del panel
+   Gradiente contenido (no brillante), veta ámbar sutil en la
+   esquina, tipografía tabular para los montos.
+   ============================================================ */
+.rescue-card {
+  position: relative;
+  background: linear-gradient(160deg, rgba(227,162,61,0.07) 0%, var(--surface) 45%);
+  border: 1px solid rgba(227,162,61,0.16);
+  border-radius: 20px;
+  overflow: hidden;
+}
+.rescue-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  opacity: 0.5;
+}
+.rescue-card::after {
+  content: '';
+  position: absolute;
+  top: -60%;
+  right: -8%;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(227,162,61,0.10), transparent 72%);
+  pointer-events: none;
+}
+.rescue-icon-orb {
+  background: var(--amber-soft);
+  border: 1px solid rgba(227,162,61,0.3);
+}
+.rescue-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border-strong);
+}
+
+/* ============================================================
+   SALUD DEL INVENTARIO — barra ultra-fina + checklist
+   ============================================================ */
+.health-track {
+  height: 3px;
+  width: 100%;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+.health-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.health-fill.health-low  { background: var(--hot); }
+.health-fill.health-mid  { background: var(--amber); }
+.health-fill.health-high { background: var(--success); }
+
+.health-checklist { display: flex; flex-wrap: wrap; gap: 5px; }
+.health-chip {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.health-chip.done {
+  color: var(--success);
+  border-color: rgba(52,201,124,0.3);
+  background: var(--success-soft);
+}
+
+/* ============================================================
+   MODO CATÁLOGO / PRESENTACIÓN
+   Switch minimalista + reglas globales que redactan datos
+   sensibles y despojan al inventario de su ropa operativa.
+   ============================================================ */
+.catalog-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.catalog-switch-track {
+  position: relative;
+  width: 38px;
+  height: 21px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  transition: background 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+}
+.catalog-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), background 0.2s ease;
+}
+.catalog-switch.active .catalog-switch-track { background: var(--amber-soft); border-color: var(--amber); }
+.catalog-switch.active .catalog-switch-thumb { transform: translateX(17px); background: var(--amber-strong); }
+.catalog-switch-label { font-size: 11px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.01em; }
+.catalog-switch.active .catalog-switch-label { color: var(--text); }
+
+/* Datos sensibles: redactados con desenfoque, no eliminados —
+   comunica "protegido", no "roto". */
+body.catalog-mode .privacy-sensitive {
+  filter: blur(5px);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.2s ease;
+}
+/* Controles y badges puramente operativos: fuera de vista */
+body.catalog-mode .internal-only { display: none !important; }
+/* Contenido exclusivo del modo presentación */
+.catalog-only { display: none; }
+body.catalog-mode .catalog-only { display: block; }
+body.catalog-mode .catalog-only.inline { display: inline-flex; }
+
+body.catalog-mode #view-dashboard {
+  background: radial-gradient(120% 60% at 50% 0%, rgba(227,162,61,0.05), transparent 65%), var(--bg);
+}
+body.catalog-mode .car-card.status-vendido { display: none; }
+body.catalog-mode .car-card {
+  border-color: var(--border-strong);
+}
+body.catalog-mode .car-card-img { filter: saturate(1.05) contrast(1.02); }

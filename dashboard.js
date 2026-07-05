@@ -91,6 +91,41 @@ async function fetchLeads() {
   renderCounters();
   procesarMetricasBI();
   renderPipelineKanban();
+  calcularOportunidadesRescatadas();
+}
+
+// ------------------------------------------------------------
+// OPORTUNIDADES RESCATADAS 🌙
+// Cuantifica el trabajo del Agente IA fuera de horario humano
+// (madrugada: 00:00–06:00) y estima el valor de venta potencial
+// de las unidades en que esos prospectos mostraron interés.
+// ------------------------------------------------------------
+function calcularOportunidadesRescatadas() {
+  const leadsCountEl = document.getElementById('rescueLeadsCount');
+  const valorEl = document.getElementById('rescueValorPotencial');
+  if (!leadsCountEl || !valorEl) return;
+
+  const leadsMadrugada = leadsCache.filter(lead => {
+    if (!lead.created_at) return false;
+    const hora = new Date(lead.created_at).getHours();
+    return hora >= 0 && hora < 6;
+  });
+
+  let valorPotencial = 0;
+  leadsMadrugada.forEach(lead => {
+    const interes = String(lead.auto_interes || lead.auto_sugerido || '').toLowerCase().trim();
+    if (!interes || interes === 'general') return;
+
+    const carMatch = carsCache.find(car => {
+      const nombreCar = `${car.brand || ''} ${car.model || ''}`.trim().toLowerCase();
+      return nombreCar && (interes.includes(nombreCar) || nombreCar.includes(interes));
+    });
+
+    if (carMatch) valorPotencial += Number(carMatch.price) || 0;
+  });
+
+  leadsCountEl.textContent = leadsMadrugada.length;
+  valorEl.textContent = formatCurrency(valorPotencial);
 }
 
 // ------------------------------------------------------------
@@ -194,7 +229,7 @@ function renderLeadsTable() {
                         ${badgeDocumentos}
                       </div>
                     </td>
-                    <td class="px-4 py-3.5 text-xs text-[#9298A6] font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
+                    <td class="px-4 py-3.5 text-xs text-[#9298A6] font-mono privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
                     <td class="px-4 py-3.5 text-sm font-medium">
                       <div class="flex flex-col">
                         <span style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</span>
@@ -273,7 +308,7 @@ function renderPipelineKanban() {
             <div class="w-7 h-7 rounded-lg bg-[#1D2028] flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0">${escapeHtml(iniciales)}</div>
             <div class="min-w-0">
               <p class="text-xs font-semibold truncate">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</p>
-              <p class="text-[10px] text-[#5C6272] font-mono truncate">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
+              <p class="text-[10px] text-[#5C6272] font-mono truncate privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
             </div>
           </div>
         </div>
@@ -491,6 +526,7 @@ async function fetchCars() {
   renderCarsCounter();
   calcularMetricasInventario();
   populateMarketingCarSelect();
+  calcularOportunidadesRescatadas();
 }
 
 function renderCarsCounter() {
@@ -592,6 +628,26 @@ function calcularMetricasInventario() {
   }
 }
 
+// ------------------------------------------------------------
+// SALUD DEL INVENTARIO 🩺
+// Composite de 3 señales operativas por unidad: foto real,
+// copy generado por el Agente IA, y publicación en redes.
+// ------------------------------------------------------------
+function calcularSaludInventario(car) {
+  const tieneFoto = !!(car.image_url && !car.image_url.includes('placeholder'));
+  const tieneCopy = !!(car.copy_ia && String(car.copy_ia).trim().length > 0);
+  const publicado = car.redes_status === 'Publicado';
+
+  const items = [
+    { label: 'Foto HD', done: tieneFoto },
+    { label: 'Copy IA', done: tieneCopy },
+    { label: 'Publicado', done: publicado }
+  ];
+  const completados = items.filter(i => i.done).length;
+  const percent = Math.round((completados / items.length) * 100);
+  return { percent, items };
+}
+
 function renderCars() {
   const grid = document.getElementById('carsGridContainer');
   if (!grid) return;
@@ -614,15 +670,19 @@ function renderCars() {
     const statusClasses = car.status === 'Disponible' ? 'badge-success' : car.status === 'Apartado' ? 'badge-warm' : 'badge-neutral';
 
     const botonEstatus = !esVendido
-      ? `<button data-action-id="${car.id}" class="btn-marcar-vendido text-[11px] px-2.5 py-1 rounded-md font-semibold transition" style="background: var(--success); color: #06210F;">Marcar Vendido</button>`
-      : `<span class="text-xs text-[#5C6272] font-medium italic">Unidad Entregada</span>`;
+      ? `<button data-action-id="${car.id}" class="btn-marcar-vendido internal-only text-[11px] px-2.5 py-1 rounded-md font-semibold transition" style="background: var(--success); color: #06210F;">Marcar Vendido</button>`
+      : `<span class="text-xs text-[#5C6272] font-medium italic internal-only">Unidad Entregada</span>`;
+
+    const salud = calcularSaludInventario(car);
+    const saludColorClass = salud.percent >= 100 ? 'health-high' : salud.percent >= 50 ? 'health-mid' : 'health-low';
 
     return `
-      <div class="car-card flex flex-col">
+      <div class="car-card flex flex-col ${esVendido ? 'status-vendido' : ''}">
         <div class="relative">
           <img src="${car.image_url || 'https://via.placeholder.com/400x250?text=Sin+Foto'}" class="car-card-img" alt="${escapeHtml(unidadNombre)}">
-          <div class="absolute top-2.5 left-2.5">${badgeRedes}</div>
-          <div class="absolute top-2.5 right-2.5"><span class="badge ${statusClasses}">${escapeHtml(car.status || '')}</span></div>
+          <div class="absolute top-2.5 left-2.5 internal-only">${badgeRedes}</div>
+          <div class="absolute top-2.5 right-2.5 internal-only"><span class="badge ${statusClasses}">${escapeHtml(car.status || '')}</span></div>
+          <div class="absolute top-2.5 right-2.5 catalog-only"><span class="badge badge-success">✓ Disponible</span></div>
         </div>
         <div class="p-4 flex flex-col gap-2 flex-1">
           <div class="flex items-start justify-between gap-2">
@@ -630,10 +690,23 @@ function renderCars() {
               <p class="font-semibold text-sm truncate">${escapeHtml(unidadNombre || 'Unidad')}</p>
               <p class="text-[11px] text-[#5C6272] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
             </div>
-            <button data-edit-id="${car.id}" class="btn-editar-car text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
+            <button data-edit-id="${car.id}" class="btn-editar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
           </div>
           <p class="text-lg font-bold stat-mono">${formatCurrency(car.price)}</p>
-          <div class="flex items-center justify-between mt-auto pt-2 border-t border-[#232838]">
+          <p class="catalog-only text-[11px] text-[#9298A6] -mt-1">Financiamiento disponible desde <span class="font-semibold" style="color: var(--success);">${formatCurrency(car.enganche_minimo)}</span></p>
+
+          <div class="internal-only space-y-1.5 pt-1">
+            <div class="flex items-center justify-between text-[9px] text-[#5C6272] uppercase font-bold tracking-wider">
+              <span>Salud de Inventario</span>
+              <span>${salud.percent}%</span>
+            </div>
+            <div class="health-track"><div class="health-fill ${saludColorClass}" style="width:${salud.percent}%"></div></div>
+            <div class="health-checklist">
+              ${salud.items.map(i => `<span class="health-chip ${i.done ? 'done' : ''}">${i.done ? '✓' : '○'} ${i.label}</span>`).join('')}
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between mt-auto pt-2 border-t border-[#232838] internal-only">
             ${botonEstatus}
             <button data-market-id="${car.id}" class="btn-promocionar text-[11px] btn-ghost px-2.5 py-1.5 rounded-lg font-medium">✨ Promocionar</button>
           </div>
@@ -995,6 +1068,31 @@ function closeDrawer() {
   document.getElementById('drawerOverlay').classList.add('hidden');
 }
 
+// ------------------------------------------------------------
+// MODO CATÁLOGO / PRESENTACIÓN 🖼️
+// Redacta datos financieros internos y de contacto del lead,
+// y transforma el inventario en un catálogo listo para mostrar
+// directamente a un cliente en el lote.
+// ------------------------------------------------------------
+let catalogModeActive = false;
+
+function initCatalogMode() {
+  const toggle = document.getElementById('catalogModeToggle');
+  if (!toggle) return;
+
+  toggle.addEventListener('click', () => {
+    catalogModeActive = !catalogModeActive;
+    document.body.classList.toggle('catalog-mode', catalogModeActive);
+    toggle.classList.toggle('active', catalogModeActive);
+    toggle.setAttribute('aria-pressed', String(catalogModeActive));
+
+    if (catalogModeActive) {
+      const inventarioBtn = document.querySelector('[data-section="section-inventario"]');
+      if (inventarioBtn) inventarioBtn.click();
+    }
+  });
+}
+
 function initSidebarNav() {
   const navButtons = document.querySelectorAll('.nav-btn');
   navButtons.forEach(btn => {
@@ -1267,6 +1365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   initSidebarNav();
   initMarketingModule();
+  initCatalogMode();
   await checkSessionAndLote();
 });
 

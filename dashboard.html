@@ -144,36 +144,66 @@
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="bg-[#0F1115] border-b border-[#232838] px-4 md:px-8 h-16 flex items-center gap-4 sticky top-0 z-20">
+      <header class="bg-[#0F1115] border-b border-[#232838] px-4 md:px-9 h-[72px] flex items-center gap-4 sticky top-0 z-20">
         <button id="openSidebar" class="md:hidden w-9 h-9 rounded-lg border border-[#232838] flex items-center justify-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
         <div class="min-w-0 flex-1">
           <p id="loteHeaderName" class="lote-nombre-display font-semibold text-base truncate">Cargando patio...</p>
         </div>
-        <div class="ml-auto flex items-center gap-2">
+        <div class="ml-auto flex items-center gap-4">
+          <button id="catalogModeToggle" type="button" aria-pressed="false" class="catalog-switch">
+            <span class="catalog-switch-track"><span class="catalog-switch-thumb"></span></span>
+            <span class="catalog-switch-label hidden sm:inline">Modo Catálogo</span>
+          </button>
+          <div class="w-px h-6 bg-[#232838] hidden sm:block"></div>
           <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-[#F0B85A] to-[#E3A23D] flex items-center justify-center text-[#16130A] text-xs font-bold font-mono">360</div>
         </div>
       </header>
 
-      <main class="p-4 md:p-8 space-y-6 flex-1 overflow-y-auto">
+      <main class="p-5 md:p-10 space-y-8 flex-1 overflow-y-auto">
 
         <!-- ===================== MONITOR GENERAL ===================== -->
-        <section id="section-panel" class="dashboard-section space-y-6">
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="gauge-card p-5">
+        <section id="section-panel" class="dashboard-section space-y-8">
+          <div class="bento-grid">
+
+            <!-- Insignia: Oportunidades Rescatadas por el Agente IA -->
+            <div class="rescue-card bento-span-12 p-7 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div class="flex items-start gap-4">
+                <div class="rescue-icon-orb w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" style="color: var(--amber-strong);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </div>
+                <div>
+                  <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--amber-strong);">Oportunidades Rescatadas</p>
+                  <p class="text-[11px] text-[#5C6272] mt-1 max-w-md leading-relaxed">Prospectos atendidos por el Agente IA en la madrugada (12:00 a.m. – 6:00 a.m.), fuera de horario comercial humano</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-8 sm:gap-12 pl-1 lg:pl-0">
+                <div>
+                  <p class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider">Leads en Madrugada</p>
+                  <p id="rescueLeadsCount" class="gauge-value text-3xl font-bold mt-1.5">0</p>
+                </div>
+                <div class="rescue-divider hidden sm:block"></div>
+                <div>
+                  <p class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider">Valor Potencial Rescatado</p>
+                  <p id="rescueValorPotencial" class="gauge-value text-3xl font-bold mt-1.5" style="color: var(--amber-strong);">$0.00</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="gauge-card bento-span-3 p-6">
               <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Unidades en Patio</p>
               <p id="carsCount" class="gauge-value text-3xl font-bold mt-2">0</p>
             </div>
-            <div class="gauge-card p-5">
+            <div class="gauge-card bento-span-3 p-6">
               <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Leads Totales</p>
               <p id="leadsCount" class="gauge-value text-3xl font-bold mt-2">0</p>
             </div>
-            <div class="gauge-card p-5">
+            <div class="gauge-card bento-span-3 p-6">
               <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Citas Activas</p>
               <p id="citasCount" class="gauge-value text-3xl font-bold mt-2">0</p>
             </div>
-            <div class="gauge-card p-5">
+            <div class="gauge-card bento-span-3 p-6">
               <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Publicados este Mes</p>
               <p id="kpiAutosPublicados" class="gauge-value text-3xl font-bold mt-2 text-[#E3A23D]">0</p>
             </div>
@@ -192,9 +222,10 @@
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 card p-4">
             <div>
               <h2 class="font-bold text-sm uppercase tracking-wider">Catálogo de Unidades</h2>
-              <p class="text-xs text-[#5C6272] mt-0.5">Sube layouts masivos en CSV o administra las unidades del patio</p>
+              <p class="text-xs text-[#5C6272] mt-0.5 internal-only">Sube layouts masivos en CSV o administra las unidades del patio</p>
+              <p class="text-xs text-[#5C6272] mt-0.5 catalog-only">Unidades seleccionadas, listas para presentación</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 internal-only">
               <input type="file" id="excelFileInput" accept=".csv" class="hidden">
               <button id="btnImportarExcel" class="btn-ghost text-xs px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
                 📥 Carga Masiva (CSV)
@@ -206,7 +237,7 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 privacy-sensitive">
             <div class="card p-5">
               <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Activo Total Real en Patio</p>
               <p id="invValorTotal" class="text-2xl font-bold mt-1 stat-mono">$0.00</p>
@@ -219,7 +250,7 @@
             </div>
           </div>
 
-          <div class="card p-5">
+          <div class="card p-5 privacy-sensitive">
             <div class="mb-2">
               <h3 class="font-bold text-xs uppercase tracking-wider">Histórico de Facturación Mensual (Año en Curso)</h3>
               <p class="text-[11px] text-[#5C6272]">Rendimiento económico y volumen de unidades entregadas por mes</p>
@@ -229,10 +260,11 @@
 
           <div class="space-y-3">
             <div class="flex items-center justify-between">
-              <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Unidades de Negocio Registradas</h3>
-              <p class="text-[11px] text-[#5C6272]"><span class="badge badge-success">🟢 Publicado</span> <span class="badge badge-warm ml-1">🟡 Pendiente</span> en redes sociales</p>
+              <h3 class="font-bold text-sm uppercase tracking-wider text-xs internal-only">Unidades de Negocio Registradas</h3>
+              <h3 class="font-bold text-sm uppercase tracking-wider text-xs catalog-only" style="color: var(--amber-strong);">Nuestra Selección</h3>
+              <p class="text-[11px] text-[#5C6272] internal-only"><span class="badge badge-success">🟢 Publicado</span> <span class="badge badge-warm ml-1">🟡 Pendiente</span> en redes sociales</p>
             </div>
-            <div id="carsGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div id="carsGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
           </div>
         </section>
 
@@ -421,7 +453,7 @@
         <div class="space-y-4 text-sm">
           <div>
             <label class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider block">Contacto Directo</label>
-            <p id="drawerTelefono" class="font-semibold font-mono mt-0.5">---</p>
+            <p id="drawerTelefono" class="font-semibold font-mono mt-0.5 privacy-sensitive">---</p>
           </div>
           <div>
             <label class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider block">Unidad de Interés</label>
