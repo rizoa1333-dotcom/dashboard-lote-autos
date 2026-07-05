@@ -9,99 +9,116 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="dashboard.js" defer></script>
 </head>
-<body class="bg-[#F8FAFC] text-slate-900 min-h-screen flex flex-col md:flex-row justify-center items-center">
+<body class="bg-[#0A0B0E] text-[#EDEEF2] min-h-screen flex flex-col md:flex-row justify-center items-center">
 
-  <main id="view-registro" class="bg-white p-8 rounded-xl border border-[#E2E8F0] shadow-sm max-w-md w-full space-y-6 my-4 mx-4">
+  <!-- ============ REGISTRO ============ -->
+  <main id="view-registro" class="card p-8 max-w-md w-full space-y-6 my-4 mx-4">
     <div class="text-center">
-      <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Crea tu cuenta SaaS</h2>
-      <p class="text-sm text-slate-500 mt-1">Automatiza tu lote con PROJECT 360</p>
+      <div class="w-11 h-11 mx-auto rounded-xl bg-gradient-to-br from-[#F0B85A] to-[#E3A23D] flex items-center justify-center mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-[#16130A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold tracking-tight">Crea tu cuenta SaaS</h2>
+      <p class="text-sm text-[#9298A6] mt-1">Automatiza tu lote con PROJECT 360</p>
     </div>
-    
+
     <form id="registroForm" class="space-y-4">
       <div>
-        <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider">Nombre del Lote</label>
-        <input type="text" id="registroNombreLote" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="ej. Gomez Automotriz">
+        <label class="block text-xs font-medium text-[#9298A6] uppercase tracking-wider">Nombre del Lote</label>
+        <input type="text" id="registroNombreLote" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. Gomez Automotriz">
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider">Teléfono de WhatsApp del Lote</label>
-        <input type="text" id="registroPhoneLote" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="ej. 523121234567">
+        <label class="block text-xs font-medium text-[#9298A6] uppercase tracking-wider">Teléfono de WhatsApp del Lote</label>
+        <input type="text" id="registroPhoneLote" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. 523121234567">
       </div>
-      <hr class="border-[#E2E8F0]">
+      <hr class="border-[#232838]">
       <div>
-        <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider">Correo Administrator</label>
-        <input type="email" id="registroEmail" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="correo@ejemplo.com">
+        <label class="block text-xs font-medium text-[#9298A6] uppercase tracking-wider">Correo Administrador</label>
+        <input type="email" id="registroEmail" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="correo@ejemplo.com">
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider">Contraseña de Acceso</label>
-        <input type="password" id="registroPassword" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="••••••••">
+        <label class="block text-xs font-medium text-[#9298A6] uppercase tracking-wider">Contraseña de Acceso</label>
+        <input type="password" id="registroPassword" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="••••••••">
       </div>
-      
-      <div id="registroError" class="text-xs text-rose-500 text-center font-medium"></div>
 
-      <button type="submit" class="w-full bg-[#0F172A] text-white text-sm font-medium py-2.5 rounded-lg hover:bg-slate-800 transition-colors">
+      <div id="registroError" class="text-xs text-[#E5573F] text-center font-medium"></div>
+
+      <button type="submit" class="btn-primary w-full text-sm py-2.5 rounded-lg">
         Registrar Lote e Ingresar
       </button>
     </form>
-    <p class="text-center text-xs text-slate-400">¿Ya tienes cuenta? <button type="button" id="to-login-btn" class="text-slate-900 font-medium underline">Inicia sesión</button></p>
+    <p class="text-center text-xs text-[#5C6272]">¿Ya tienes cuenta? <button type="button" id="to-login-btn" class="text-[#EDEEF2] font-medium underline">Inicia sesión</button></p>
   </main>
 
-  <main id="view-login" class="bg-white p-8 rounded-xl border border-[#E2E8F0] shadow-sm max-w-md w-full space-y-6 hidden my-4 mx-4">
+  <!-- ============ LOGIN ============ -->
+  <main id="view-login" class="card p-8 max-w-md w-full space-y-6 hidden my-4 mx-4">
     <div class="text-center">
-      <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Proyecto360</h2>
-      <p class="text-sm text-slate-500 mt-1">Portal de Control Automotriz</p>
+      <div class="w-11 h-11 mx-auto rounded-xl bg-gradient-to-br from-[#F0B85A] to-[#E3A23D] flex items-center justify-center mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-[#16130A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold tracking-tight">Proyecto360</h2>
+      <p class="text-sm text-[#9298A6] mt-1">Portal de Control Automotriz</p>
     </div>
-    
+
     <form id="loginForm" class="space-y-4">
       <div>
-        <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider">Correo electrónico</label>
-        <input type="email" id="loginEmail" placeholder="correo@ejemplo.com" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]">
+        <label class="block text-xs font-medium text-[#9298A6] uppercase tracking-wider">Correo electrónico</label>
+        <input type="email" id="loginEmail" placeholder="correo@ejemplo.com" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider">Contraseña</label>
-        <input type="password" id="loginPassword" placeholder="••••••••" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]">
+        <label class="block text-xs font-medium text-[#9298A6] uppercase tracking-wider">Contraseña</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
       </div>
-      
-      <button type="submit" class="w-full bg-[#0F172A] text-white text-sm font-medium py-2.5 rounded-lg hover:bg-slate-800 transition-colors">
+
+      <button type="submit" class="btn-primary w-full text-sm py-2.5 rounded-lg">
         Iniciar Sesión
       </button>
-      <div id="loginError" class="text-xs text-rose-500 text-center font-medium"></div>
+      <div id="loginError" class="text-xs text-[#E5573F] text-center font-medium"></div>
     </form>
-    
-    <p class="text-center text-xs text-slate-400">¿Eres un lote nuevo? <button type="button" id="to-registro-btn" class="text-slate-900 font-medium underline">Regístrate aquí</button></p>
+
+    <p class="text-center text-xs text-[#5C6272]">¿Eres un lote nuevo? <button type="button" id="to-registro-btn" class="text-[#EDEEF2] font-medium underline">Regístrate aquí</button></p>
   </main>
 
-  <div id="view-dashboard" class="w-full min-h-screen flex flex-col md:flex-row hidden self-stretch items-stretch justify-start bg-[#F8FAFC]">
-    
-    <div id="overlay" class="fixed inset-0 bg-black/20 z-30 hidden"></div>
+  <!-- ============ DASHBOARD ============ -->
+  <div id="view-dashboard" class="w-full min-h-screen flex flex-col md:flex-row hidden self-stretch items-stretch justify-start bg-[#0A0B0E]">
 
-    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-64 bg-white border-r border-[#E2E8F0] flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-200">
-      <div class="px-6 py-5 flex items-center gap-3 border-b border-[#E2E8F0]">
-        <div class="w-9 h-9 rounded-lg bg-[#0F172A] flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    <div id="overlay" class="fixed inset-0 bg-black/50 z-30 hidden"></div>
+
+    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-64 bg-[#0F1115] border-r border-[#232838] flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-200">
+      <div class="px-6 py-5 flex items-center gap-3 border-b border-[#232838]">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-[#F0B85A] to-[#E3A23D] flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-[#16130A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         </div>
-        <p class="font-semibold text-base tracking-tight text-slate-900">PROJECT 360</p>
-        <button id="closeSidebar" class="ml-auto md:hidden text-slate-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <p class="font-semibold text-base tracking-tight">PROJECT 360</p>
+        <button id="closeSidebar" class="ml-auto md:hidden text-[#5C6272]">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
 
-      <nav class="flex-1 px-3 py-4 space-y-1">
+      <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <button data-section="section-panel" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium nav-active">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
           Monitor General
         </button>
         <button data-section="section-inventario" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-          Control de Inventario
+          Inventario
+        </button>
+        <button data-section="section-pipeline" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18l-7 9v6l-4 2v-8z"/></svg>
+          Pipeline de Ventas
+        </button>
+        <button data-section="section-marketing" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="4"/></svg>
+          Agente Publicitario IA
         </button>
         <button data-section="section-citas" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium">
           <div class="flex items-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
             Citas Agendadas
           </div>
-          <span id="citasBadge" class="hidden text-[10px] font-bold bg-rose-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">0</span>
+          <span id="citasBadge" class="hidden text-[10px] font-bold bg-[#E5573F] text-white px-1.5 py-0.5 rounded-full animate-pulse">0</span>
         </button>
-        <button data-section="section-analiticas" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50/50">
+        <button data-section="section-analiticas" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           Métricas BI y Analíticas
         </button>
@@ -109,184 +126,263 @@
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1-2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           Configuración del Lote
         </button>
-        <button id="logoutBtn" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors mt-8">
+        <button id="logoutBtn" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#E5573F] hover:bg-[#E5573F]/10 transition-colors mt-8">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Cerrar Sesión
         </button>
       </nav>
 
-      <div class="p-4 border-t border-[#E2E8F0]">
+      <div class="p-4 border-t border-[#232838]">
         <div class="flex items-center gap-3 px-2">
-          <div class="w-8 h-8 rounded-full bg-[#0F172A] flex items-center justify-center text-white text-xs font-semibold">AM</div>
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#F0B85A] to-[#E3A23D] flex items-center justify-center text-[#16130A] text-xs font-bold">AM</div>
           <div class="text-xs">
-            <p id="loteSidebarName" class="lote-nombre-display font-medium text-slate-800">Cargando...</p>
-            <p class="text-slate-400 text-[11px]">SaaS Operativo Activo</p>
+            <p id="loteSidebarName" class="lote-nombre-display font-medium">Cargando...</p>
+            <p class="text-[#5C6272] text-[11px]">SaaS Operativo Activo</p>
           </div>
         </div>
       </div>
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="bg-white border-b border-[#E2E8F0] px-4 md:px-8 h-16 flex items-center gap-4 sticky top-0 z-20">
-        <button id="openSidebar" class="md:hidden w-9 h-9 rounded-lg border border-[#E2E8F0] flex items-center justify-center">
+      <header class="bg-[#0F1115] border-b border-[#232838] px-4 md:px-8 h-16 flex items-center gap-4 sticky top-0 z-20">
+        <button id="openSidebar" class="md:hidden w-9 h-9 rounded-lg border border-[#232838] flex items-center justify-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
         <div class="min-w-0 flex-1">
-          <p id="loteHeaderName" class="lote-nombre-display font-semibold text-base text-slate-900 truncate">Cargando patio...</p>
+          <p id="loteHeaderName" class="lote-nombre-display font-semibold text-base truncate">Cargando patio...</p>
         </div>
         <div class="ml-auto flex items-center gap-2">
-          <div class="w-9 h-9 rounded-lg bg-[#0F172A] flex items-center justify-center text-white text-xs font-bold font-mono">360</div>
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-[#F0B85A] to-[#E3A23D] flex items-center justify-center text-[#16130A] text-xs font-bold font-mono">360</div>
         </div>
       </header>
 
       <main class="p-4 md:p-8 space-y-6 flex-1 overflow-y-auto">
-        
+
+        <!-- ===================== MONITOR GENERAL ===================== -->
         <section id="section-panel" class="dashboard-section space-y-6">
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Citas Activas</p>
-              <p id="citasCount" class="text-3xl font-bold mt-2 text-slate-900">0</p>
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="gauge-card p-5">
+              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Unidades en Patio</p>
+              <p id="carsCount" class="gauge-value text-3xl font-bold mt-2">0</p>
             </div>
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Leads Totales</p>
-              <p id="leadsCount" class="text-3xl font-bold mt-2 text-slate-900">0</p>
+            <div class="gauge-card p-5">
+              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Leads Totales</p>
+              <p id="leadsCount" class="gauge-value text-3xl font-bold mt-2">0</p>
             </div>
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Unidades en Patio</p>
-              <p id="carsCount" class="text-3xl font-bold mt-2 text-slate-900">0</p>
+            <div class="gauge-card p-5">
+              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Citas Activas</p>
+              <p id="citasCount" class="gauge-value text-3xl font-bold mt-2">0</p>
+            </div>
+            <div class="gauge-card p-5">
+              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Publicados este Mes</p>
+              <p id="kpiAutosPublicados" class="gauge-value text-3xl font-bold mt-2 text-[#E3A23D]">0</p>
             </div>
           </div>
 
           <div class="mb-4">
-            <h3 class="font-bold text-slate-800 uppercase tracking-wider text-xs">Monitor General de Leads Calificados por IA</h3>
-            <p class="text-xs text-slate-400">Listado cronológico organizado por bloques mensuales de registro y telemetría en tiempo real</p>
+            <h3 class="font-bold text-[#EDEEF2] uppercase tracking-wider text-xs">Monitor General de Leads Calificados por IA</h3>
+            <p class="text-xs text-[#5C6272]">Listado cronológico organizado por bloques mensuales de registro y telemetría en tiempo real</p>
           </div>
 
           <div id="leadsGroupedContainer" class="space-y-6"></div>
         </section>
 
-        <section id="section-analiticas" class="dashboard-section space-y-6 hidden">
-          <div>
-            <h2 class="text-lg font-bold text-slate-900 tracking-tight uppercase text-sm">Centro de Inteligencia de Negocios (SaaS BI)</h2>
-            <p class="text-xs text-slate-400 mt-0.5">Métricas avanzadas de conversión de embudo, perfilamiento e interés comercial en tiempo real</p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm bg-indigo-50/20 border-indigo-100/70">
-              <p class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Tasa de Conversión (Leads a Cita)</p>
-              <p id="biTasaConversion" class="text-3xl font-black mt-2 text-indigo-700">0.0%</p>
-              <p class="text-[10px] text-slate-400 mt-1">Porcentaje de leads que agendan cita en patio física.</p>
-            </div>
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm bg-amber-50/20 border-amber-100/70">
-              <p class="text-xs font-bold text-amber-600 uppercase tracking-wider">Riesgo Financiero (Sin Comprobante)</p>
-              <p id="biSinIngresosRate" class="text-3xl font-black mt-2 text-amber-700">0.0%</p>
-              <p class="text-[10px] text-slate-400 mt-1">Porcentaje de prospectos que no comprueban ingresos.</p>
-            </div>
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm bg-emerald-50/20 border-emerald-100/70">
-              <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Efectividad Operativa de IA</p>
-              <p class="text-3xl font-black mt-2 text-emerald-700">100%</p>
-              <p class="text-[10px] text-slate-400 mt-1">Atención inmediata automatizada las 24 horas.</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
-              <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">🔥 Top Vehículos Más Buscados</h4>
-              <div id="biTopAutosList" class="space-y-2.5"></div>
-            </div>
-
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
-              <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">💰 Distribución de Capacidad de Enganche</h4>
-              <div id="biEngancheList" class="space-y-2.5"></div>
-            </div>
-          </div>
-        </section>
-
+        <!-- ===================== INVENTARIO ===================== -->
         <section id="section-inventario" class="dashboard-section space-y-6 hidden">
-          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 card p-4">
             <div>
-              <h2 class="font-bold text-sm text-slate-800 uppercase tracking-wider">Gestión Masiva de Unidades</h2>
-              <p class="text-xs text-slate-400 mt-0.5">Sube layouts masivos en CSV o administra las unidades del patio</p>
+              <h2 class="font-bold text-sm uppercase tracking-wider">Catálogo de Unidades</h2>
+              <p class="text-xs text-[#5C6272] mt-0.5">Sube layouts masivos en CSV o administra las unidades del patio</p>
             </div>
             <div class="flex items-center gap-2">
               <input type="file" id="excelFileInput" accept=".csv" class="hidden">
-              <button id="btnImportarExcel" class="bg-emerald-600 text-white text-xs px-3 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm">
+              <button id="btnImportarExcel" class="btn-ghost text-xs px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
                 📥 Carga Masiva (CSV)
+              </button>
+              <button id="btnAbrirModalCar" class="btn-primary text-xs px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Agregar Unidad
               </button>
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Activo Total Real en Patio</p>
-              <p id="invValorTotal" class="text-2xl font-bold mt-1 text-slate-900">$0.00</p>
-              <p class="text-[11px] text-slate-400 mt-1">Capital activo en unidades disponibles y apartadas</p>
+            <div class="card p-5">
+              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Activo Total Real en Patio</p>
+              <p id="invValorTotal" class="text-2xl font-bold mt-1 stat-mono">$0.00</p>
+              <p class="text-[11px] text-[#5C6272] mt-1">Capital activo en unidades disponibles y apartadas</p>
             </div>
-            <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm bg-emerald-50/40 border-emerald-100">
-              <p class="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Cierre de Ventas Acumulado</p>
-              <p id="invGananciasTotales" class="text-2xl font-bold mt-1 text-emerald-600">$0.00</p>
-              <p class="text-[11px] text-emerald-500 mt-1">Monto total facturado de unidades con estatus Vendido</p>
+            <div class="card p-5" style="background: var(--success-soft); border-color: rgba(52,201,124,0.25);">
+              <p class="text-xs font-semibold uppercase tracking-wider" style="color: var(--success);">Cierre de Ventas Acumulado</p>
+              <p id="invGananciasTotales" class="text-2xl font-bold mt-1 stat-mono" style="color: var(--success);">$0.00</p>
+              <p class="text-[11px] mt-1" style="color: var(--success); opacity: 0.8;">Monto total facturado de unidades con estatus Vendido</p>
             </div>
           </div>
 
-          <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
+          <div class="card p-5">
             <div class="mb-2">
-              <h3 class="font-bold text-xs text-slate-800 uppercase tracking-wider">Histórico de Facturación Mensual (Año en Curso)</h3>
-              <p class="text-[11px] text-slate-400">Rendimiento económico y volumen de unidades entregadas por mes</p>
+              <h3 class="font-bold text-xs uppercase tracking-wider">Histórico de Facturación Mensual (Año en Curso)</h3>
+              <p class="text-[11px] text-[#5C6272]">Rendimiento económico y volumen de unidades entregadas por mes</p>
             </div>
             <div id="ventasMensualesContainer"></div>
           </div>
 
-          <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-              <h3 class="font-bold text-sm text-slate-800 uppercase tracking-wider text-xs">Unidades de Negocio Registradas</h3>
-              <button id="btnAbrirModalCar" class="bg-[#0F172A] text-white text-xs px-3 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors flex items-center gap-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Agregar Unidad
-              </button>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Unidades de Negocio Registradas</h3>
+              <p class="text-[11px] text-[#5C6272]"><span class="badge badge-success">🟢 Publicado</span> <span class="badge badge-warm ml-1">🟡 Pendiente</span> en redes sociales</p>
+            </div>
+            <div id="carsGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          </div>
+        </section>
+
+        <!-- ===================== PIPELINE DE VENTAS (KANBAN POR TEMPERATURA) ===================== -->
+        <section id="section-pipeline" class="dashboard-section space-y-6 hidden">
+          <div>
+            <h2 class="text-lg font-bold tracking-tight uppercase text-sm">Embudo de Ventas — Temperatura Calificada por IA</h2>
+            <p class="text-xs text-[#5C6272] mt-0.5">Cada prospecto se clasifica automáticamente según su avance documental, cita agendada y calificación del Agente IA</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            <div class="kanban-col p-3 space-y-3">
+              <div class="flex items-center justify-between px-2 pt-1">
+                <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--hot);">🔥 Caliente</p>
+                <span id="kanbanCalienteCount" class="badge badge-hot">0</span>
+              </div>
+              <p class="text-[10px] text-[#5C6272] px-2">Dinero en mano — cita agendada o expediente completo</p>
+              <div id="kanbanCaliente" class="space-y-2 min-h-[80px]"></div>
             </div>
 
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm text-left">
-                <thead>
-                  <tr class="text-slate-400 border-b border-[#E2E8F0] text-xs uppercase font-semibold">
-                    <th class="px-4 py-3 font-medium">ID Auto</th>
-                    <th class="px-4 py-3 font-medium">Marca y Modelo</th>
-                    <th class="px-4 py-3 font-medium">Año</th>
-                    <th class="px-4 py-3 font-medium">Precio</th>
-                    <th class="px-4 py-3 font-medium">Estatus</th>
-                    <th class="px-4 py-3 font-medium text-right">Flujo Operativo</th>
-                  </tr>
-                </thead>
-                <tbody id="carsTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
-              </table>
+            <div class="kanban-col p-3 space-y-3">
+              <div class="flex items-center justify-between px-2 pt-1">
+                <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--amber-strong);">⚡ Templado</p>
+                <span id="kanbanTempladoCount" class="badge badge-warm">0</span>
+              </div>
+              <p class="text-[10px] text-[#5C6272] px-2">En proceso de calificación documental con el asesor IA</p>
+              <div id="kanbanTemplado" class="space-y-2 min-h-[80px]"></div>
+            </div>
+
+            <div class="kanban-col p-3 space-y-3">
+              <div class="flex items-center justify-between px-2 pt-1">
+                <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--cold);">❄️ Frío</p>
+                <span id="kanbanFrioCount" class="badge badge-cold">0</span>
+              </div>
+              <p class="text-[10px] text-[#5C6272] px-2">Contacto inicial sin avance o descartado</p>
+              <div id="kanbanFrio" class="space-y-2 min-h-[80px]"></div>
             </div>
           </div>
         </section>
 
+        <!-- ===================== AGENTE PUBLICITARIO IA ===================== -->
+        <section id="section-marketing" class="dashboard-section space-y-6 hidden">
+          <div>
+            <h2 class="text-lg font-bold tracking-tight uppercase text-sm">Agente Publicitario IA</h2>
+            <p class="text-xs text-[#5C6272] mt-0.5">Arrastra fotos de la unidad, deja que Gemini redacte el copy, y publica en un clic</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Columna Izquierda: Selección + Drop de Imagen -->
+            <div class="card p-5 space-y-4">
+              <div>
+                <label class="block text-xs font-semibold text-[#5C6272] uppercase tracking-wider mb-1">Unidad a Promocionar</label>
+                <select id="marketingCarSelect" class="w-full px-3 py-2 rounded-lg border text-sm"></select>
+              </div>
+
+              <div id="marketingDropzone" class="dropzone flex flex-col items-center justify-center text-center p-8 cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mb-2 text-[#5C6272]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p class="text-sm font-medium">Arrastra una foto aquí</p>
+                <p class="text-[11px] text-[#5C6272] mt-1">o haz clic para seleccionar desde tu equipo</p>
+                <input type="file" id="marketingFileInput" accept="image/*" class="hidden">
+              </div>
+
+              <div id="marketingImagePreviewWrap" class="hidden">
+                <img id="marketingImagePreview" class="w-full rounded-xl border border-[#232838]" />
+              </div>
+
+              <button id="btnGenerarCopy" class="btn-ghost w-full text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2">
+                ✨ Generar Copy con IA
+              </button>
+            </div>
+
+            <!-- Columna Derecha: Copy generado + Publicación -->
+            <div class="card p-5 space-y-4 flex flex-col">
+              <div>
+                <label class="block text-xs font-semibold text-[#5C6272] uppercase tracking-wider mb-1">Copy Generado (editable)</label>
+                <textarea id="marketingCopyText" rows="10" class="w-full px-3 py-2.5 rounded-lg border text-sm leading-relaxed" placeholder="El copy generado por la IA aparecerá aquí. También puedes escribirlo o editarlo manualmente."></textarea>
+              </div>
+
+              <p id="marketingStatusText" class="text-[11px] text-[#5C6272] italic min-h-[14px]"></p>
+
+              <button id="btnPublicarRedes" class="btn-primary w-full text-sm font-bold py-3 rounded-xl mt-auto">
+                🚀 Publicar con IA en Redes Sociales
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================== CITAS ===================== -->
         <section id="section-citas" class="dashboard-section space-y-6 hidden">
-          <div class="bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-sm">
+          <div class="card p-6">
             <div class="mb-4">
-              <h3 class="font-bold text-sm text-slate-800 uppercase tracking-wider text-xs">Calendario Operativo de Citas en Patio</h3>
-              <p class="text-xs text-slate-400">Listado de prospectos organizados cronológicamente por su fecha de asistencia programada</p>
+              <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Calendario Operativo de Citas en Patio</h3>
+              <p class="text-xs text-[#5C6272]">Listado de prospectos organizados cronológicamente por su fecha de asistencia programada</p>
             </div>
             <div class="space-y-6" id="citasListContainer"></div>
           </div>
         </section>
 
+        <!-- ===================== ANALÍTICAS BI ===================== -->
+        <section id="section-analiticas" class="dashboard-section space-y-6 hidden">
+          <div>
+            <h2 class="text-lg font-bold tracking-tight uppercase text-sm">Centro de Inteligencia de Negocios (SaaS BI)</h2>
+            <p class="text-xs text-[#5C6272] mt-0.5">Métricas avanzadas de conversión de embudo, perfilamiento e interés comercial en tiempo real</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="card p-5" style="background: var(--cold-soft); border-color: rgba(63,167,214,0.25);">
+              <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--cold);">Tasa de Conversión (Leads a Cita)</p>
+              <p id="biTasaConversion" class="gauge-value text-3xl font-black mt-2" style="color: var(--cold);">0.0%</p>
+              <p class="text-[10px] text-[#5C6272] mt-1">Porcentaje de leads que agendan cita en patio física.</p>
+            </div>
+            <div class="card p-5" style="background: var(--warm-soft); border-color: rgba(227,162,61,0.25);">
+              <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--amber-strong);">Riesgo Financiero (Sin Comprobante)</p>
+              <p id="biSinIngresosRate" class="gauge-value text-3xl font-black mt-2" style="color: var(--amber-strong);">0.0%</p>
+              <p class="text-[10px] text-[#5C6272] mt-1">Porcentaje de prospectos que no comprueban ingresos.</p>
+            </div>
+            <div class="card p-5" style="background: var(--success-soft); border-color: rgba(52,201,124,0.25);">
+              <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--success);">Efectividad Operativa de IA</p>
+              <p class="gauge-value text-3xl font-black mt-2" style="color: var(--success);">100%</p>
+              <p class="text-[10px] text-[#5C6272] mt-1">Atención inmediata automatizada las 24 horas.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="card p-5">
+              <h4 class="text-xs font-bold uppercase tracking-wider mb-3">🔥 Top Vehículos Más Buscados</h4>
+              <div id="biTopAutosList" class="space-y-2.5"></div>
+            </div>
+
+            <div class="card p-5">
+              <h4 class="text-xs font-bold uppercase tracking-wider mb-3">💰 Distribución de Capacidad de Enganche</h4>
+              <div id="biEngancheList" class="space-y-2.5"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================== CONFIGURACIÓN ===================== -->
         <section id="section-configuracion" class="dashboard-section space-y-6 hidden">
-          <div class="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm max-w-md">
-            <h3 class="font-bold text-sm text-slate-800 mb-4 uppercase tracking-wider text-xs">Datos de la Cuenta Multi-Tenant</h3>
+          <div class="card p-5 max-w-md">
+            <h3 class="font-bold text-sm mb-4 uppercase tracking-wider text-xs">Datos de la Cuenta Multi-Tenant</h3>
             <form id="configForm" class="space-y-3">
               <div>
-                <label class="text-xs font-semibold text-slate-400 uppercase">Nombre Comercial del Lote</label>
-                <input type="text" id="configNombreLote" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]">
+                <label class="text-xs font-semibold text-[#5C6272] uppercase">Nombre Comercial del Lote</label>
+                <input type="text" id="configNombreLote" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
               </div>
               <div>
-                <label class="text-xs font-semibold text-slate-400 uppercase">Instancia de WhatsApp Vinculada</label>
-                <input type="text" id="configPhoneLote" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]">
+                <label class="text-xs font-semibold text-[#5C6272] uppercase">Instancia de WhatsApp Vinculada</label>
+                <input type="text" id="configPhoneLote" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
               </div>
-              <button type="submit" class="bg-[#0F172A] text-white text-xs px-4 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors mt-2">
+              <button type="submit" class="btn-primary text-xs px-4 py-2 rounded-lg font-medium mt-2">
                 Guardar Configuración
               </button>
             </form>
@@ -296,145 +392,135 @@
     </div>
   </div>
 
-  <!-- PANEL ULTRA-PREMIUM: FICHA DE CONFIGURACIÓN DE LEAD EN 3 COLUMNAS TIPO CRM ENTERPRISE -->
-  <div id="drawerOverlay" class="fixed inset-0 bg-black/40 z-40 hidden backdrop-blur-xs transition-opacity"></div>
-  <aside id="drawerPro" class="fixed top-0 right-0 h-full w-full lg:w-[85vw] bg-[#F8FAFC] border-l border-[#E2E8F0] z-50 transform translate-x-full flex flex-col shadow-2xl transition-transform duration-300">
-    <!-- Encabezado de Acción Rápida -->
-    <div class="px-6 h-16 bg-white border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0 z-10 shadow-xs">
+  <!-- ============ DRAWER CRM (FICHA DE LEAD) ============ -->
+  <div id="drawerOverlay" class="fixed inset-0 bg-black/60 z-40 hidden backdrop-blur-xs transition-opacity"></div>
+  <aside id="drawerPro" class="fixed top-0 right-0 h-full w-full lg:w-[85vw] bg-[#0A0B0E] border-l border-[#232838] z-50 transform translate-x-full flex flex-col shadow-2xl transition-transform duration-300">
+    <div class="px-6 h-16 bg-[#0F1115] border-b border-[#232838] flex items-center justify-between flex-shrink-0 z-10">
       <div>
-        <p class="font-bold text-base text-slate-900 tracking-tight flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <p class="font-bold text-base tracking-tight flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full" style="background: var(--success);"></span>
           Expediente Comercial Unificado (SaaS CRM)
         </p>
-        <p class="text-xs text-slate-400 font-mono tracking-wide">ID Lead Enlazado: <span id="crmLeadIdDisplay" class="font-bold">---</span></p>
+        <p class="text-xs text-[#5C6272] font-mono tracking-wide">ID Lead Enlazado: <span id="crmLeadIdDisplay" class="font-bold">---</span></p>
       </div>
-      <button id="closeDrawerBtn" class="w-9 h-9 rounded-xl border border-[#E2E8F0] bg-white flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition shadow-xs cursor-pointer">
+      <button id="closeDrawerBtn" class="w-9 h-9 rounded-xl border border-[#232838] bg-[#14161C] flex items-center justify-center text-[#5C6272] hover:text-[#EDEEF2] transition cursor-pointer">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
-    <!-- Cuerpo del Ecosistema del Lead: Reconfiguración Dinámica de 3 Columnas -->
     <div class="flex-1 overflow-hidden flex flex-col lg:flex-row items-stretch justify-start min-h-0">
-      
-      <!-- COLUMNA 1: Tarjeta estática de Identidad y Pre-Perfilamiento Comercial -->
-      <div class="w-full lg:w-80 bg-white border-b lg:border-b-0 lg:border-r border-[#E2E8F0] p-6 overflow-y-auto space-y-5 flex-shrink-0">
-        <div class="text-center pb-4 border-b border-slate-100">
-          <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-xl mb-3 shadow-md font-mono" id="crmAvatarInitials">--</div>
-          <h4 id="drawerNombre" class="font-bold text-lg text-slate-900 truncate">---</h4>
-          <span id="drawerStatus" class="inline-block text-[10px] font-black px-2.5 py-0.5 rounded-full tracking-wide uppercase mt-1">---</span>
+
+      <!-- COLUMNA 1 -->
+      <div class="w-full lg:w-80 bg-[#0F1115] border-b lg:border-b-0 lg:border-r border-[#232838] p-6 overflow-y-auto space-y-5 flex-shrink-0">
+        <div class="text-center pb-4 border-b border-[#232838]">
+          <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-[#F0B85A] to-[#E3A23D] text-[#16130A] flex items-center justify-center font-bold text-xl mb-3 font-mono" id="crmAvatarInitials">--</div>
+          <h4 id="drawerNombre" class="font-bold text-lg truncate">---</h4>
+          <span id="drawerStatus" class="badge badge-neutral mt-1">---</span>
         </div>
 
         <div class="space-y-4 text-sm">
           <div>
-            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Contacto Directo</label>
-            <p id="drawerTelefono" class="text-slate-700 font-semibold font-mono mt-0.5">---</p>
+            <label class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider block">Contacto Directo</label>
+            <p id="drawerTelefono" class="font-semibold font-mono mt-0.5">---</p>
           </div>
           <div>
-            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Unidad de Interés</label>
-            <p id="drawerInteres" class="text-indigo-600 font-bold text-sm mt-0.5">---</p>
+            <label class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider block">Unidad de Interés</label>
+            <p id="drawerInteres" class="font-bold text-sm mt-0.5" style="color: var(--cold);">---</p>
           </div>
           <div>
-            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cita en Patio Programada</label>
-            <p id="drawerFechaCita" class="text-slate-800 font-semibold mt-0.5">---</p>
+            <label class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider block">Cita en Patio Programada</label>
+            <p id="drawerFechaCita" class="font-semibold mt-0.5">---</p>
           </div>
-          <hr class="border-slate-100">
+          <hr class="border-[#232838]">
           <div>
-            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Capacidad de Enganche</label>
-            <p id="drawerEnganche" class="text-emerald-600 font-bold mt-0.5">---</p>
+            <label class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider block">Capacidad de Enganche</label>
+            <p id="drawerEnganche" class="font-bold mt-0.5" style="color: var(--success);">---</p>
           </div>
           <div>
-            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Estatus Laboral</label>
-            <p id="drawerSituacion" class="text-slate-700 font-medium mt-0.5">---</p>
+            <label class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider block">Estatus Laboral</label>
+            <p id="drawerSituacion" class="font-medium mt-0.5">---</p>
           </div>
         </div>
 
-        <div class="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5 space-y-1.5">
-          <label class="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">🧠 Calificación del Asesor IA</label>
-          <p id="drawerNotas" class="text-xs text-slate-600 leading-relaxed italic">---</p>
+        <div class="rounded-xl p-3.5 space-y-1.5" style="background: var(--warm-soft); border: 1px solid rgba(227,162,61,0.25);">
+          <label class="text-[10px] font-bold uppercase tracking-wider block" style="color: var(--amber-strong);">🧠 Calificación del Asesor IA</label>
+          <p id="drawerNotas" class="text-xs text-[#9298A6] leading-relaxed italic">---</p>
         </div>
       </div>
 
-      <!-- COLUMNA 2: Historial Conversacional en Tiempo Real del Canal de WhatsApp -->
-      <div class="flex-1 bg-slate-50 flex flex-col min-w-0 border-b lg:border-b-0 lg:border-r border-[#E2E8F0]">
-        <div class="px-5 h-11 bg-white border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0">
-          <p class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <!-- COLUMNA 2 -->
+      <div class="flex-1 bg-[#0A0B0E] flex flex-col min-w-0 border-b lg:border-b-0 lg:border-r border-[#232838]">
+        <div class="px-5 h-11 bg-[#0F1115] border-b border-[#232838] flex items-center justify-between flex-shrink-0">
+          <p class="text-xs font-bold text-[#5C6272] uppercase tracking-wider flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             Historial de Conversación Directa (WhatsApp API)
           </p>
         </div>
-        <!-- Feed de Burbujas -->
-        <div id="crmChatHistoryContainer" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs flex flex-col">
-          <!-- Inyectado dinámicamente por JS -->
-        </div>
-        <!-- Barra de Información Estática de Lectura -->
-        <div class="p-3 bg-white border-t border-[#E2E8F0] text-center text-[11px] text-slate-400 font-medium tracking-wide flex items-center justify-center gap-1">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+        <div id="crmChatHistoryContainer" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs flex flex-col"></div>
+        <div class="p-3 bg-[#0F1115] border-t border-[#232838] text-center text-[11px] text-[#5C6272] font-medium tracking-wide flex items-center justify-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full animate-ping" style="background: var(--success);"></span>
           Monitoreo protegido bajo RLS multi-tenant y encriptación de extremo a extremo
         </div>
       </div>
 
-      <!-- COLUMNA 3: Expediente Financiero Digital y Repositorio Documental -->
-      <div class="w-full lg:w-72 bg-white p-6 overflow-y-auto space-y-5 flex-shrink-0">
+      <!-- COLUMNA 3 -->
+      <div class="w-full lg:w-72 bg-[#0F1115] p-6 overflow-y-auto space-y-5 flex-shrink-0">
         <div>
-          <h5 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <h5 class="text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-[#5C6272]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             Expediente Digital
           </h5>
-          <p class="text-[11px] text-slate-400 leading-normal">Layout documental indexado de forma automatizada por el motor multimedia de n8n</p>
+          <p class="text-[11px] text-[#5C6272] leading-normal">Layout documental indexado de forma automatizada por el motor multimedia de n8n</p>
         </div>
 
-        <div id="drawerExpedienteDocs" class="space-y-2.5">
-          <!-- Inyectado dinámicamente por JS -->
-        </div>
+        <div id="drawerExpedienteDocs" class="space-y-2.5"></div>
 
-        <hr class="border-slate-100">
+        <hr class="border-[#232838]">
 
         <div class="space-y-2">
-          <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Último Mensaje Analizado</label>
-          <div id="drawerUltimoMensaje" class="text-xs text-slate-600 bg-slate-50 border border-slate-200 p-3 rounded-xl italic leading-relaxed">
-            ---
-          </div>
+          <label class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider block">Último Mensaje Analizado</label>
+          <div id="drawerUltimoMensaje" class="text-xs text-[#9298A6] bg-[#14161C] border border-[#232838] p-3 rounded-xl italic leading-relaxed">---</div>
         </div>
       </div>
 
     </div>
 
-    <!-- Pie del CRM -->
-    <div class="px-6 h-12 bg-white border-t border-[#E2E8F0] flex items-center justify-between flex-shrink-0 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+    <div class="px-6 h-12 bg-[#0F1115] border-t border-[#232838] flex items-center justify-between flex-shrink-0 text-[10px] font-mono text-[#5C6272] uppercase tracking-wider">
       <span>Módulo CRM Integrado</span>
       <span>Enterprise Pro 360 v2.5</span>
     </div>
   </aside>
 
-  <div id="modalCarOverlay" class="fixed inset-0 bg-black/40 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl border border-[#E2E8F0] shadow-xl max-w-md w-full p-6 space-y-4">
-      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-        <h3 id="modalCarTitle" class="font-bold text-base text-slate-900">Registrar Nuevo Vehículo</h3>
-        <button id="btnCerrarModalCar" class="text-slate-400 hover:text-slate-600">
+  <!-- ============ MODAL AUTO ============ -->
+  <div id="modalCarOverlay" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="card max-w-md w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b border-[#232838] pb-3">
+        <h3 id="modalCarTitle" class="font-bold text-base">Registrar Nuevo Vehículo</h3>
+        <button id="btnCerrarModalCar" class="text-[#5C6272] hover:text-[#EDEEF2]">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-      
+
       <form id="formNuevoCar" class="space-y-3">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase">Marca</label>
-            <input type="text" id="carBrand" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="ej. BMW">
+            <label class="block text-xs font-semibold text-[#5C6272] uppercase">Marca</label>
+            <input type="text" id="carBrand" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. BMW">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase">Modelo</label>
-            <input type="text" id="carModel" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="ej. 430i Gran Coupé">
+            <label class="block text-xs font-semibold text-[#5C6272] uppercase">Modelo</label>
+            <input type="text" id="carModel" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. 430i Gran Coupé">
           </div>
         </div>
-        
+
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase">Año</label>
-            <input type="number" id="carYear" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="ej. 2025">
+            <label class="block text-xs font-semibold text-[#5C6272] uppercase">Año</label>
+            <input type="number" id="carYear" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. 2025">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase">Transmisión</label>
-            <select id="carTransmision" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none bg-white focus:border-[#0F172A]">
+            <label class="block text-xs font-semibold text-[#5C6272] uppercase">Transmisión</label>
+            <select id="carTransmision" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
               <option value="Automática">Automática</option>
               <option value="Manual">Manual</option>
             </select>
@@ -443,36 +529,36 @@
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase">Kilometraje</label>
-            <input type="number" id="carKilometraje" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="ej. 15000">
+            <label class="block text-xs font-semibold text-[#5C6272] uppercase">Kilometraje</label>
+            <input type="number" id="carKilometraje" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. 15000">
           </div>
           <div>
-            <label class="block text-xs font-bold text-indigo-600 uppercase">Enganche Mínimo ($)</label>
-            <input type="number" id="carEnganche" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="ej. 180000">
+            <label class="block text-xs font-bold uppercase" style="color: var(--cold);">Enganche Mínimo ($)</label>
+            <input type="number" id="carEnganche" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. 180000">
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase">Precio de Venta Full</label>
-          <input type="number" id="carPrice" required class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none focus:border-[#0F172A]" placeholder="ej. 950000">
-        </div>
-        
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase">Subir Fotografía del Auto</label>
-          <input type="file" id="carImageFile" accept="image/*" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none bg-white focus:border-[#0F172A]">
-          <input type="hidden" id="carImageUrl" value="">
-          <p id="uploadStatusText" class="text-[11px] text-slate-400 mt-1 italic"></p>
+          <label class="block text-xs font-semibold text-[#5C6272] uppercase">Precio de Venta Full</label>
+          <input type="number" id="carPrice" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. 950000">
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase">Estatus Operativo Inicial</label>
-          <select id="carStatus" class="w-full mt-1 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm outline-none bg-white focus:border-[#0F172A]">
+          <label class="block text-xs font-semibold text-[#5C6272] uppercase">Subir Fotografía del Auto</label>
+          <input type="file" id="carImageFile" accept="image/*" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
+          <input type="hidden" id="carImageUrl" value="">
+          <p id="uploadStatusText" class="text-[11px] text-[#5C6272] mt-1 italic"></p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#5C6272] uppercase">Estatus Operativo Inicial</label>
+          <select id="carStatus" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
             <option value="Disponible">Disponible</option>
             <option value="Apartado">Apartado</option>
             <option value="Vendido">Vendido</option>
           </select>
         </div>
-        <button type="submit" id="btnSubmitCarForm" class="w-full bg-[#0F172A] text-white text-sm font-semibold py-2 rounded-lg hover:bg-slate-800 transition-colors mt-3">
+        <button type="submit" id="btnSubmitCarForm" class="btn-primary w-full text-sm font-semibold py-2 rounded-lg mt-3">
           Guardar Unidad en Sistema
         </button>
       </form>

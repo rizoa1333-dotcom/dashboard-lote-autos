@@ -1,10 +1,14 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (PRO MENSUAL GROUPING + ADVANCED BI)
+// PROJECT 360 - dashboard.js (DARK MODE PREMIUM + PIPELINE + AGENTE IA)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
+
+// Webhook opcional de n8n para generación de copy con Gemini.
+// Déjalo vacío para usar el generador local de respaldo; pon tu URL de producción para conectar el Agente IA real.
+const N8N_MARKETING_WEBHOOK_URL = '';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -20,9 +24,14 @@ let syncIntervalId = null;
 
 let leadsCache = [];
 let carsCache = [];
-let citasCache = []; // Guardián global para el almacenamiento de citas 📅
-let editingCarId = null; // Guardián global para controlar el modo edición de autos ✏️
-let activeLeadId = null; // Guardián del lead activo en pantalla para el live chat live tracking 🛰️
+let citasCache = [];
+let editingCarId = null;
+let activeLeadId = null;
+
+// Estado del Agente Publicitario IA
+let marketingSelectedCarId = null;
+let marketingImageFile = null;
+let marketingImageUrl = '';
 
 // Cambiador Global de Vistas SPA
 function showView(viewId) {
@@ -45,7 +54,7 @@ function startSync() {
   stopSync();
   fetchAndRenderAll();
   checarEstatusWhatsApp();
-  syncIntervalId = setInterval(fetchAndRenderAll, 10000); // 10 Segundos en vivo
+  syncIntervalId = setInterval(fetchAndRenderAll, 10000);
 }
 
 async function fetchAndRenderAll() {
@@ -54,10 +63,7 @@ async function fetchAndRenderAll() {
     return;
   }
   try {
-    // Sincronización triple en paralelo de la base de datos
     await Promise.all([fetchLeads(), fetchCars(), fetchCitasReal()]);
-    
-    // Si el dueño tiene abierto un expediente, refresca el chat automáticamente en segundo plano
     if (activeLeadId) {
       await refreshChatLive(activeLeadId);
     }
@@ -83,7 +89,8 @@ async function fetchLeads() {
   leadsCache = data || [];
   renderLeadsTable();
   renderCounters();
-  procesarMetricasBI(); // Dynamic BI Update
+  procesarMetricasBI();
+  renderPipelineKanban();
 }
 
 // ------------------------------------------------------------
@@ -103,6 +110,7 @@ async function fetchCitasReal() {
   citasCache = data || [];
   renderCitasCronologicas();
   renderCounters();
+  renderPipelineKanban();
 }
 
 function renderCounters() {
@@ -111,11 +119,11 @@ function renderCounters() {
   const citasBadgeEl = document.getElementById('citasBadge');
 
   const totalLeads = leadsCache.length;
-  const totalCitas = citasCache.length; // Cuenta real de la tabla citas
+  const totalCitas = citasCache.length;
 
   if (leadsCountEl) leadsCountEl.textContent = totalLeads;
   if (citasCountEl) citasCountEl.textContent = totalCitas;
-  
+
   if (citasBadgeEl) {
     if (totalCitas > 0) {
       citasBadgeEl.textContent = totalCitas;
@@ -131,17 +139,17 @@ function renderLeadsTable() {
   if (!container) return;
 
   if (leadsCache.length === 0) {
-    container.innerHTML = '<div class="bg-white border border-[#E2E8F0] rounded-xl p-8 text-center text-xs text-slate-400 shadow-sm">Sin prospectos calificados registrados en este lote.</div>';
+    container.innerHTML = '<div class="card p-8 text-center text-xs text-[#5C6272]">Sin prospectos calificados registrados en este lote.</div>';
     return;
   }
 
   const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  
+
   const leadsAgrupadosPorMes = {};
   leadsCache.forEach(lead => {
     const fecha = lead.created_at ? new Date(lead.created_at) : new Date();
     const nombreMes = mesesNombres[fecha.getMonth()];
-    
+
     if (!leadsAgrupadosPorMes[nombreMes]) {
       leadsAgrupadosPorMes[nombreMes] = [];
     }
@@ -150,15 +158,15 @@ function renderLeadsTable() {
 
   container.innerHTML = Object.keys(leadsAgrupadosPorMes).map(mes => `
     <div class="space-y-2.5">
-      <div class="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-100/90 px-4 py-2 rounded-lg border border-slate-200 inline-block shadow-sm">
+      <div class="text-xs font-bold text-[#9298A6] uppercase tracking-wider bg-[#14161C] px-4 py-2 rounded-lg border border-[#232838] inline-block">
         📅 Registros de ${mes}
       </div>
-      
-      <div class="bg-white border border-[#E2E8F0] rounded-xl p-2 shadow-sm">
+
+      <div class="card p-2">
         <div class="overflow-x-auto">
           <table class="w-full text-sm text-left">
             <thead>
-              <tr class="text-slate-400 border-b border-[#E2E8F0] text-xs uppercase font-semibold">
+              <tr class="text-[#5C6272] border-b border-[#232838] text-xs uppercase font-semibold">
                 <th class="px-4 py-3 font-medium">Nombre Completo</th>
                 <th class="px-4 py-3 font-medium">Teléfono / WhatsApp</th>
                 <th class="px-4 py-3 font-medium">Auto de Interés</th>
@@ -167,38 +175,38 @@ function renderLeadsTable() {
                 <th class="px-4 py-3 font-medium text-right">Acción</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 text-slate-700">
+            <tbody class="divide-y divide-[#1D2028] text-[#EDEEF2]">
               ${leadsAgrupadosPorMes[mes].map(lead => {
                 const fechaReg = lead.created_at ? new Date(lead.created_at) : new Date();
                 const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
                 const diaVisual = fechaReg.getDate();
-                
+
                 const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
-                const badgeDocumentos = tieneDocumentos 
-                  ? `<span class="ml-2 inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-md shadow-xs">📎 Datos Recibidos</span>`
+                const badgeDocumentos = tieneDocumentos
+                  ? `<span class="badge badge-success ml-2">📎 Datos Recibidos</span>`
                   : '';
-                
+
                 return `
-                  <tr class="hover:bg-slate-50/60 transition">
-                    <td class="px-4 py-3.5 font-semibold text-slate-800 text-sm">
+                  <tr class="hover:bg-[#191C23] transition">
+                    <td class="px-4 py-3.5 font-semibold text-sm">
                       <div class="flex items-center justify-start flex-wrap gap-1">
                         <span>${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</span>
                         ${badgeDocumentos}
                       </div>
                     </td>
-                    <td class="px-4 py-3.5 text-xs text-slate-500 font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
+                    <td class="px-4 py-3.5 text-xs text-[#9298A6] font-mono">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
                     <td class="px-4 py-3.5 text-sm font-medium">
                       <div class="flex flex-col">
-                        <span class="text-indigo-600">${escapeHtml(lead.auto_interes || 'General')}</span>
-                        ${lead.auto_sugerido ? `<span class="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded mt-1 font-bold inline-block w-fit">✨ Sugerido: ${escapeHtml(lead.auto_sugerido)}</span>` : ''}
+                        <span style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</span>
+                        ${lead.auto_sugerido ? `<span class="badge badge-success mt-1 w-fit">✨ Sugerido: ${escapeHtml(lead.auto_sugerido)}</span>` : ''}
                       </div>
                     </td>
-                    <td class="px-4 py-3.5 text-xs text-slate-400">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
+                    <td class="px-4 py-3.5 text-xs text-[#5C6272]">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
                     <td class="px-4 py-3.5">
-                      <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
+                      <span class="badge ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
                     </td>
                     <td class="px-4 py-3.5 text-right">
-                      <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition font-medium cursor-pointer">
+                      <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] btn-primary px-2.5 py-1.5 rounded-lg font-medium cursor-pointer">
                         Ver Perfil
                       </button>
                     </td>
@@ -218,6 +226,74 @@ function renderLeadsTable() {
 }
 
 // ------------------------------------------------------------
+// CLASIFICADOR DE TEMPERATURA DE LEADS (PIPELINE) 🔥⚡❄️
+// Prioriza un campo explícito `temperatura` calculado por la IA en n8n si existe;
+// si no, deriva un estimado a partir del avance documental y la cita agendada.
+// ------------------------------------------------------------
+function getLeadTemperature(lead) {
+  if (lead.temperatura) {
+    const t = String(lead.temperatura).toLowerCase();
+    if (t.includes('cali') || t.includes('hot')) return 'caliente';
+    if (t.includes('temp') || t.includes('warm')) return 'templado';
+    if (t.includes('fri') || t.includes('cold')) return 'frio';
+  }
+
+  if (lead.status === 'Completado') return 'caliente';
+
+  const telefonoLead = String(lead.phone_number || lead.telefono || '');
+  const tieneCitaActiva = citasCache.some(c => String(c.telefono) === telefonoLead && c.estado_lead !== 'Cancelada');
+  if (tieneCitaActiva) return 'caliente';
+
+  if (['Esperando_INE', 'Esperando_Domicilio', 'Esperando_Ingresos'].includes(lead.status)) return 'templado';
+  if (lead.status === 'Calificado' && lead.enganche) return 'templado';
+  if (lead.status === 'Descartado') return 'frio';
+
+  return 'frio';
+}
+
+function renderPipelineKanban() {
+  const contCaliente = document.getElementById('kanbanCaliente');
+  const contTemplado = document.getElementById('kanbanTemplado');
+  const contFrio = document.getElementById('kanbanFrio');
+  if (!contCaliente || !contTemplado || !contFrio) return;
+
+  const grupos = { caliente: [], templado: [], frio: [] };
+  leadsCache.forEach(lead => grupos[getLeadTemperature(lead)].push(lead));
+
+  document.getElementById('kanbanCalienteCount').textContent = grupos.caliente.length;
+  document.getElementById('kanbanTempladoCount').textContent = grupos.templado.length;
+  document.getElementById('kanbanFrioCount').textContent = grupos.frio.length;
+
+  const renderCard = (lead, tempClass) => {
+    const iniciales = (lead.nombre || 'P W').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    return `
+      <div data-lead-id="${lead.id}" class="btn-kanban-card kanban-card ${tempClass} p-3 cursor-pointer">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="w-7 h-7 rounded-lg bg-[#1D2028] flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0">${escapeHtml(iniciales)}</div>
+            <div class="min-w-0">
+              <p class="text-xs font-semibold truncate">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</p>
+              <p class="text-[10px] text-[#5C6272] font-mono truncate">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
+            </div>
+          </div>
+        </div>
+        <p class="text-[11px] mt-2 truncate" style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</p>
+      </div>
+    `;
+  };
+
+  const emptyMsg = '<p class="text-[11px] text-[#5C6272] italic px-2 py-3">Sin prospectos en esta etapa.</p>';
+
+  contCaliente.innerHTML = grupos.caliente.length ? grupos.caliente.map(l => renderCard(l, 'temp-caliente')).join('') : emptyMsg;
+  contTemplado.innerHTML = grupos.templado.length ? grupos.templado.map(l => renderCard(l, 'temp-templado')).join('') : emptyMsg;
+  contFrio.innerHTML = grupos.frio.length ? grupos.frio.map(l => renderCard(l, 'temp-frio')).join('') : emptyMsg;
+
+  document.querySelectorAll('.btn-kanban-card').forEach(card => {
+    card.addEventListener('click', () => openDrawer(card.getAttribute('data-lead-id')));
+  });
+}
+
+// ------------------------------------------------------------
 // MOTOR PREMIUM DE BUSINESS INTELLIGENCE (MÉTRICAS DEL SAAS) 📊
 // ------------------------------------------------------------
 function procesarMetricasBI() {
@@ -228,8 +304,8 @@ function procesarMetricasBI() {
 
   const totalLeads = leadsCache.length;
   if (totalLeads === 0) {
-    if (topAutosContainer) topAutosContainer.innerHTML = '<p class="text-xs text-slate-400 italic">Esperando recolección de leads...</p>';
-    if (engancheContainer)  engancheContainer.innerHTML = '<p class="text-xs text-slate-400 italic">Esperando recolección de leads...</p>';
+    if (topAutosContainer) topAutosContainer.innerHTML = '<p class="text-xs text-[#5C6272] italic">Esperando recolección de leads...</p>';
+    if (engancheContainer) engancheContainer.innerHTML = '<p class="text-xs text-[#5C6272] italic">Esperando recolección de leads...</p>';
     return;
   }
 
@@ -252,12 +328,12 @@ function procesarMetricasBI() {
 
   if (topAutosContainer) {
     if (autosOrdenados.length === 0) {
-      topAutosContainer.innerHTML = '<p class="text-xs text-slate-400 italic">Falta recolectar modelos de interés en el chat.</p>';
+      topAutosContainer.innerHTML = '<p class="text-xs text-[#5C6272] italic">Falta recolectar modelos de interés en el chat.</p>';
     } else {
       topAutosContainer.innerHTML = autosOrdenados.map((a, index) => `
-        <div class="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-          <p class="font-medium text-slate-700 truncate max-w-[200px]"><span class="font-bold text-indigo-600 mr-1.5">#${index+1}</span> ${escapeHtml(a.modelo)}</p>
-          <span class="bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-md border border-indigo-100">${a.cuenta} ${a.cuenta === 1 ? 'búsqueda' : 'búsquedas'}</span>
+        <div class="flex items-center justify-between text-xs bg-[#14161C] p-2.5 rounded-lg border border-[#232838]">
+          <p class="font-medium truncate max-w-[200px]"><span class="font-bold mr-1.5" style="color: var(--cold);">#${index+1}</span> ${escapeHtml(a.modelo)}</p>
+          <span class="badge badge-cold">${a.cuenta} ${a.cuenta === 1 ? 'búsqueda' : 'búsquedas'}</span>
         </div>
       `).join('');
     }
@@ -273,18 +349,18 @@ function procesarMetricasBI() {
 
   if (engancheContainer) {
     engancheContainer.innerHTML = `
-      <div class="space-y-2 text-xs text-slate-700">
-        <div class="flex justify-between items-center bg-slate-50 p-2 border border-slate-100 rounded-lg">
-          <p class="font-medium text-slate-500">$50,000 a $100,000</p>
-          <span class="font-extrabold text-slate-800">${rango1} prospectos</span>
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between items-center bg-[#14161C] p-2 border border-[#232838] rounded-lg">
+          <p class="font-medium text-[#9298A6]">$50,000 a $100,000</p>
+          <span class="font-extrabold">${rango1} prospectos</span>
         </div>
-        <div class="flex justify-between items-center bg-emerald-50/40 border border-emerald-100 p-2 rounded-lg">
-          <p class="font-medium text-emerald-600">$100,000 a $200,000</p>
-          <span class="font-extrabold text-emerald-700">${rango2} prospectos</span>
+        <div class="flex justify-between items-center p-2 rounded-lg" style="background: var(--success-soft); border: 1px solid rgba(52,201,124,0.25);">
+          <p class="font-medium" style="color: var(--success);">$100,000 a $200,000</p>
+          <span class="font-extrabold" style="color: var(--success);">${rango2} prospectos</span>
         </div>
-        <div class="flex justify-between items-center bg-indigo-50/40 border border-indigo-100 p-2 rounded-lg">
-          <p class="font-medium text-indigo-600">Más de $200,000</p>
-          <span class="font-extrabold text-indigo-700">${rango3} prospectos</span>
+        <div class="flex justify-between items-center p-2 rounded-lg" style="background: var(--cold-soft); border: 1px solid rgba(63,167,214,0.25);">
+          <p class="font-medium" style="color: var(--cold);">Más de $200,000</p>
+          <span class="font-extrabold" style="color: var(--cold);">${rango3} prospectos</span>
         </div>
       </div>
     `;
@@ -292,7 +368,7 @@ function procesarMetricasBI() {
 }
 
 // ------------------------------------------------------------
-// CITAS CRONOLÓGICAS (CORREGIDO CON LA COLUMNA estado_lead) 📅
+// CITAS CRONOLÓGICAS 📅
 // ------------------------------------------------------------
 function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
@@ -301,17 +377,17 @@ function renderCitasCronologicas() {
   const citas = citasCache;
 
   if (citas.length === 0) {
-    container.innerHTML = '<p class="text-xs text-slate-400 p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
+    container.innerHTML = '<p class="text-xs text-[#5C6272] p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
     return;
   }
 
   const citasAgrupadas = {};
   citas.forEach(cita => {
     if (!cita.fecha_cita) return;
-    
+
     const fechaObj = new Date(cita.fecha_cita + 'T00:00:00');
     const diaTexto = fechaObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    
+
     if (!citasAgrupadas[diaTexto]) {
       citasAgrupadas[diaTexto] = [];
     }
@@ -320,41 +396,39 @@ function renderCitasCronologicas() {
 
   container.innerHTML = Object.keys(citasAgrupadas).map(dia => `
     <div class="space-y-2">
-      <div class="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">${dia}</div>
+      <div class="text-xs font-bold text-[#5C6272] uppercase tracking-wider bg-[#14161C] px-3 py-1.5 rounded-md border border-[#232838]">${dia}</div>
       <div class="grid grid-cols-1 gap-2 pl-1">
         ${citasAgrupadas[dia].map(cita => {
           const horaVisual = cita.hora_cita ? cita.hora_cita.slice(0, 5) : '12:00';
-          
-          // Mapeo correcto utilizando la columna física 'estado_lead' de Supabase
           const esCancelada = cita.estado_lead === 'Cancelada';
-          
-          const claseContenedor = esCancelada 
-            ? 'bg-rose-50/40 border-rose-100 opacity-75' 
-            : 'bg-white border-slate-100 hover:shadow-sm';
-            
-          const claseTextoNombre = esCancelada 
-            ? 'text-slate-500 line-through' 
-            : 'text-slate-800';
+
+          const claseContenedor = esCancelada
+            ? 'opacity-60'
+            : 'card-hover';
+
+          const claseTextoNombre = esCancelada
+            ? 'text-[#5C6272] line-through'
+            : 'text-[#EDEEF2]';
 
           const botonAccion = esCancelada
-            ? `<button data-cita-id="${cita.id}" data-action="delete" class="btn-gestion-cita bg-slate-100 text-slate-500 hover:bg-slate-200 p-1.5 rounded-lg transition border border-slate-200 flex items-center justify-center cursor-pointer shadow-xs" title="Limpiar del historial">
+            ? `<button data-cita-id="${cita.id}" data-action="delete" class="btn-gestion-cita btn-ghost p-1.5 rounded-lg flex items-center justify-center cursor-pointer" title="Limpiar del historial">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                </button>`
-            : `<button data-cita-id="${cita.id}" data-action="cancel" class="btn-gestion-cita bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white p-1.5 rounded-lg transition border border-rose-100 flex items-center justify-center cursor-pointer shadow-xs" title="Marcar como Cancelada">
+            : `<button data-cita-id="${cita.id}" data-action="cancel" class="btn-gestion-cita p-1.5 rounded-lg flex items-center justify-center cursor-pointer transition" style="background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(229,87,63,0.25);" title="Marcar como Cancelada">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                </button>`;
 
           const indicadorEstatus = esCancelada
-            ? `<span class="text-[10px] font-black text-rose-700 bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-md tracking-wide uppercase shadow-xs">❌ Cancelada por IA</span>`
-            : `<span class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">${horaVisual} hrs</span>`;
+            ? `<span class="badge badge-danger">❌ Cancelada por IA</span>`
+            : `<span class="badge badge-cold">${horaVisual} hrs</span>`;
 
           return `
-            <div class="flex items-center justify-between p-3 border rounded-xl transition ${claseContenedor}">
+            <div class="flex items-center justify-between p-3 card ${claseContenedor}">
               <div>
                 <p class="font-semibold text-sm ${claseTextoNombre}">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
-                <p class="text-xs text-slate-400 font-mono">Tel: ${escapeHtml(cita.telefono || 'Sin número')} • Interés: <span class="text-indigo-600 font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
+                <p class="text-xs text-[#5C6272] font-mono">Tel: ${escapeHtml(cita.telefono || 'Sin número')} • Interés: <span style="color: var(--cold);" class="font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
               </div>
-              
+
               <div class="flex items-center gap-3">
                 ${indicadorEstatus}
                 ${botonAccion}
@@ -366,12 +440,11 @@ function renderCitasCronologicas() {
     </div>
   `).join('');
 
-  // Manejador asíncrono para mutar o eliminar de la base de datos usando estado_lead
   container.querySelectorAll('.btn-gestion-cita').forEach(btn => {
     btn.addEventListener('click', async () => {
       const citaId = btn.getAttribute('data-cita-id');
       const accion = btn.getAttribute('data-action');
-      
+
       if (accion === 'cancel') {
         if (!confirm('¿Deseas marcar esta cita como Cancelada manualmente? Esto liberará el horario de forma inmediata.')) return;
         const { error } = await supabaseClient.from('citas').update({ estado_lead: 'Cancelada' }).eq('id', citaId);
@@ -388,19 +461,19 @@ function renderCitasCronologicas() {
 
 function statusBadgeClass(status) {
   switch (status) {
-    case 'Pendiente': return 'bg-amber-50 text-amber-700 border border-amber-200';
-    case 'Calificado': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-    case 'Descartado': return 'bg-rose-50 text-rose-700 border border-rose-200';
-    case 'Esperando_INE': return 'bg-indigo-50 text-indigo-700 border border-indigo-200 animate-pulse';
-    case 'Esperando_Domicilio': return 'bg-purple-50 text-purple-700 border border-purple-200 animate-pulse';
-    case 'Esperando_Ingresos': return 'bg-cyan-50 text-cyan-700 border border-cyan-200 animate-pulse';
-    case 'Completado': return 'bg-emerald-600 text-white border border-emerald-700 font-extrabold';
-    default: return 'bg-slate-100 text-slate-700 border border-slate-200';
+    case 'Pendiente': return 'badge-warm';
+    case 'Calificado': return 'badge-success';
+    case 'Descartado': return 'badge-danger';
+    case 'Esperando_INE': return 'badge-cold';
+    case 'Esperando_Domicilio': return 'badge-cold';
+    case 'Esperando_Ingresos': return 'badge-cold';
+    case 'Completado': return 'badge-success';
+    default: return 'badge-neutral';
   }
 }
 
 // ------------------------------------------------------------
-// SECCIÓN INVENTARIO (CONTROL GLOBAL DE UNIDADES) 🏎️
+// SECCIÓN INVENTARIO (CATÁLOGO DE TARJETAS) 🏎️
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -417,6 +490,7 @@ async function fetchCars() {
   renderCars();
   renderCarsCounter();
   calcularMetricasInventario();
+  populateMarketingCarSelect();
 }
 
 function renderCarsCounter() {
@@ -426,11 +500,11 @@ function renderCarsCounter() {
   }
 }
 
-// SOLUCIÓN TOTAL AUTOMATIZADA: El script lee la columna 'fecha_venta' dinámica para actualizarse mes con mes solo
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
   const mensualesContainer = document.getElementById('ventasMensualesContainer');
+  const kpiPublicadosEl = document.getElementById('kpiAutosPublicados');
 
   let valorTotal = 0;
   let gananciasTotales = 0;
@@ -444,15 +518,14 @@ function calcularMetricasInventario() {
       gananciasTotales += precio;
 
       try {
-        // LÓGICA INTELIGENTE: Si existe fecha_venta real en Supabase la usa, si no, usa created_at
         const fechaTarget = car.fecha_venta || car.created_at;
         if (fechaTarget) {
           const fechaVenta = new Date(fechaTarget);
-          
+
           if (!isNaN(fechaVenta.getTime())) {
             const numeroMes = fechaVenta.getMonth();
             const anioVenta = fechaVenta.getFullYear();
-            
+
             if (anioVenta === 2026 && numeroMes >= 0 && numeroMes < 12) {
               reporteMensual[numeroMes].unidades += 1;
               reporteMensual[numeroMes].dinero += precio;
@@ -485,18 +558,18 @@ function calcularMetricasInventario() {
     const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
 
     if (mesesConVentas.length === 0) {
-      mensualesContainer.innerHTML = `<p class="text-xs text-slate-400 italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
+      mensualesContainer.innerHTML = `<p class="text-xs text-[#5C6272] italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
     } else {
       mensualesContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
           ${mesesConVentas.map(mes => `
-            <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl shadow-sm">
+            <div class="flex items-center justify-between p-3 bg-[#14161C] border border-[#232838] rounded-xl">
               <div>
-                <p class="text-xs font-bold text-slate-700">${mes.name}</p>
-                <p class="text-[10px] text-slate-400 font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
+                <p class="text-xs font-bold">${mes.name}</p>
+                <p class="text-[10px] text-[#5C6272] font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
               </div>
               <div class="text-right">
-                <p class="text-sm font-extrabold text-emerald-600">${formatCurrency(mes.dinero)}</p>
+                <p class="text-sm font-extrabold stat-mono" style="color: var(--success);">${formatCurrency(mes.dinero)}</p>
               </div>
             </div>
           `).join('')}
@@ -504,56 +577,80 @@ function calcularMetricasInventario() {
       `;
     }
   }
+
+  // KPI: Autos publicados en redes este mes (columna opcional `redes_status` / `fecha_publicacion` en tabla cars)
+  if (kpiPublicadosEl) {
+    const ahora = new Date();
+    const publicadosEsteMes = carsCache.filter(car => {
+      if (car.redes_status !== 'Publicado') return false;
+      const fechaRef = car.fecha_publicacion || car.updated_at;
+      if (!fechaRef) return true;
+      const f = new Date(fechaRef);
+      return !isNaN(f.getTime()) && f.getMonth() === ahora.getMonth() && f.getFullYear() === ahora.getFullYear();
+    }).length;
+    kpiPublicadosEl.textContent = publicadosEsteMes;
+  }
 }
 
 function renderCars() {
-  const tbody = document.getElementById('carsTableBody');
-  if (!tbody) return;
+  const grid = document.getElementById('carsGridContainer');
+  if (!grid) return;
 
   if (carsCache.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-xs text-slate-400 p-8">No hay unidades vehiculares en exhibición.</td></tr>';
+    grid.innerHTML = '<div class="card p-8 text-center text-xs text-[#5C6272] col-span-full">No hay unidades vehiculares en exhibición.</div>';
     return;
   }
 
-  tbody.innerHTML = carsCache.map(car => {
+  grid.innerHTML = carsCache.map(car => {
     const shortId = car.id ? String(car.id).slice(-6) : '---';
-    const unidadNombre = `${car.brand} ${car.model}`;
+    const unidadNombre = `${car.brand || ''} ${car.model || ''}`.trim();
     const esVendido = car.status === 'Vendido';
-    
-    const botonEstatus = !esVendido 
-      ? `<button data-action-id="${car.id}" class="btn-marcar-vendido bg-emerald-600 text-white text-[11px] px-2.5 py-1 rounded-md font-semibold hover:bg-emerald-700 transition">Marcar Vendido</button>`
-      : `<span class="text-xs text-slate-400 font-medium italic">Unidad Entregada</span>`;
+
+    const estadoRedes = car.redes_status === 'Publicado' ? 'Publicado' : 'Pendiente';
+    const badgeRedes = estadoRedes === 'Publicado'
+      ? `<span class="badge badge-success">🟢 Publicado</span>`
+      : `<span class="badge badge-warm">🟡 Pendiente</span>`;
+
+    const statusClasses = car.status === 'Disponible' ? 'badge-success' : car.status === 'Apartado' ? 'badge-warm' : 'badge-neutral';
+
+    const botonEstatus = !esVendido
+      ? `<button data-action-id="${car.id}" class="btn-marcar-vendido text-[11px] px-2.5 py-1 rounded-md font-semibold transition" style="background: var(--success); color: #06210F;">Marcar Vendido</button>`
+      : `<span class="text-xs text-[#5C6272] font-medium italic">Unidad Entregada</span>`;
 
     return `
-      <tr class="hover:bg-slate-50/60 transition border-b border-slate-100">
-        <td class="px-4 py-3.5 text-xs font-mono text-slate-400 font-bold">#${shortId}</td>
-        <td class="px-4 py-3.5 font-medium text-slate-800 text-sm">
-          <div class="flex items-center gap-2">
-            ${car.image_url ? `<a href="${car.image_url}" target="_blank" class="text-indigo-500 opacity-70 hover:opacity-100">🖼️</a>` : ''}
-            <span>${escapeHtml(unidadNombre)}</span>
-            <button data-edit-id="${car.id}" class="btn-editar-car text-xs ml-1 opacity-50 hover:opacity-100 transition cursor-pointer" title="Editar Unidad">✏️</button>
+      <div class="car-card flex flex-col">
+        <div class="relative">
+          <img src="${car.image_url || 'https://via.placeholder.com/400x250?text=Sin+Foto'}" class="car-card-img" alt="${escapeHtml(unidadNombre)}">
+          <div class="absolute top-2.5 left-2.5">${badgeRedes}</div>
+          <div class="absolute top-2.5 right-2.5"><span class="badge ${statusClasses}">${escapeHtml(car.status || '')}</span></div>
+        </div>
+        <div class="p-4 flex flex-col gap-2 flex-1">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="font-semibold text-sm truncate">${escapeHtml(unidadNombre || 'Unidad')}</p>
+              <p class="text-[11px] text-[#5C6272] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
+            </div>
+            <button data-edit-id="${car.id}" class="btn-editar-car text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
           </div>
-        </td>
-        <td class="px-4 py-3.5 text-sm text-slate-500">${escapeHtml(String(car.year || ''))}</td>
-        <td class="px-4 py-3.5 text-sm font-bold text-slate-800">${formatCurrency(car.price)}</td>
-        <td class="px-4 py-3.5">
-          <span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full ${car.status === 'Disponible' ? 'bg-green-50 text-green-700 border border-green-200' : car.status === 'Apartado' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-500'}">${car.status}</span>
-        </td>
-        <td class="px-4 py-3.5 text-right">${botonEstatus}</td>
-      </tr>
+          <p class="text-lg font-bold stat-mono">${formatCurrency(car.price)}</p>
+          <div class="flex items-center justify-between mt-auto pt-2 border-t border-[#232838]">
+            ${botonEstatus}
+            <button data-market-id="${car.id}" class="btn-promocionar text-[11px] btn-ghost px-2.5 py-1.5 rounded-lg font-medium">✨ Promocionar</button>
+          </div>
+        </div>
+      </div>
     `;
   }).join('');
 
-  tbody.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
+  grid.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
     btn.addEventListener('click', async () => {
-      // INYECTAMOS LA FECHA REAL DEL DÍA: Guardamos la fecha de hoy en formato YYYY-MM-DD para alimentar el sistema mes con mes
-      const hoyParaBD = new Date().toISOString().split('T')[0]; 
-      
+      const hoyParaBD = new Date().toISOString().split('T')[0];
+
       const { error } = await supabaseClient
         .from('cars')
-        .update({ status: 'Vendido', fecha_venta: hoyParaBD }) // Le manda la fecha real de la venta
+        .update({ status: 'Vendido', fecha_venta: hoyParaBD })
         .eq('id', btn.getAttribute('data-action-id'));
-        
+
       if (error) {
         alert('Error al actualizar estatus');
         console.error(error);
@@ -562,7 +659,7 @@ function renderCars() {
     });
   });
 
-  tbody.querySelectorAll('.btn-editar-car').forEach(btn => {
+  grid.querySelectorAll('.btn-editar-car').forEach(btn => {
     btn.addEventListener('click', () => {
       const carId = btn.getAttribute('data-edit-id');
       const car = carsCache.find(c => String(c.id) === String(carId));
@@ -579,13 +676,186 @@ function renderCars() {
       document.getElementById('carEnganche').value = car.enganche_minimo || 0;
       document.getElementById('carStatus').value = car.status || 'Disponible';
       document.getElementById('carImageUrl').value = car.image_url || '';
-      
+
       document.getElementById('modalCarTitle').textContent = 'Editar Datos de Unidad';
       document.getElementById('btnSubmitCarForm').textContent = 'Actualizar Cambios en Patio';
       document.getElementById('uploadStatusText').textContent = car.image_url ? 'Imagen de resguardo activa. Suba otra para reemplazar. 🖼️' : '';
 
       document.getElementById('modalCarOverlay').classList.remove('hidden');
     });
+  });
+
+  grid.querySelectorAll('.btn-promocionar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const carId = btn.getAttribute('data-market-id');
+      document.querySelector('[data-section="section-marketing"]').click();
+      const select = document.getElementById('marketingCarSelect');
+      if (select) {
+        select.value = carId;
+        select.dispatchEvent(new Event('change'));
+      }
+    });
+  });
+}
+
+// ------------------------------------------------------------
+// AGENTE PUBLICITARIO IA — Drag & Drop + Copy + Publicación ✨
+// ------------------------------------------------------------
+function populateMarketingCarSelect() {
+  const select = document.getElementById('marketingCarSelect');
+  if (!select) return;
+
+  const valorPrevio = select.value;
+
+  if (carsCache.length === 0) {
+    select.innerHTML = '<option value="">Sin unidades registradas</option>';
+    marketingSelectedCarId = null;
+    return;
+  }
+
+  select.innerHTML = carsCache.map(car =>
+    `<option value="${car.id}">${escapeHtml(`${car.brand || ''} ${car.model || ''}`.trim())} · ${escapeHtml(String(car.year || ''))}</option>`
+  ).join('');
+
+  if (valorPrevio && carsCache.some(c => String(c.id) === valorPrevio)) {
+    select.value = valorPrevio;
+  }
+  marketingSelectedCarId = select.value;
+}
+
+function generarCopyLocal(car) {
+  if (!car) return '';
+  const nombre = `${car.brand || ''} ${car.model || ''}`.trim();
+  const km = car.kilometraje ? `${Number(car.kilometraje).toLocaleString('es-MX')} km` : 'kilometraje bajo';
+  const enganche = car.enganche_minimo ? formatCurrency(car.enganche_minimo) : 'un enganche accesible';
+
+  return `🚗 ${nombre} ${car.year || ''}\n\n` +
+    `Unidad en excelente estado, ${car.transmision || 'transmisión automática'}, con ${km}.\n\n` +
+    `💰 Precio: ${formatCurrency(car.price)}\n` +
+    `✅ Entrada desde ${enganche}\n\n` +
+    `📲 Escríbenos por WhatsApp y agenda tu cita hoy mismo. ¡Unidades como esta se van rápido!`;
+}
+
+async function generarCopyIA(car) {
+  if (!N8N_MARKETING_WEBHOOK_URL) {
+    return generarCopyLocal(car);
+  }
+  try {
+    const resp = await fetch(N8N_MARKETING_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ car, lote_id: currentLote.id, image_url: marketingImageUrl })
+    });
+    const data = await resp.json();
+    return (data && data.copy) ? data.copy : generarCopyLocal(car);
+  } catch (err) {
+    console.error('[Agente IA] Fallo al llamar webhook n8n, usando copy local:', err);
+    return generarCopyLocal(car);
+  }
+}
+
+async function subirImagenMarketing(file) {
+  const statusText = document.getElementById('marketingStatusText');
+  if (statusText) { statusText.textContent = 'Subiendo imagen a la nube... ⏳'; statusText.style.color = 'var(--amber-strong)'; }
+
+  const fileExt = file.name.split('.').pop();
+  const fileName = `marketing_${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
+  const filePath = `${currentLote.id}/${fileName}`;
+
+  const { error } = await supabaseClient.storage.from('car-images').upload(filePath, file);
+  if (error) {
+    if (statusText) { statusText.textContent = 'Fallo de Storage al subir la imagen.'; statusText.style.color = 'var(--danger)'; }
+    return;
+  }
+
+  const { data: publicUrlData } = supabaseClient.storage.from('car-images').getPublicUrl(filePath);
+  marketingImageUrl = publicUrlData.publicUrl;
+
+  const preview = document.getElementById('marketingImagePreview');
+  const previewWrap = document.getElementById('marketingImagePreviewWrap');
+  if (preview && previewWrap) {
+    preview.src = marketingImageUrl;
+    previewWrap.classList.remove('hidden');
+  }
+  if (statusText) { statusText.textContent = '¡Imagen lista! Ahora genera el copy con IA. 🖼️'; statusText.style.color = 'var(--success)'; }
+}
+
+function initMarketingModule() {
+  const select = document.getElementById('marketingCarSelect');
+  const dropzone = document.getElementById('marketingDropzone');
+  const fileInput = document.getElementById('marketingFileInput');
+  const btnGenerar = document.getElementById('btnGenerarCopy');
+  const btnPublicar = document.getElementById('btnPublicarRedes');
+  const copyText = document.getElementById('marketingCopyText');
+  const statusText = document.getElementById('marketingStatusText');
+
+  if (!select) return;
+
+  select.addEventListener('change', () => { marketingSelectedCarId = select.value; });
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) { marketingImageFile = file; subirImagenMarketing(file); }
+  });
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag-active'); });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag-active'); });
+  });
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) { marketingImageFile = file; subirImagenMarketing(file); }
+  });
+
+  btnGenerar.addEventListener('click', async () => {
+    const car = carsCache.find(c => String(c.id) === String(marketingSelectedCarId));
+    if (!car) { alert('Selecciona una unidad del inventario primero.'); return; }
+
+    btnGenerar.disabled = true;
+    btnGenerar.textContent = '⏳ Generando copy...';
+    try {
+      const copy = await generarCopyIA(car);
+      copyText.value = copy;
+      if (statusText) { statusText.textContent = 'Copy generado. Puedes editarlo antes de publicar.'; statusText.style.color = 'var(--text-dim)'; }
+    } finally {
+      btnGenerar.disabled = false;
+      btnGenerar.textContent = '✨ Generar Copy con IA';
+    }
+  });
+
+  btnPublicar.addEventListener('click', async () => {
+    const car = carsCache.find(c => String(c.id) === String(marketingSelectedCarId));
+    if (!car) { alert('Selecciona una unidad del inventario primero.'); return; }
+    if (!copyText.value.trim()) { alert('Genera o escribe un copy antes de publicar.'); return; }
+
+    btnPublicar.disabled = true;
+    btnPublicar.textContent = '🚀 Publicando...';
+
+    const hoy = new Date().toISOString().split('T')[0];
+    const { error } = await supabaseClient.from('cars').update({
+      redes_status: 'Publicado',
+      copy_ia: copyText.value.trim(),
+      fecha_publicacion: hoy,
+      image_url: marketingImageUrl || car.image_url
+    }).eq('id', car.id);
+
+    btnPublicar.disabled = false;
+    btnPublicar.textContent = '🚀 Publicar con IA en Redes Sociales';
+
+    if (error) {
+      console.error('[Agente IA] Error al publicar:', error);
+      if (statusText) {
+        statusText.textContent = 'No se pudo guardar. Agrega a tu tabla "cars" las columnas redes_status, copy_ia y fecha_publicacion.';
+        statusText.style.color = 'var(--danger)';
+      }
+      return;
+    }
+
+    if (statusText) { statusText.textContent = `¡Publicado! ${car.brand} ${car.model} ya está marcado como Publicado en redes.`; statusText.style.color = 'var(--success)'; }
+    await fetchCars();
   });
 }
 
@@ -603,14 +873,14 @@ async function openDrawer(leadId) {
   document.getElementById('crmLeadIdDisplay').textContent = lead.id ? String(lead.id).slice(-8).toUpperCase() : '---';
   document.getElementById('drawerNombre').textContent = lead.nombre || '---';
   document.getElementById('drawerTelefono').textContent = lead.phone_number || lead.telefono || '---';
-  
+
   const iniciales = (lead.nombre || 'P W').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   document.getElementById('crmAvatarInitials').textContent = iniciales;
 
   const statusEl = document.getElementById('drawerStatus');
   statusEl.textContent = lead.status || 'Calificado';
-  statusEl.className = `inline-block text-[10px] font-black px-2.5 py-0.5 rounded-full tracking-wide uppercase mt-1 ${statusBadgeClass(lead.status)}`;
-  
+  statusEl.className = `badge ${statusBadgeClass(lead.status)} mt-1`;
+
   if (citaAsociada && citaAsociada.fecha_cita) {
     const horaClean = citaAsociada.hora_cita ? citaAsociada.hora_cita.slice(0, 5) : '12:00';
     document.getElementById('drawerFechaCita').textContent = `${citaAsociada.fecha_cita} a las ${horaClean} hrs 📅`;
@@ -642,17 +912,17 @@ async function openDrawer(leadId) {
 
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
   if (expedienteContainer) {
-    const docIneHtml = lead.url_ine 
-      ? `<div class="w-full flex flex-col bg-indigo-50 border border-indigo-200 p-2.5 rounded-lg text-xs"><span class="font-bold text-indigo-700">🪪 Clave Elector (INE)</span><span class="mt-1 text-slate-700 font-mono select-all">${escapeHtml(lead.url_ine)}</span></div>`
-      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100"><span>🪪 Clave Elector (INE)</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
+    const docIneHtml = lead.url_ine
+      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs" style="background: var(--cold-soft); border: 1px solid rgba(63,167,214,0.25);"><span class="font-bold" style="color: var(--cold);">🪪 Clave Elector (INE)</span><span class="mt-1 text-[#9298A6] font-mono select-all">${escapeHtml(lead.url_ine)}</span></div>`
+      : `<div class="w-full flex items-center justify-between bg-[#14161C] text-[#5C6272] text-xs px-3 py-2 rounded-lg border border-[#232838]"><span>🪪 Clave Elector (INE)</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
-    const docDomicilioHtml = lead.url_comprobante_domicilio 
-      ? `<div class="w-full flex flex-col bg-purple-50 border border-purple-200 p-2.5 rounded-lg text-xs mt-2"><span class="font-bold text-purple-700">🏡 Dirección de Residencia</span><span class="mt-1 text-slate-700 font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
-      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100 mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
+    const docDomicilioHtml = lead.url_comprobante_domicilio
+      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs mt-2" style="background: rgba(153,102,255,0.1); border: 1px solid rgba(153,102,255,0.25);"><span class="font-bold" style="color: #B79CFF;">🏡 Dirección de Residencia</span><span class="mt-1 text-[#9298A6] font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
+      : `<div class="w-full flex items-center justify-between bg-[#14161C] text-[#5C6272] text-xs px-3 py-2 rounded-lg border border-[#232838] mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
-    const docIngresosHtml = lead.url_comprobante_ingresos 
-      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100/70 transition mt-2"><span>📊 Estados de Cuenta</span> <span class="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded">Ver Archivo</span></a>`
-      : `<div class="w-full flex items-center justify-between bg-slate-50 text-slate-400 text-xs px-3 py-2 rounded-lg border border-slate-100 mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] text-slate-400 italic">Pendiente</span></div>`;
+    const docIngresosHtml = lead.url_comprobante_ingresos
+      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg mt-2 transition" style="background: var(--success-soft); color: var(--success); border: 1px solid rgba(52,201,124,0.25);"><span>📊 Estados de Cuenta</span> <span class="text-white text-[10px] px-1.5 py-0.5 rounded" style="background: var(--success); color: #06210F;">Ver Archivo</span></a>`
+      : `<div class="w-full flex items-center justify-between bg-[#14161C] text-[#5C6272] text-xs px-3 py-2 rounded-lg border border-[#232838] mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
   }
@@ -663,7 +933,6 @@ async function openDrawer(leadId) {
   document.getElementById('drawerOverlay').classList.remove('hidden');
 }
 
-// Función dedicada para alimentar el chat live tracking continuo sin parpadeos
 async function refreshChatLive(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
@@ -686,8 +955,8 @@ async function refreshChatLive(leadId) {
   if (!messages || messages.length === 0) {
     chatContainer.innerHTML = `
       <div class="my-auto text-center space-y-2 p-6">
-        <p class="text-slate-400 font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
-        <p class="text-[11px] text-slate-400 bg-white border border-slate-200 rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
+        <p class="text-[#5C6272] font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
+        <p class="text-[11px] text-[#5C6272] bg-[#14161C] border border-[#232838] rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
       </div>`;
     return;
   }
@@ -697,31 +966,31 @@ async function refreshChatLive(leadId) {
   chatContainer.innerHTML = messages.map(msg => {
     const isBot = String(msg.role).toLowerCase() === 'assistant' || String(msg.role).toLowerCase() === 'bot' || !!msg.response;
     const textContent = msg.message || msg.content || msg.response || '---';
-    
+
     if (isBot) {
       return `
-        <div class="self-start max-w-[85%] bg-white border border-slate-200 text-slate-800 p-3 rounded-2xl rounded-tl-none shadow-xs space-y-1">
-          <p class="font-bold text-[10px] text-indigo-600 uppercase tracking-wide">🤖 Cerebro IA</p>
+        <div class="self-start max-w-[85%] bg-[#14161C] border border-[#232838] p-3 rounded-2xl rounded-tl-none space-y-1">
+          <p class="font-bold text-[10px] uppercase tracking-wide" style="color: var(--cold);">🤖 Cerebro IA</p>
           <p class="leading-relaxed select-text">${escapeHtml(textContent)}</p>
         </div>
       `;
     } else {
       return `
-        <div class="self-end max-w-[85%] bg-slate-900 text-white p-3 rounded-2xl rounded-tr-none shadow-xs space-y-1 text-right">
-          <p class="font-bold text-[10px] text-slate-400 uppercase tracking-wide">👤 Prospecto</p>
+        <div class="self-end max-w-[85%] p-3 rounded-2xl rounded-tr-none space-y-1 text-right" style="background: var(--amber-strong); color: #16130A;">
+          <p class="font-bold text-[10px] uppercase tracking-wide opacity-70">👤 Prospecto</p>
           <p class="leading-relaxed text-left select-text">${escapeHtml(textContent)}</p>
         </div>
       `;
     }
   }).join('');
-  
+
   if (!despegadoDelFondo) {
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 }
 
 function closeDrawer() {
-  activeLeadId = null; 
+  activeLeadId = null;
   document.getElementById('drawerPro').classList.remove('drawer-open');
   document.getElementById('drawerOverlay').classList.add('hidden');
 }
@@ -735,6 +1004,7 @@ function initSidebarNav() {
       document.getElementById(sectionId).classList.remove('hidden');
       navButtons.forEach(b => b.classList.remove('nav-active'));
       btn.classList.add('nav-active');
+      document.getElementById('sidebar').classList.add('-translate-x-full');
     });
   });
 }
@@ -831,7 +1101,7 @@ async function handleRegistroSubmit(e) {
 document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
-  
+
   if (document.getElementById('configForm')) {
     document.getElementById('configForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -855,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
 
   const modalCar = document.getElementById('modalCarOverlay');
-  
+
   document.getElementById('btnAbrirModalCar').addEventListener('click', () => {
     editingCarId = null;
     document.getElementById('formNuevoCar').reset();
@@ -865,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btnSubmitCarForm').textContent = 'Guardar Unidad en Sistema';
     modalCar.classList.remove('hidden');
   });
-  
+
   document.getElementById('btnCerrarModalCar').addEventListener('click', () => modalCar.classList.add('hidden'));
 
   const btnImportar = document.getElementById('btnImportarExcel');
@@ -883,14 +1153,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const text = event.target.result;
         const lineas = text.split('\n');
         if (lineas.length <= 1) return;
-        
+
         const headers = lineas[0].split(',').map(h => h.trim().toLowerCase());
         const autosParaInsertar = [];
 
         for (let i = 1; i < lineas.length; i++) {
           if (!lineas[i].trim()) continue;
           const celdas = lineas[i].split(',').map(c => c.trim());
-          
+
           if (celdas.length >= 4) {
             autosParaInsertar.push({
               lote_id: currentLote.id,
@@ -913,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert('Error en formato del CSV. Valida tus columnas.');
             console.error(error);
           } else {
-            alert(`¡Éxito bro! Se extrajeron y cargaron ${autosParaInsertar.length} autos en masa.`);
+            alert(`¡Éxito! Se extrajeron y cargaron ${autosParaInsertar.length} autos en masa.`);
             await fetchCars();
           }
         }
@@ -931,19 +1201,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const statusText = document.getElementById('uploadStatusText');
       statusText.textContent = 'Subiendo imagen a la nube... ⏳';
-      statusText.className = 'text-[11px] text-amber-500 mt-1 italic';
+      statusText.style.color = 'var(--amber-strong)';
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
       const filePath = `${currentLote.id}/${fileName}`;
 
-      const { data, error } = await supabaseClient.storage
+      const { error } = await supabaseClient.storage
         .from('car-images')
         .upload(filePath, file);
 
       if (error) {
         statusText.textContent = 'Fallo de Storage. Valida permisos del Bucket.';
-        statusText.className = 'text-[11px] text-rose-500 mt-1 italic';
+        statusText.style.color = 'var(--danger)';
         return;
       }
 
@@ -953,11 +1223,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       document.getElementById('carImageUrl').value = publicUrlData.publicUrl;
       statusText.textContent = '¡Imagen montada! Link inyectado al formulario. 🖼️';
-      statusText.className = 'text-[11px] text-emerald-600 mt-1 italic';
+      statusText.style.color = 'var(--success)';
     });
   }
 
-  document.getElementById('carDataSubmit') || document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
+  document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentLote) return;
 
@@ -996,6 +1266,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('closeSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.add('-translate-x-full'));
 
   initSidebarNav();
+  initMarketingModule();
   await checkSessionAndLote();
 });
 

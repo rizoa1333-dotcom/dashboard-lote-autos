@@ -1,72 +1,217 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Superficies — negro asfalto, no gris genérico */
+  --bg: #0A0B0E;
+  --bg-elevated: #0F1115;
+  --surface: #14161C;
+  --surface-hover: #191C23;
+  --surface-2: #1D2028;
+
+  --border: rgba(255,255,255,0.07);
+  --border-strong: rgba(255,255,255,0.14);
+
+  --text: #EDEEF2;
+  --text-dim: #9298A6;
+  --text-faint: #5C6272;
+
+  /* Acento primario: ámbar tablero (headlight/needle) */
+  --amber: #E3A23D;
+  --amber-soft: rgba(227,162,61,0.12);
+  --amber-strong: #F0B85A;
+
+  /* Temperatura de leads: rojo/ámbar/cian — mapea directo al concepto de negocio */
+  --hot: #E5573F;
+  --hot-soft: rgba(229,87,63,0.12);
+  --warm: #E3A23D;
+  --warm-soft: rgba(227,162,61,0.12);
+  --cold: #3FA7D6;
+  --cold-soft: rgba(63,167,214,0.12);
+
+  --success: #34C97C;
+  --success-soft: rgba(52,201,124,0.12);
+  --danger: #E5573F;
+  --danger-soft: rgba(229,87,63,0.12);
+}
 
 * {
   font-family: 'Inter', sans-serif;
   box-shadow: none;
 }
 
-/* Scrollbar Personalizado Estilo Premium */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #E2E8F0;
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #CBD5E1;
+.font-mono, .mono, .stat-mono {
+  font-family: 'JetBrains Mono', monospace;
 }
 
-/* Estados y Clases Activas de la Barra Lateral */
+html, body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+/* Sidebar */
 .nav-active {
-  background-color: #F1F5F9 !important;
-  color: #0F172A !important;
+  background-color: var(--surface-2) !important;
+  color: var(--text) !important;
   font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--amber) !important;
 }
-
 .nav-btn {
-  color: #64748B;
+  color: var(--text-dim);
   background-color: transparent;
   transition: all 0.15s ease;
 }
 .nav-btn:hover {
-  background-color: #F8FAFC;
-  color: #0F172A;
+  background-color: var(--surface);
+  color: var(--text);
 }
 
-/* Animaciones de Entrada (Fade In) */
+/* Entradas de sección */
 .dashboard-section {
   animation: sectionFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 @keyframes sectionFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Clases del Ultra-CRM Lateral Derecho Avanzado */
-#drawerPro {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Drawer lateral */
+#drawerPro { transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.drawer-open { transform: translateX(0) !important; }
+
+/* Campos */
+input, select, textarea {
+  background: var(--surface);
+  border-color: var(--border) !important;
+  color: var(--text);
 }
-.drawer-open {
-  transform: translateX(0) !important;
+input::placeholder, textarea::placeholder { color: var(--text-faint); }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--amber) !important;
+  box-shadow: 0 0 0 3px var(--amber-soft) !important;
 }
 
-/* Estilo premium de scroll exclusivo para el feed de WhatsApp */
-#crmChatHistoryContainer {
-  scroll-behavior: smooth;
+/* ---------- Sistema de tarjetas ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.card-hover:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+
+/* Panel "cluster de instrumentos" — firma visual del dashboard */
+.gauge-card {
+  position: relative;
+  background: radial-gradient(120% 140% at 0% 0%, var(--surface-2) 0%, var(--surface) 60%);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.gauge-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  opacity: 0.6;
+}
+.gauge-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
-/* Enfoque de campos globales */
-input:focus, select:focus {
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06) !important;
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
 }
+.badge-hot { background: var(--hot-soft); color: var(--hot); border-color: rgba(229,87,63,0.3); }
+.badge-warm { background: var(--warm-soft); color: var(--amber-strong); border-color: rgba(227,162,61,0.3); }
+.badge-cold { background: var(--cold-soft); color: var(--cold); border-color: rgba(63,167,214,0.3); }
+.badge-success { background: var(--success-soft); color: var(--success); border-color: rgba(52,201,124,0.3); }
+.badge-danger { background: var(--danger-soft); color: var(--danger); border-color: rgba(229,87,63,0.3); }
+.badge-neutral { background: var(--surface-2); color: var(--text-dim); border-color: var(--border); }
+
+/* ---------- Botones ---------- */
+.btn-primary {
+  background: linear-gradient(180deg, var(--amber-strong), var(--amber));
+  color: #16130A;
+  font-weight: 600;
+  transition: filter 0.15s ease;
+}
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-primary:disabled { opacity: 0.5; filter: none; cursor: not-allowed; }
+
+.btn-ghost {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  transition: all 0.15s ease;
+}
+.btn-ghost:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+
+/* ---------- Inventario: catálogo de tarjetas ---------- */
+.car-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.car-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+.car-card-img {
+  aspect-ratio: 16/10;
+  object-fit: cover;
+  width: 100%;
+  background: var(--surface-2);
+}
+
+/* ---------- Pipeline Kanban ---------- */
+.kanban-col {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.kanban-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 12px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.kanban-card:hover { background: var(--surface-hover); }
+.kanban-card.temp-caliente { border-left-color: var(--hot); }
+.kanban-card.temp-templado { border-left-color: var(--amber); }
+.kanban-card.temp-frio { border-left-color: var(--cold); }
+
+/* ---------- Agente Publicitario IA: dropzone ---------- */
+.dropzone {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dropzone.drag-active {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+}
+
+/* Tablas */
+table thead tr { color: var(--text-faint); border-color: var(--border); }
+table tbody tr { border-color: var(--border); }
+table tbody tr:hover { background: var(--surface-hover); }
