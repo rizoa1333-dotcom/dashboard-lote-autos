@@ -366,9 +366,9 @@ function procesarMetricasBI() {
       topAutosContainer.innerHTML = '<p class="text-xs text-[#5C6272] italic">Falta recolectar modelos de interés en el chat.</p>';
     } else {
       topAutosContainer.innerHTML = autosOrdenados.map((a, index) => `
-        <div class="flex items-center justify-between text-xs bg-[#14161C] p-2.5 rounded-lg border border-[#232838]">
-          <p class="font-medium truncate max-w-[200px]"><span class="font-bold mr-1.5" style="color: var(--cold);">#${index+1}</span> ${escapeHtml(a.modelo)}</p>
-          <span class="badge badge-cold">${a.cuenta} ${a.cuenta === 1 ? 'búsqueda' : 'búsquedas'}</span>
+        <div class="flex items-center justify-between text-xs bg-[var(--surface-2)] p-2.5 rounded-lg">
+          <p class="font-medium truncate max-w-[200px]"><span class="font-bold mr-1.5 text-[#9CA3AF]">#${index+1}</span> ${escapeHtml(a.modelo)}</p>
+          <span class="text-[11px] text-[#9CA3AF] font-semibold">${a.cuenta} ${a.cuenta === 1 ? 'búsqueda' : 'búsquedas'}</span>
         </div>
       `).join('');
     }
@@ -385,17 +385,17 @@ function procesarMetricasBI() {
   if (engancheContainer) {
     engancheContainer.innerHTML = `
       <div class="space-y-2 text-xs">
-        <div class="flex justify-between items-center bg-[#14161C] p-2 border border-[#232838] rounded-lg">
+        <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg">
           <p class="font-medium text-[#9298A6]">$50,000 a $100,000</p>
-          <span class="font-extrabold">${rango1} prospectos</span>
+          <span class="font-semibold text-[#F3F4F6]">${rango1} prospectos</span>
         </div>
-        <div class="flex justify-between items-center p-2 rounded-lg" style="background: var(--success-soft); border: 1px solid rgba(52,201,124,0.25);">
-          <p class="font-medium" style="color: var(--success);">$100,000 a $200,000</p>
-          <span class="font-extrabold" style="color: var(--success);">${rango2} prospectos</span>
+        <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg">
+          <p class="font-medium text-[#9298A6]">$100,000 a $200,000</p>
+          <span class="font-semibold text-[#F3F4F6]">${rango2} prospectos</span>
         </div>
-        <div class="flex justify-between items-center p-2 rounded-lg" style="background: var(--cold-soft); border: 1px solid rgba(63,167,214,0.25);">
-          <p class="font-medium" style="color: var(--cold);">Más de $200,000</p>
-          <span class="font-extrabold" style="color: var(--cold);">${rango3} prospectos</span>
+        <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg">
+          <p class="font-medium text-[#9298A6]">Más de $200,000</p>
+          <span class="font-semibold text-[#F3F4F6]">${rango3} prospectos</span>
         </div>
       </div>
     `;
@@ -662,12 +662,12 @@ function renderCars() {
     const unidadNombre = `${car.brand || ''} ${car.model || ''}`.trim();
     const esVendido = car.status === 'Vendido';
 
-    const estadoRedes = car.redes_status === 'Publicado' ? 'Publicado' : 'Pendiente';
-    const badgeRedes = estadoRedes === 'Publicado'
-      ? `<span class="badge badge-success">🟢 Publicado</span>`
-      : `<span class="badge badge-warm">🟡 Pendiente</span>`;
+    const estaPublicado = car.redes_status === 'Publicado';
+    const dotRedesColor = estaPublicado ? 'var(--success)' : 'var(--amber)';
+    const textoRedes = estaPublicado ? 'Publicado en redes' : 'Pendiente de publicar';
 
-    const statusClasses = car.status === 'Disponible' ? 'badge-success' : car.status === 'Apartado' ? 'badge-warm' : 'badge-neutral';
+    const dotCatalogColor = car.status === 'Apartado' ? 'var(--amber)' : 'var(--success)';
+    const textoCatalog = car.status === 'Apartado' ? 'Apartado' : 'Disponible';
 
     const botonEstatus = !esVendido
       ? `<button data-action-id="${car.id}" class="btn-marcar-vendido internal-only text-[11px] px-2.5 py-1 rounded-md font-semibold transition" style="background: var(--success); color: #06210F;">Marcar Vendido</button>`
@@ -678,22 +678,26 @@ function renderCars() {
 
     return `
       <div class="car-card flex flex-col ${esVendido ? 'status-vendido' : ''}">
-        <div class="relative">
-          <img src="${car.image_url || 'https://via.placeholder.com/400x250?text=Sin+Foto'}" class="car-card-img" alt="${escapeHtml(unidadNombre)}">
-          <div class="absolute top-2.5 left-2.5 internal-only">${badgeRedes}</div>
-          <div class="absolute top-2.5 right-2.5 internal-only"><span class="badge ${statusClasses}">${escapeHtml(car.status || '')}</span></div>
-          <div class="absolute top-2.5 right-2.5 catalog-only"><span class="badge badge-success">✓ Disponible</span></div>
-        </div>
+        <img src="${car.image_url || 'https://via.placeholder.com/400x250?text=Sin+Foto'}" class="car-card-img" alt="${escapeHtml(unidadNombre)}">
         <div class="p-4 flex flex-col gap-2 flex-1">
           <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <p class="font-semibold text-sm truncate">${escapeHtml(unidadNombre || 'Unidad')}</p>
-              <p class="text-[11px] text-[#5C6272] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
+              <div class="flex items-center gap-1.5 mt-1.5 internal-only">
+                <span class="status-dot" style="background: ${dotRedesColor};"></span>
+                <span class="text-[11px] text-[#5C6272]">${textoRedes}</span>
+              </div>
+              <div class="flex items-center gap-1.5 mt-1.5 catalog-only">
+                <span class="status-dot" style="background: ${dotCatalogColor};"></span>
+                <span class="text-[11px] text-[#5C6272]">${textoCatalog}</span>
+              </div>
             </div>
             <button data-edit-id="${car.id}" class="btn-editar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
           </div>
+
+          <p class="text-[11px] text-[#5C6272] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
           <p class="text-lg font-bold stat-mono">${formatCurrency(car.price)}</p>
-          <p class="catalog-only text-[11px] text-[#9298A6] -mt-1">Financiamiento disponible desde <span class="font-semibold" style="color: var(--success);">${formatCurrency(car.enganche_minimo)}</span></p>
+          <p class="catalog-only text-[11px] text-[#9CA3AF] -mt-1">Financiamiento disponible desde <span class="font-semibold" style="color: var(--success);">${formatCurrency(car.enganche_minimo)}</span></p>
 
           <div class="internal-only space-y-1.5 pt-1">
             <div class="flex items-center justify-between text-[9px] text-[#5C6272] uppercase font-bold tracking-wider">
@@ -986,15 +990,15 @@ async function openDrawer(leadId) {
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
   if (expedienteContainer) {
     const docIneHtml = lead.url_ine
-      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs" style="background: var(--cold-soft); border: 1px solid rgba(63,167,214,0.25);"><span class="font-bold" style="color: var(--cold);">🪪 Clave Elector (INE)</span><span class="mt-1 text-[#9298A6] font-mono select-all">${escapeHtml(lead.url_ine)}</span></div>`
+      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F3F4F6]"><span class="status-dot" style="background: var(--cold);"></span>🪪 Clave Elector (INE)</span><span class="mt-1 text-[#9298A6] font-mono select-all">${escapeHtml(lead.url_ine)}</span></div>`
       : `<div class="w-full flex items-center justify-between bg-[#14161C] text-[#5C6272] text-xs px-3 py-2 rounded-lg border border-[#232838]"><span>🪪 Clave Elector (INE)</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     const docDomicilioHtml = lead.url_comprobante_domicilio
-      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs mt-2" style="background: rgba(153,102,255,0.1); border: 1px solid rgba(153,102,255,0.25);"><span class="font-bold" style="color: #B79CFF;">🏡 Dirección de Residencia</span><span class="mt-1 text-[#9298A6] font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
+      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs mt-2" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F3F4F6]"><span class="status-dot" style="background: #B79CFF;"></span>🏡 Dirección de Residencia</span><span class="mt-1 text-[#9298A6] font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
       : `<div class="w-full flex items-center justify-between bg-[#14161C] text-[#5C6272] text-xs px-3 py-2 rounded-lg border border-[#232838] mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     const docIngresosHtml = lead.url_comprobante_ingresos
-      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg mt-2 transition" style="background: var(--success-soft); color: var(--success); border: 1px solid rgba(52,201,124,0.25);"><span>📊 Estados de Cuenta</span> <span class="text-white text-[10px] px-1.5 py-0.5 rounded" style="background: var(--success); color: #06210F;">Ver Archivo</span></a>`
+      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg mt-2 transition" style="background: var(--surface-2);"><span class="flex items-center gap-1.5 text-[#F3F4F6]"><span class="status-dot" style="background: var(--success);"></span>📊 Estados de Cuenta</span> <span class="text-[10px] text-[#9CA3AF] font-semibold">Ver Archivo →</span></a>`
       : `<div class="w-full flex items-center justify-between bg-[#14161C] text-[#5C6272] text-xs px-3 py-2 rounded-lg border border-[#232838] mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;

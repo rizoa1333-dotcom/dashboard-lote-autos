@@ -144,20 +144,21 @@
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="bg-[#0F1115] border-b border-[#232838] px-4 md:px-9 h-[72px] flex items-center gap-4 sticky top-0 z-20">
-        <button id="openSidebar" class="md:hidden w-9 h-9 rounded-lg border border-[#232838] flex items-center justify-center">
+      <header class="bg-[#0F1115] border-b border-[#232838] px-6 md:px-10 h-[76px] flex items-center gap-6 sticky top-0 z-20">
+        <button id="openSidebar" class="md:hidden w-9 h-9 rounded-lg border border-[#232838] flex items-center justify-center flex-shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <div class="min-w-0 flex-1">
-          <p id="loteHeaderName" class="lote-nombre-display font-semibold text-base truncate">Cargando patio...</p>
+        <div class="min-w-0 flex-1 flex flex-col justify-center gap-0.5">
+          <p id="loteHeaderName" class="lote-nombre-display font-semibold text-[15px] tracking-tight truncate">Cargando patio...</p>
+          <p class="text-[11px] text-[#5C6272] font-medium truncate hidden sm:block">Panel de Control Operativo</p>
         </div>
-        <div class="ml-auto flex items-center gap-4">
+        <div class="flex items-center gap-5 flex-shrink-0">
           <button id="catalogModeToggle" type="button" aria-pressed="false" class="catalog-switch">
             <span class="catalog-switch-track"><span class="catalog-switch-thumb"></span></span>
             <span class="catalog-switch-label hidden sm:inline">Modo Catálogo</span>
           </button>
-          <div class="w-px h-6 bg-[#232838] hidden sm:block"></div>
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-[#F0B85A] to-[#E3A23D] flex items-center justify-center text-[#16130A] text-xs font-bold font-mono">360</div>
+          <div class="w-px h-8 bg-[#232838] hidden sm:block"></div>
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-[#F0B85A] to-[#E3A23D] flex items-center justify-center text-[#16130A] text-xs font-bold font-mono flex-shrink-0">360</div>
         </div>
       </header>
 
@@ -186,26 +187,26 @@
                 <div class="rescue-divider hidden sm:block"></div>
                 <div>
                   <p class="text-[10px] font-bold text-[#5C6272] uppercase tracking-wider">Valor Potencial Rescatado</p>
-                  <p id="rescueValorPotencial" class="gauge-value text-3xl font-bold mt-1.5" style="color: var(--amber-strong);">$0.00</p>
+                  <p id="rescueValorPotencial" class="gauge-value text-3xl font-bold mt-1.5">$0.00</p>
                 </div>
               </div>
             </div>
 
             <div class="gauge-card bento-span-3 p-6">
-              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Unidades en Patio</p>
+              <p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Unidades en Patio</p>
               <p id="carsCount" class="gauge-value text-3xl font-bold mt-2">0</p>
             </div>
             <div class="gauge-card bento-span-3 p-6">
-              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Leads Totales</p>
+              <p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Leads Totales</p>
               <p id="leadsCount" class="gauge-value text-3xl font-bold mt-2">0</p>
             </div>
             <div class="gauge-card bento-span-3 p-6">
-              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Citas Activas</p>
+              <p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Citas Activas</p>
               <p id="citasCount" class="gauge-value text-3xl font-bold mt-2">0</p>
             </div>
             <div class="gauge-card bento-span-3 p-6">
-              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Publicados este Mes</p>
-              <p id="kpiAutosPublicados" class="gauge-value text-3xl font-bold mt-2 text-[#E3A23D]">0</p>
+              <p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Publicados este Mes</p>
+              <p id="kpiAutosPublicados" class="gauge-value text-3xl font-bold mt-2">0</p>
             </div>
           </div>
 
@@ -238,15 +239,18 @@
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 privacy-sensitive">
-            <div class="card p-5">
-              <p class="text-xs font-semibold text-[#5C6272] uppercase tracking-wider">Activo Total Real en Patio</p>
-              <p id="invValorTotal" class="text-2xl font-bold mt-1 stat-mono">$0.00</p>
-              <p class="text-[11px] text-[#5C6272] mt-1">Capital activo en unidades disponibles y apartadas</p>
+            <div class="card p-6">
+              <p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Activo Total Real en Patio</p>
+              <p id="invValorTotal" class="text-2xl font-bold mt-2 stat-mono">$0.00</p>
+              <p class="text-[11px] text-[#5C6272] mt-2">Capital activo en unidades disponibles y apartadas</p>
             </div>
-            <div class="card p-5" style="background: var(--success-soft); border-color: rgba(52,201,124,0.25);">
-              <p class="text-xs font-semibold uppercase tracking-wider" style="color: var(--success);">Cierre de Ventas Acumulado</p>
-              <p id="invGananciasTotales" class="text-2xl font-bold mt-1 stat-mono" style="color: var(--success);">$0.00</p>
-              <p class="text-[11px] mt-1" style="color: var(--success); opacity: 0.8;">Monto total facturado de unidades con estatus Vendido</p>
+            <div class="card p-6">
+              <p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Cierre de Ventas Acumulado</p>
+              <p id="invGananciasTotales" class="text-2xl font-bold mt-2 stat-mono">$0.00</p>
+              <div class="flex items-center gap-1.5 mt-2">
+                <span class="status-dot" style="background: var(--success);"></span>
+                <span class="text-[11px] text-[#5C6272]">Monto facturado de unidades con estatus Vendido</span>
+              </div>
             </div>
           </div>
 
@@ -316,7 +320,7 @@
             <!-- Columna Izquierda: Selección + Drop de Imagen -->
             <div class="card p-5 space-y-4">
               <div>
-                <label class="block text-xs font-semibold text-[#5C6272] uppercase tracking-wider mb-1">Unidad a Promocionar</label>
+                <label class="block text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Unidad a Promocionar</label>
                 <select id="marketingCarSelect" class="w-full px-3 py-2 rounded-lg border text-sm"></select>
               </div>
 
@@ -339,7 +343,7 @@
             <!-- Columna Derecha: Copy generado + Publicación -->
             <div class="card p-5 space-y-4 flex flex-col">
               <div>
-                <label class="block text-xs font-semibold text-[#5C6272] uppercase tracking-wider mb-1">Copy Generado (editable)</label>
+                <label class="block text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Copy Generado (editable)</label>
                 <textarea id="marketingCopyText" rows="10" class="w-full px-3 py-2.5 rounded-lg border text-sm leading-relaxed" placeholder="El copy generado por la IA aparecerá aquí. También puedes escribirlo o editarlo manualmente."></textarea>
               </div>
 
@@ -371,19 +375,28 @@
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="card p-5" style="background: var(--cold-soft); border-color: rgba(63,167,214,0.25);">
-              <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--cold);">Tasa de Conversión (Leads a Cita)</p>
-              <p id="biTasaConversion" class="gauge-value text-3xl font-black mt-2" style="color: var(--cold);">0.0%</p>
+            <div class="card p-6">
+              <div class="flex items-center gap-1.5">
+                <span class="status-dot" style="background: var(--cold);"></span>
+                <p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Tasa de Conversión (Leads a Cita)</p>
+              </div>
+              <p id="biTasaConversion" class="gauge-value text-3xl font-bold mt-2">0.0%</p>
               <p class="text-[10px] text-[#5C6272] mt-1">Porcentaje de leads que agendan cita en patio física.</p>
             </div>
-            <div class="card p-5" style="background: var(--warm-soft); border-color: rgba(227,162,61,0.25);">
-              <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--amber-strong);">Riesgo Financiero (Sin Comprobante)</p>
-              <p id="biSinIngresosRate" class="gauge-value text-3xl font-black mt-2" style="color: var(--amber-strong);">0.0%</p>
+            <div class="card p-6">
+              <div class="flex items-center gap-1.5">
+                <span class="status-dot" style="background: var(--amber);"></span>
+                <p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Riesgo Financiero (Sin Comprobante)</p>
+              </div>
+              <p id="biSinIngresosRate" class="gauge-value text-3xl font-bold mt-2">0.0%</p>
               <p class="text-[10px] text-[#5C6272] mt-1">Porcentaje de prospectos que no comprueban ingresos.</p>
             </div>
-            <div class="card p-5" style="background: var(--success-soft); border-color: rgba(52,201,124,0.25);">
-              <p class="text-xs font-bold uppercase tracking-wider" style="color: var(--success);">Efectividad Operativa de IA</p>
-              <p class="gauge-value text-3xl font-black mt-2" style="color: var(--success);">100%</p>
+            <div class="card p-6">
+              <div class="flex items-center gap-1.5">
+                <span class="status-dot" style="background: var(--success);"></span>
+                <p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Efectividad Operativa de IA</p>
+              </div>
+              <p class="gauge-value text-3xl font-bold mt-2">100%</p>
               <p class="text-[10px] text-[#5C6272] mt-1">Atención inmediata automatizada las 24 horas.</p>
             </div>
           </div>
@@ -474,8 +487,8 @@
           </div>
         </div>
 
-        <div class="rounded-xl p-3.5 space-y-1.5" style="background: var(--warm-soft); border: 1px solid rgba(227,162,61,0.25);">
-          <label class="text-[10px] font-bold uppercase tracking-wider block" style="color: var(--amber-strong);">🧠 Calificación del Asesor IA</label>
+        <div class="rounded-xl p-3.5 space-y-1.5" style="background: var(--surface-2);">
+          <label class="text-[10px] font-bold uppercase tracking-wider block text-[#9CA3AF]">🧠 Calificación del Asesor IA</label>
           <p id="drawerNotas" class="text-xs text-[#9298A6] leading-relaxed italic">---</p>
         </div>
       </div>
