@@ -805,11 +805,13 @@ function generarCopyLocal(car) {
   const nombre = `${car.brand || ''} ${car.model || ''}`.trim();
   const km = car.kilometraje ? `${Number(car.kilometraje).toLocaleString('es-MX')} km` : 'kilometraje bajo';
   const enganche = car.enganche_minimo ? formatCurrency(car.enganche_minimo) : 'un enganche accesible';
+  const estatus = car.status === 'Apartado' ? 'Apartado (consulta disponibilidad)' : 'Disponible ahora';
 
   return `🚗 ${nombre} ${car.year || ''}\n\n` +
-    `Unidad en excelente estado, ${car.transmision || 'transmisión automática'}, con ${km}.\n\n` +
+    `Unidad en excelente estado, transmisión ${car.transmision || 'Automática'}, con ${km}.\n\n` +
     `💰 Precio: ${formatCurrency(car.price)}\n` +
-    `✅ Entrada desde ${enganche}\n\n` +
+    `✅ Entrada desde ${enganche}\n` +
+    `📋 Estatus: ${estatus}\n\n` +
     `📲 Escríbenos por WhatsApp y agenda tu cita hoy mismo. ¡Unidades como esta se van rápido!`;
 }
 
