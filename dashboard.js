@@ -9,6 +9,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 // Webhook opcional de n8n para generación de copy con Gemini.
 // Déjalo vacío para usar el generador local de respaldo; pon tu URL de producción para conectar el Agente IA real.
 const N8N_MARKETING_WEBHOOK_URL = '';
+// Webhook nuevo, en el MISMO workflow de n8n, para publicar en Facebook/Instagram.
+const N8N_PUBLISH_WEBHOOK_URL = '';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -909,9 +911,25 @@ function initMarketingModule() {
     const car = carsCache.find(c => String(c.id) === String(marketingSelectedCarId));
     if (!car) { alert('Selecciona una unidad del inventario primero.'); return; }
     if (!copyText.value.trim()) { alert('Genera o escribe un copy antes de publicar.'); return; }
+    if (!N8N_PUBLISH_WEBHOOK_URL) { alert('Falta configurar N8N_PUBLISH_WEBHOOK_URL en dashboard.js.'); return; }
 
     btnPublicar.disabled = true;
     btnPublicar.textContent = '🚀 Publicando...';
+
+    try {
+      const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrl || car.image_url })
+      });
+      if (!resp.ok) throw new Error(`Webhook respondió ${resp.status}`);
+    } catch (err) {
+      console.error('[Agente IA] Error al publicar en redes:', err);
+      btnPublicar.disabled = false;
+      btnPublicar.textContent = '🚀 Publicar con IA en Redes Sociales';
+      if (statusText) { statusText.textContent = 'Fallo la publicación en redes. Revisa el webhook de n8n.'; statusText.style.color = 'var(--danger)'; }
+      return;
+    }
 
     const hoy = new Date().toISOString().split('T')[0];
     const { error } = await supabaseClient.from('cars').update({
