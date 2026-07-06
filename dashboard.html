@@ -337,12 +337,10 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mb-2 text-[#4B5563]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <p class="text-sm font-medium">Arrastra una foto o video aquí</p>
                 <p class="text-[11px] text-[#4B5563] mt-1">JPG, PNG o MP4/MOV vertical para TikTok</p>
-                <input type="file" id="marketingFileInput" accept="image/*,video/mp4,video/quicktime" class="hidden">
+                <input type="file" id="marketingFileInput" accept="image/*,video/mp4,video/quicktime" multiple class="hidden">
               </div>
 
-              <div id="marketingImagePreviewWrap" class="hidden">
-                <img id="marketingImagePreview" class="w-full rounded-xl border border-[#272A30]" />
-              </div>
+              <div id="marketingImageThumbs" class="hidden flex flex-wrap gap-2"></div>
               <div id="marketingVideoPreviewWrap" class="hidden">
                 <video id="marketingVideoPreview" class="w-full rounded-xl border border-[#272A30]" controls></video>
               </div>

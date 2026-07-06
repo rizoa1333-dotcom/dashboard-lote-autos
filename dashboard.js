@@ -35,7 +35,7 @@ let carImageUrls = [];
 
 // Estado del Agente Publicitario IA
 let marketingSelectedCarId = null;
-let marketingImageUrl = '';
+let marketingImageUrls = [];
 let marketingVideoUrl = '';
 
 // Cambiador Global de Vistas SPA
@@ -869,7 +869,7 @@ async function generarCopyIA(car) {
     const resp = await fetch(N8N_MARKETING_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ car, lote_id: currentLote.id, image_url: marketingImageUrl })
+      body: JSON.stringify({ car, lote_id: currentLote.id, image_url: marketingImageUrls[0], image_urls: marketingImageUrls })
     });
     const data = await resp.json();
     return (data && data.copy) ? data.copy : generarCopyLocal(car);
@@ -908,38 +908,54 @@ function toggleGuionWrap() {
   wrap.classList.toggle('hidden', !usaTiktok);
 }
 
-async function subirMediaMarketing(file) {
+async function subirMediaMarketing(files) {
   const statusText = document.getElementById('marketingStatusText');
-  const esVideo = file.type.startsWith('video/');
-  if (statusText) { statusText.textContent = `Subiendo ${esVideo ? 'video' : 'imagen'} a la nube... ⏳`; statusText.style.color = 'var(--amber-strong)'; }
+  const videoFile = files.find(f => f.type.startsWith('video/'));
+  const imageFiles = files.filter(f => f.type.startsWith('image/'));
 
-  const fileExt = file.name.split('.').pop();
-  const fileName = `marketing_${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
-  const filePath = `${currentLote.id}/${fileName}`;
+  if (statusText) { statusText.textContent = `Subiendo ${files.length} archivo(s) a la nube... ⏳`; statusText.style.color = 'var(--amber-strong)'; }
 
-  const { error } = await supabaseClient.storage.from('car-images').upload(filePath, file);
-  if (error) {
-    if (statusText) { statusText.textContent = `Fallo de Storage al subir el ${esVideo ? 'video' : 'imagen'}.`; statusText.style.color = 'var(--danger)'; }
-    return;
+  const subir = async (file) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `marketing_${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
+    const filePath = `${currentLote.id}/${fileName}`;
+    const { error } = await supabaseClient.storage.from('car-images').upload(filePath, file);
+    if (error) return null;
+    return supabaseClient.storage.from('car-images').getPublicUrl(filePath).data.publicUrl;
+  };
+
+  for (const file of imageFiles) {
+    const url = await subir(file);
+    if (url) marketingImageUrls.push(url);
+  }
+  if (videoFile) {
+    const url = await subir(videoFile);
+    if (url) {
+      marketingVideoUrl = url;
+      document.getElementById('marketingVideoPreview').src = marketingVideoUrl;
+      document.getElementById('marketingVideoPreviewWrap').classList.remove('hidden');
+    }
   }
 
-  const { data: publicUrlData } = supabaseClient.storage.from('car-images').getPublicUrl(filePath);
+  renderMarketingThumbs();
+  if (statusText) { statusText.textContent = 'Archivos listos. Ahora genera el contenido con IA. 🖼️'; statusText.style.color = 'var(--success)'; }
+}
 
-  const imgWrap = document.getElementById('marketingImagePreviewWrap');
-  const vidWrap = document.getElementById('marketingVideoPreviewWrap');
-
-  if (esVideo) {
-    marketingVideoUrl = publicUrlData.publicUrl;
-    document.getElementById('marketingVideoPreview').src = marketingVideoUrl;
-    vidWrap.classList.remove('hidden');
-    imgWrap.classList.add('hidden');
-  } else {
-    marketingImageUrl = publicUrlData.publicUrl;
-    document.getElementById('marketingImagePreview').src = marketingImageUrl;
-    imgWrap.classList.remove('hidden');
-    vidWrap.classList.add('hidden');
-  }
-  if (statusText) { statusText.textContent = `¡${esVideo ? 'Video' : 'Imagen'} listo! Ahora genera el contenido con IA. ${esVideo ? '🎬' : '🖼️'}`; statusText.style.color = 'var(--success)'; }
+function renderMarketingThumbs() {
+  const wrap = document.getElementById('marketingImageThumbs');
+  wrap.classList.toggle('hidden', marketingImageUrls.length === 0);
+  wrap.innerHTML = marketingImageUrls.map((url, i) => `
+    <div class="car-thumb">
+      <img src="${url}" alt="foto ${i + 1}">
+      <button type="button" data-idx="${i}" class="btn-quitar-thumb-marketing">×</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.btn-quitar-thumb-marketing').forEach(btn => {
+    btn.addEventListener('click', () => {
+      marketingImageUrls.splice(Number(btn.getAttribute('data-idx')), 1);
+      renderMarketingThumbs();
+    });
+  });
 }
 
 function initMarketingModule() {
@@ -963,8 +979,8 @@ function initMarketingModule() {
 
   dropzone.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) { subirMediaMarketing(file); }
+    const files = Array.from(e.target.files);
+    if (files.length) { subirMediaMarketing(files); fileInput.value = ''; }
   });
 
   ['dragenter', 'dragover'].forEach(evt => {
@@ -974,8 +990,8 @@ function initMarketingModule() {
     dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag-active'); });
   });
   dropzone.addEventListener('drop', (e) => {
-    const file = e.dataTransfer.files[0];
-    if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) { subirMediaMarketing(file); }
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
+    if (files.length) { subirMediaMarketing(files); }
   });
 
   btnGenerar.addEventListener('click', async () => {
@@ -1028,7 +1044,7 @@ function initMarketingModule() {
         const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrl || car.image_url })
+          body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrls[0] || car.image_url, image_urls: marketingImageUrls.length ? marketingImageUrls : car.image_urls })
         });
         if (!resp.ok) throw new Error(`Webhook Meta respondió ${resp.status}`);
       }
@@ -1059,7 +1075,11 @@ function initMarketingModule() {
 
     const hoy = new Date().toISOString().split('T')[0];
     const updatePayload = { redes_status: 'Publicado', fecha_publicacion: hoy };
-    if (usaMeta) { updatePayload.copy_ia = copyText.value.trim(); updatePayload.image_url = marketingImageUrl || car.image_url; }
+    if (usaMeta) {
+      updatePayload.copy_ia = copyText.value.trim();
+      updatePayload.image_url = marketingImageUrls[0] || car.image_url;
+      if (marketingImageUrls.length) updatePayload.image_urls = marketingImageUrls;
+    }
     if (usaTiktok) { updatePayload.tiktok_status = 'Publicado'; }
 
     const { error } = await supabaseClient.from('cars').update(updatePayload).eq('id', car.id);
