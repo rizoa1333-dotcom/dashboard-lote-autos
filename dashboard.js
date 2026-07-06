@@ -3,6 +3,23 @@
 // SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
+// ============================================================
+// 🛡️ POLÍTICA DE LLAVES — Regla de Oro
+// Esta constante SOLO debe contener la llave pública "anon" /
+// "publishable" de Supabase (prefijo sb_publishable_ o el JWT
+// anon clásico). Esta llave está diseñada para vivir en el
+// cliente: por sí sola NO concede ningún acceso — el acceso real
+// lo controlan las políticas de Row Level Security (RLS) en
+// Postgres, evaluadas en el servidor de Supabase en cada query.
+//
+// NUNCA pegues aquí ni en ningún otro archivo de /public:
+//   - La Service Role Key de Supabase (bypassa RLS por completo)
+//   - Tokens de acceso de Meta Graph API / TikTok Content API
+//   - API Keys de Gemini u otros proveedores de IA
+// Esas llaves viven EXCLUSIVAMENTE del lado servidor: en tus
+// workflows de n8n Cloud o en variables de entorno de Railway.
+// El navegador jamás debe poder leerlas.
+// ============================================================
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
@@ -13,15 +30,14 @@ const N8N_MARKETING_WEBHOOK_URL = '';
 const N8N_PUBLISH_WEBHOOK_URL = '';
 // Webhook del flujo TikTok (Gemini guion + Content Posting API).
 const N8N_TIKTOK_WEBHOOK_URL = '';
+// Toda acción que requiera llaves maestras (Meta, TikTok, Service Role)
+// se delega 100% a estos webhooks de n8n / endpoints de Railway.
+// dashboard.js jamás debe hacer fetch() directo a graph.facebook.com,
+// open.tiktokapis.com ni ningún dominio administrativo — solo a estos.
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true
-  }
-});
-
-// Variables de Control Global
+// Variables de Control Global — declaradas ANTES del cliente de Supabase
+// para que el listener onAuthStateChange (que puede disparar casi de
+// inmediato) nunca las referencie antes de que existan.
 let currentUser = null;
 let currentLote = null;
 let syncIntervalId = null;
@@ -37,6 +53,38 @@ let carImageUrls = [];
 let marketingSelectedCarId = null;
 let marketingImageUrls = [];
 let marketingVideoUrl = '';
+
+// Estado del Modo Catálogo / Presentación (ver initCatalogMode más abajo)
+let catalogModeActive = false;
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    // 🔐 Endurecimiento de sesión: usamos sessionStorage en vez del
+    // localStorage por defecto. El JWT vive solo mientras la pestaña
+    // está abierta y se borra al cerrarla — reduce la ventana de
+    // exposición si algún día existe un XSS en el sitio. No eliminamos
+    // el token del todo porque supabase-js lo necesita para firmar cada
+    // request; lo que sí garantizamos es que dashboard.js NUNCA copia
+    // ese token a una variable global propia (ver `currentUser` abajo:
+    // solo guarda el objeto de usuario, jamás el access_token).
+    storage: window.sessionStorage,
+    storageKey: 'p360-auth-session',
+    detectSessionInUrl: true
+  }
+});
+
+// Si la sesión expira, se revoca, o se cierra en otra pestaña,
+// cortamos el sync y devolvemos al usuario al login de inmediato.
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT' || (!session && currentUser)) {
+    stopSync();
+    currentUser = null;
+    currentLote = null;
+    showView('view-login');
+  }
+});
 
 // Cambiador Global de Vistas SPA
 function showView(viewId) {
@@ -69,7 +117,7 @@ async function fetchAndRenderAll() {
   }
   try {
     await Promise.all([fetchLeads(), fetchCars(), fetchCitasReal()]);
-    if (activeLeadId) {
+    if (activeLeadId && !catalogModeActive) {
       await refreshChatLive(activeLeadId);
     }
   } catch (err) {
@@ -234,7 +282,7 @@ function renderLeadsTable() {
                         ${badgeDocumentos}
                       </div>
                     </td>
-                    <td class="px-4 py-3.5 text-xs text-[#6B7280] font-mono privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
+                    <td class="px-4 py-3.5 text-xs text-[#6B7280] font-mono privacy-sensitive">${catalogModeActive ? CATALOG_REDACTED : escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
                     <td class="px-4 py-3.5 text-sm font-medium">
                       <div class="flex flex-col">
                         <span style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</span>
@@ -246,7 +294,7 @@ function renderLeadsTable() {
                       <span class="badge ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
                     </td>
                     <td class="px-4 py-3.5 text-right">
-                      <button data-lead-id="${lead.id}" class="btn-ver-perfil text-[11px] btn-primary px-2.5 py-1.5 rounded-lg font-medium cursor-pointer">
+                      <button data-lead-id="${escapeHtml(lead.id)}" class="btn-ver-perfil text-[11px] btn-primary px-2.5 py-1.5 rounded-lg font-medium cursor-pointer">
                         Ver Perfil
                       </button>
                     </td>
@@ -307,13 +355,13 @@ function renderPipelineKanban() {
   const renderCard = (lead, tempClass) => {
     const iniciales = (lead.nombre || 'P W').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
     return `
-      <div data-lead-id="${lead.id}" class="btn-kanban-card kanban-card ${tempClass} p-3 cursor-pointer">
+      <div data-lead-id="${escapeHtml(lead.id)}" class="btn-kanban-card kanban-card ${tempClass} p-3 cursor-pointer">
         <div class="flex items-start justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0">
             <div class="w-7 h-7 rounded-lg bg-[#20242F] flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0">${escapeHtml(iniciales)}</div>
             <div class="min-w-0">
               <p class="text-xs font-semibold truncate">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</p>
-              <p class="text-[10px] text-[#9CA3AF] font-mono truncate privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
+              <p class="text-[10px] text-[#9CA3AF] font-mono truncate privacy-sensitive">${catalogModeActive ? CATALOG_REDACTED : escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
             </div>
           </div>
         </div>
@@ -451,10 +499,10 @@ function renderCitasCronologicas() {
             : 'text-[#F5F5F4]';
 
           const botonAccion = esCancelada
-            ? `<button data-cita-id="${cita.id}" data-action="delete" class="btn-gestion-cita btn-ghost p-1.5 rounded-lg flex items-center justify-center cursor-pointer" title="Limpiar del historial">
+            ? `<button data-cita-id="${escapeHtml(cita.id)}" data-action="delete" class="btn-gestion-cita btn-ghost p-1.5 rounded-lg flex items-center justify-center cursor-pointer" title="Limpiar del historial">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                </button>`
-            : `<button data-cita-id="${cita.id}" data-action="cancel" class="btn-gestion-cita p-1.5 rounded-lg flex items-center justify-center cursor-pointer transition" style="background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(229,87,63,0.25);" title="Marcar como Cancelada">
+            : `<button data-cita-id="${escapeHtml(cita.id)}" data-action="cancel" class="btn-gestion-cita p-1.5 rounded-lg flex items-center justify-center cursor-pointer transition" style="background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(229,87,63,0.25);" title="Marcar como Cancelada">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                </button>`;
 
@@ -466,7 +514,7 @@ function renderCitasCronologicas() {
             <div class="flex items-center justify-between p-3 card ${claseContenedor}">
               <div>
                 <p class="font-semibold text-sm ${claseTextoNombre}">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
-                <p class="text-xs text-[#9CA3AF] font-mono">Tel: ${escapeHtml(cita.telefono || 'Sin número')} • Interés: <span style="color: var(--cold);" class="font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
+                <p class="text-xs text-[#9CA3AF] font-mono privacy-sensitive">Tel: ${catalogModeActive ? CATALOG_REDACTED : escapeHtml(cita.telefono || 'Sin número')} • Interés: <span style="color: var(--cold);" class="font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
               </div>
 
               <div class="flex items-center gap-3">
@@ -592,13 +640,15 @@ function calcularMetricasInventario() {
     }
   });
 
-  if (invValorTotalEl) invValorTotalEl.textContent = formatCurrency(valorTotal);
-  if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = formatCurrency(gananciasTotales);
+  if (invValorTotalEl) invValorTotalEl.textContent = catalogModeActive ? CATALOG_REDACTED : formatCurrency(valorTotal);
+  if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = catalogModeActive ? CATALOG_REDACTED : formatCurrency(gananciasTotales);
 
   if (mensualesContainer) {
     const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
 
-    if (mesesConVentas.length === 0) {
+    if (catalogModeActive) {
+      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">🔒 Facturación oculta en Modo Catálogo.</p>`;
+    } else if (mesesConVentas.length === 0) {
       mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
     } else {
       mensualesContainer.innerHTML = `
@@ -642,7 +692,7 @@ function renderCarThumbs() {
   const wrap = document.getElementById('carImageThumbs');
   wrap.innerHTML = carImageUrls.map((url, i) => `
     <div class="car-thumb">
-      <img src="${url}" alt="foto ${i + 1}">
+      <img src="${escapeHtml(sanitizeUrl(url, ''))}" alt="foto ${i + 1}">
       <button type="button" data-idx="${i}" class="btn-quitar-thumb">×</button>
     </div>
   `).join('');
@@ -703,19 +753,20 @@ function renderCars() {
     const textoCatalog = car.status === 'Apartado' ? 'Apartado' : 'Disponible';
 
     const botonEstatus = !esVendido
-      ? `<button data-action-id="${car.id}" class="btn-marcar-vendido internal-only text-[11px] px-2.5 py-1 rounded-md font-semibold transition" style="background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);">Marcar Vendido</button>`
+      ? `<button data-action-id="${escapeHtml(car.id)}" class="btn-marcar-vendido internal-only text-[11px] px-2.5 py-1 rounded-md font-semibold transition" style="background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);">Marcar Vendido</button>`
       : `<span class="text-xs text-[#9CA3AF] font-medium italic internal-only">Unidad Entregada</span>`;
 
     const salud = calcularSaludInventario(car);
     const saludColorClass = salud.percent >= 100 ? 'health-high' : salud.percent >= 50 ? 'health-mid' : 'health-low';
 
     const totalFotos = Array.isArray(car.image_urls) ? car.image_urls.length : (car.image_url ? 1 : 0);
-    const fotoPortada = (Array.isArray(car.image_urls) && car.image_urls[0]) || car.image_url || 'https://via.placeholder.com/400x250?text=Sin+Foto';
+    const fotoPortadaRaw = (Array.isArray(car.image_urls) && car.image_urls[0]) || car.image_url || 'https://via.placeholder.com/400x250?text=Sin+Foto';
+    const fotoPortada = sanitizeUrl(fotoPortadaRaw, 'https://via.placeholder.com/400x250?text=Sin+Foto');
 
     return `
       <div class="car-card flex flex-col ${esVendido ? 'status-vendido' : ''}">
         <div class="relative">
-          <img src="${fotoPortada}" class="car-card-img" alt="${escapeHtml(unidadNombre)}">
+          <img src="${escapeHtml(fotoPortada)}" class="car-card-img" alt="${escapeHtml(unidadNombre)}">
           ${totalFotos > 1 ? `<span class="photo-count">${totalFotos} fotos</span>` : ''}
         </div>
         <div class="p-5 flex flex-col gap-2 flex-1">
@@ -731,7 +782,7 @@ function renderCars() {
                 <span class="text-[11px] text-[#9CA3AF]">${textoCatalog}</span>
               </div>
             </div>
-            <button data-edit-id="${car.id}" class="btn-editar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
+            <button data-edit-id="${escapeHtml(car.id)}" class="btn-editar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
           </div>
 
           <p class="text-[11px] text-[#9CA3AF] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
@@ -751,7 +802,7 @@ function renderCars() {
 
           <div class="flex items-center justify-between mt-auto pt-2 border-t border-[#272A30] internal-only">
             ${botonEstatus}
-            <button data-market-id="${car.id}" class="btn-promocionar text-[11px] btn-ghost px-2.5 py-1.5 rounded-lg font-medium">✨ Promocionar</button>
+            <button data-market-id="${escapeHtml(car.id)}" class="btn-promocionar text-[11px] btn-ghost px-2.5 py-1.5 rounded-lg font-medium">✨ Promocionar</button>
           </div>
         </div>
       </div>
@@ -942,7 +993,7 @@ async function subirMediaMarketing(files) {
   if (videoFile) {
     const url = await subir(videoFile);
     if (url) {
-      marketingVideoUrl = url;
+      marketingVideoUrl = sanitizeUrl(url, '');
       document.getElementById('marketingVideoPreview').src = marketingVideoUrl;
       document.getElementById('marketingVideoPreviewWrap').classList.remove('hidden');
     }
@@ -957,7 +1008,7 @@ function renderMarketingThumbs() {
   wrap.classList.toggle('hidden', marketingImageUrls.length === 0);
   wrap.innerHTML = marketingImageUrls.map((url, i) => `
     <div class="car-thumb">
-      <img src="${url}" alt="foto ${i + 1}">
+      <img src="${escapeHtml(sanitizeUrl(url, ''))}" alt="foto ${i + 1}">
       <button type="button" data-idx="${i}" class="btn-quitar-thumb-marketing">×</button>
     </div>
   `).join('');
@@ -1116,6 +1167,15 @@ function initMarketingModule() {
 // MODAL DRAWER LATERAL ULTRA-CRM (INTEGRACIÓN CHAT LIVE) 🗂️
 // ------------------------------------------------------------
 async function openDrawer(leadId) {
+  // 🛡️ Guard real, no cosmético: si alguien reactiva el botón oculto por
+  // CSS (o llama openDrawer(id) directo desde la consola F12), el drawer
+  // de un lead —con teléfono, INE, domicilio y comprobante de ingresos—
+  // sigue sin poder abrirse mientras el Modo Catálogo esté activo.
+  if (catalogModeActive) {
+    console.warn('[Modo Catálogo] Apertura de ficha de lead bloqueada mientras el modo presentación está activo.');
+    return;
+  }
+
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
@@ -1173,8 +1233,9 @@ async function openDrawer(leadId) {
       ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs mt-2" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>🏡 Dirección de Residencia</span><span class="mt-1 text-[#6B7280] font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
       : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
-    const docIngresosHtml = lead.url_comprobante_ingresos
-      ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg mt-2 transition" style="background: var(--surface-2);"><span class="flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>📊 Estados de Cuenta</span> <span class="text-[10px] text-[#6B7280] font-semibold">Ver Archivo →</span></a>`
+    const urlIngresosSegura = sanitizeUrl(lead.url_comprobante_ingresos, '');
+    const docIngresosHtml = urlIngresosSegura
+      ? `<a href="${escapeHtml(urlIngresosSegura)}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg mt-2 transition" style="background: var(--surface-2);"><span class="flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>📊 Estados de Cuenta</span> <span class="text-[10px] text-[#6B7280] font-semibold">Ver Archivo →</span></a>`
       : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
@@ -1249,13 +1310,13 @@ function closeDrawer() {
 }
 
 // ------------------------------------------------------------
-// MODO CATÁLOGO / PRESENTACIÓN 🖼️
-// Redacta datos financieros internos y de contacto del lead,
-// y transforma el inventario en un catálogo listo para mostrar
-// directamente a un cliente en el lote.
 // ------------------------------------------------------------
-let catalogModeActive = false;
-
+// MODO CATÁLOGO / PRESENTACIÓN 🖼️
+// Redacta datos financieros internos y de contacto del lead a
+// nivel de RENDERIZADO (no solo con CSS): los valores sensibles
+// nunca se escriben en el DOM mientras el modo está activo, así
+// que inspeccionar con F12 no revela nada de todas formas.
+// ------------------------------------------------------------
 function initCatalogMode() {
   const toggle = document.getElementById('catalogModeToggle');
   if (!toggle) return;
@@ -1267,9 +1328,24 @@ function initCatalogMode() {
     toggle.setAttribute('aria-pressed', String(catalogModeActive));
 
     if (catalogModeActive) {
+      // Cierra cualquier ficha de lead abierta y detiene el chat en vivo:
+      // nada de INE, domicilio, ingresos o teléfono debe seguir visible
+      // ni refrescándose mientras alguien muestra el inventario a un cliente.
+      closeDrawer();
+      activeLeadId = null;
+
       const inventarioBtn = document.querySelector('[data-section="section-inventario"]');
       if (inventarioBtn) inventarioBtn.click();
     }
+
+    // Re-renderiza de inmediato con los datos ya cacheados: la redacción
+    // (o su reversión, al desactivar) aplica al instante, sin esperar al
+    // siguiente ciclo de sync de 10s.
+    renderLeadsTable();
+    renderPipelineKanban();
+    renderCitasCronologicas();
+    renderCars();
+    calcularMetricasInventario();
   });
 }
 
@@ -1305,6 +1381,19 @@ async function checarEstatusWhatsApp() {
   }
 }
 
+// ============================================================
+// 🛡️ ROUTE GUARD (Middleware de Frontend)
+// Única puerta de entrada a datos del tenant. Valida la sesión de
+// Supabase contra el backend (getSession revalida el JWT, no solo
+// lee un valor cacheado) ANTES de permitir que se muestre o
+// sincronice cualquier dato del dashboard. Si no hay sesión válida,
+// corta aquí mismo y regresa a view-login — el HTML ya trae
+// view-dashboard oculto por defecto (`class="... hidden"`), así que
+// no hay ventana en la que datos sensibles puedan pintarse antes de
+// esta validación.
+// Devuelve `true` solo si hay un usuario autenticado (con o sin
+// lote todavía creado); `false` si se debe permanecer en login.
+// ============================================================
 async function checkSessionAndLote() {
   try {
     const { data: sessionData, error: sessionErr } = await supabaseClient.auth.getSession();
@@ -1312,7 +1401,8 @@ async function checkSessionAndLote() {
       currentUser = null;
       currentLote = null;
       showView('view-login');
-      return;
+      console.info('[Route Guard] Sin sesión válida — acceso al dashboard denegado.');
+      return false;
     }
 
     currentUser = sessionData.session.user;
@@ -1323,14 +1413,18 @@ async function checkSessionAndLote() {
       renderConfigLote();
       showView('view-dashboard');
       startSync();
-      return;
+      return true;
     }
 
     currentLote = null;
     showView('view-registro');
+    return true;
   } catch (err) {
-    console.error('[Guardián] Excepción:', err);
+    console.error('[Route Guard] Excepción validando sesión:', err);
+    currentUser = null;
+    currentLote = null;
     showView('view-login');
+    return false;
   }
 }
 
@@ -1378,8 +1472,20 @@ async function handleRegistroSubmit(e) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // ============================================================
+  // 🛡️ El Route Guard corre PRIMERO, antes de enlazar cualquier
+  // listener o exponer cualquier dato del dashboard. Los forms de
+  // login/registro se enlazan siempre (son necesarios para poder
+  // autenticarse), pero ninguna consulta a leads/cars/citas ocurre
+  // hasta que este guard confirme sesión + lote válidos (ver
+  // startSync() dentro de checkSessionAndLote).
+  // ============================================================
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
+  document.getElementById('to-login-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
+  document.getElementById('to-registro-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
+
+  await checkSessionAndLote();
 
   if (document.getElementById('configForm')) {
     document.getElementById('configForm').addEventListener('submit', async (e) => {
@@ -1398,8 +1504,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  document.getElementById('to-login-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
-  document.getElementById('to-registro-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
   document.getElementById('closeDrawerBtn').addEventListener('click', closeDrawer);
   document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
 
@@ -1562,14 +1666,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSidebarNav();
   initMarketingModule();
   initCatalogMode();
-  await checkSessionAndLote();
 });
 
 // Formateadores Globales
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
+
+// ------------------------------------------------------------
+// 🧼 ANTI-XSS: sanitizador de URLs para atributos src/href.
+// Cualquier URL que llegue de la base de datos (fotos de autos,
+// comprobantes de leads, medios del Agente Publicitario) pasa por
+// aquí antes de tocar el DOM. Solo se permite http(s); cualquier
+// esquema peligroso (javascript:, data:, vbscript:) se descarta y
+// se sustituye por el fallback.
+// ------------------------------------------------------------
+function sanitizeUrl(rawUrl, fallback = '') {
+  if (!rawUrl) return fallback;
+  try {
+    const parsed = new URL(String(rawUrl), window.location.origin);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return parsed.href;
+    }
+  } catch (_) {
+    // URL inválida — cae al fallback
+  }
+  return fallback;
+}
+
+// Placeholder de redacción para Modo Catálogo (ver initCatalogMode).
+const CATALOG_REDACTED = '•••• Protegido';
+
 function formatCurrency(v) {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v) || 0);
 }

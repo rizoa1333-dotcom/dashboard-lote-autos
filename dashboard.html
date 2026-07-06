@@ -4,6 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PROJECT 360 - Ecosistema Automotriz</title>
+
+  <!--
+    🛡️ CSP de respaldo (defense-in-depth). Esta etiqueta <meta> NO
+    reemplaza el header HTTP Content-Security-Policy que debes
+    configurar en tu servidor de Railway (ver instrucciones al
+    final de la auditoría) — los navegadores ignoran frame-ancestors
+    y algunas directivas de reporte dentro de un <meta>, así que el
+    header sigue siendo la política autoritativa. Esta copia protege
+    aunque el servidor sirva el HTML sin pasar por tu middleware.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com;
+    img-src 'self' data: https://deljncdcddfghfihuumd.supabase.co https://via.placeholder.com;
+    connect-src 'self' https://deljncdcddfghfihuumd.supabase.co;
+    media-src 'self' https://deljncdcddfghfihuumd.supabase.co;
+    form-action 'self';
+    base-uri 'self';
+    object-src 'none';
+  ">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
