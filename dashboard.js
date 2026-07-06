@@ -179,7 +179,7 @@ function renderLeadsTable() {
   if (!container) return;
 
   if (leadsCache.length === 0) {
-    container.innerHTML = '<div class="card p-8 text-center text-xs text-[#4B5563]">Sin prospectos calificados registrados en este lote.</div>';
+    container.innerHTML = '<div class="card p-8 text-center text-xs text-[#9CA3AF]">Sin prospectos calificados registrados en este lote.</div>';
     return;
   }
 
@@ -206,7 +206,7 @@ function renderLeadsTable() {
         <div class="overflow-x-auto">
           <table class="w-full text-sm text-left">
             <thead>
-              <tr class="text-[#4B5563] border-b border-[#272A30] text-xs uppercase font-semibold">
+              <tr class="text-[#9CA3AF] border-b border-[#272A30] text-xs uppercase font-semibold">
                 <th class="px-4 py-3 font-medium">Nombre Completo</th>
                 <th class="px-4 py-3 font-medium">Teléfono / WhatsApp</th>
                 <th class="px-4 py-3 font-medium">Auto de Interés</th>
@@ -241,7 +241,7 @@ function renderLeadsTable() {
                         ${lead.auto_sugerido ? `<span class="badge badge-success mt-1 w-fit">✨ Sugerido: ${escapeHtml(lead.auto_sugerido)}</span>` : ''}
                       </div>
                     </td>
-                    <td class="px-4 py-3.5 text-xs text-[#4B5563]">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
+                    <td class="px-4 py-3.5 text-xs text-[#9CA3AF]">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
                     <td class="px-4 py-3.5">
                       <span class="badge ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
                     </td>
@@ -313,7 +313,7 @@ function renderPipelineKanban() {
             <div class="w-7 h-7 rounded-lg bg-[#20242F] flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0">${escapeHtml(iniciales)}</div>
             <div class="min-w-0">
               <p class="text-xs font-semibold truncate">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</p>
-              <p class="text-[10px] text-[#4B5563] font-mono truncate privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
+              <p class="text-[10px] text-[#9CA3AF] font-mono truncate privacy-sensitive">${escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
             </div>
           </div>
         </div>
@@ -322,7 +322,7 @@ function renderPipelineKanban() {
     `;
   };
 
-  const emptyMsg = '<p class="text-[11px] text-[#4B5563] italic px-2 py-3">Sin prospectos en esta etapa.</p>';
+  const emptyMsg = '<p class="empty-state-mini">Sin prospectos en esta etapa.</p>';
 
   contCaliente.innerHTML = grupos.caliente.length ? grupos.caliente.map(l => renderCard(l, 'temp-caliente')).join('') : emptyMsg;
   contTemplado.innerHTML = grupos.templado.length ? grupos.templado.map(l => renderCard(l, 'temp-templado')).join('') : emptyMsg;
@@ -344,8 +344,8 @@ function procesarMetricasBI() {
 
   const totalLeads = leadsCache.length;
   if (totalLeads === 0) {
-    if (topAutosContainer) topAutosContainer.innerHTML = '<p class="text-xs text-[#4B5563] italic">Esperando recolección de leads...</p>';
-    if (engancheContainer) engancheContainer.innerHTML = '<p class="text-xs text-[#4B5563] italic">Esperando recolección de leads...</p>';
+    if (topAutosContainer) topAutosContainer.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Esperando recolección de leads...</p>';
+    if (engancheContainer) engancheContainer.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Esperando recolección de leads...</p>';
     return;
   }
 
@@ -368,7 +368,7 @@ function procesarMetricasBI() {
 
   if (topAutosContainer) {
     if (autosOrdenados.length === 0) {
-      topAutosContainer.innerHTML = '<p class="text-xs text-[#4B5563] italic">Falta recolectar modelos de interés en el chat.</p>';
+      topAutosContainer.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Falta recolectar modelos de interés en el chat.</p>';
     } else {
       topAutosContainer.innerHTML = autosOrdenados.map((a, index) => `
         <div class="flex items-center justify-between text-xs bg-[var(--surface-2)] p-2.5 rounded-lg">
@@ -417,7 +417,7 @@ function renderCitasCronologicas() {
   const citas = citasCache;
 
   if (citas.length === 0) {
-    container.innerHTML = '<p class="text-xs text-[#4B5563] p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
+    container.innerHTML = '<p class="text-xs text-[#9CA3AF] p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
     return;
   }
 
@@ -436,7 +436,7 @@ function renderCitasCronologicas() {
 
   container.innerHTML = Object.keys(citasAgrupadas).map(dia => `
     <div class="space-y-2">
-      <div class="text-xs font-bold text-[#4B5563] uppercase tracking-wider bg-[#161922] px-3 py-1.5 rounded-md border border-[#272A30]">${dia}</div>
+      <div class="text-xs font-bold text-[#9CA3AF] uppercase tracking-wider bg-[#161922] px-3 py-1.5 rounded-md border border-[#272A30]">${dia}</div>
       <div class="grid grid-cols-1 gap-2 pl-1">
         ${citasAgrupadas[dia].map(cita => {
           const horaVisual = cita.hora_cita ? cita.hora_cita.slice(0, 5) : '12:00';
@@ -447,7 +447,7 @@ function renderCitasCronologicas() {
             : 'card-hover';
 
           const claseTextoNombre = esCancelada
-            ? 'text-[#4B5563] line-through'
+            ? 'text-[#9CA3AF] line-through'
             : 'text-[#F5F5F4]';
 
           const botonAccion = esCancelada
@@ -466,7 +466,7 @@ function renderCitasCronologicas() {
             <div class="flex items-center justify-between p-3 card ${claseContenedor}">
               <div>
                 <p class="font-semibold text-sm ${claseTextoNombre}">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
-                <p class="text-xs text-[#4B5563] font-mono">Tel: ${escapeHtml(cita.telefono || 'Sin número')} • Interés: <span style="color: var(--cold);" class="font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
+                <p class="text-xs text-[#9CA3AF] font-mono">Tel: ${escapeHtml(cita.telefono || 'Sin número')} • Interés: <span style="color: var(--cold);" class="font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
               </div>
 
               <div class="flex items-center gap-3">
@@ -599,7 +599,7 @@ function calcularMetricasInventario() {
     const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
 
     if (mesesConVentas.length === 0) {
-      mensualesContainer.innerHTML = `<p class="text-xs text-[#4B5563] italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
+      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
     } else {
       mensualesContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
@@ -607,7 +607,7 @@ function calcularMetricasInventario() {
             <div class="flex items-center justify-between p-3 bg-[#161922] border border-[#272A30] rounded-xl">
               <div>
                 <p class="text-xs font-bold">${mes.name}</p>
-                <p class="text-[10px] text-[#4B5563] font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
+                <p class="text-[10px] text-[#9CA3AF] font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
               </div>
               <div class="text-right">
                 <p class="text-sm font-extrabold stat-mono" style="color: var(--text);">${formatCurrency(mes.dinero)}</p>
@@ -675,7 +675,18 @@ function renderCars() {
   if (!grid) return;
 
   if (carsCache.length === 0) {
-    grid.innerHTML = '<div class="card p-8 text-center text-xs text-[#4B5563] col-span-full">No hay unidades vehiculares en exhibición.</div>';
+    grid.innerHTML = `
+      <div class="empty-state col-span-full">
+        <div class="empty-state-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <p class="empty-state-title">No hay unidades registradas</p>
+        <p class="empty-state-desc">Añade tu primer vehículo para comenzar a construir tu catálogo.</p>
+        <button id="btnEmptyAddCar" class="btn-ghost text-xs font-medium px-4 py-2 rounded-lg mt-4">+ Añadir primer vehículo</button>
+      </div>
+    `;
+    const btnEmptyAddCar = document.getElementById('btnEmptyAddCar');
+    if (btnEmptyAddCar) btnEmptyAddCar.addEventListener('click', () => document.getElementById('btnAbrirModalCar').click());
     return;
   }
 
@@ -693,7 +704,7 @@ function renderCars() {
 
     const botonEstatus = !esVendido
       ? `<button data-action-id="${car.id}" class="btn-marcar-vendido internal-only text-[11px] px-2.5 py-1 rounded-md font-semibold transition" style="background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);">Marcar Vendido</button>`
-      : `<span class="text-xs text-[#4B5563] font-medium italic internal-only">Unidad Entregada</span>`;
+      : `<span class="text-xs text-[#9CA3AF] font-medium italic internal-only">Unidad Entregada</span>`;
 
     const salud = calcularSaludInventario(car);
     const saludColorClass = salud.percent >= 100 ? 'health-high' : salud.percent >= 50 ? 'health-mid' : 'health-low';
@@ -713,22 +724,22 @@ function renderCars() {
               <p class="font-semibold text-sm truncate">${escapeHtml(unidadNombre || 'Unidad')}</p>
               <div class="flex items-center gap-1.5 mt-1.5 internal-only">
                 <span class="${dotRedesClass}"></span>
-                <span class="text-[11px] text-[#4B5563]">${textoRedes}</span>
+                <span class="text-[11px] text-[#9CA3AF]">${textoRedes}</span>
               </div>
               <div class="flex items-center gap-1.5 mt-1.5 catalog-only">
                 <span class="${dotCatalogClass}"></span>
-                <span class="text-[11px] text-[#4B5563]">${textoCatalog}</span>
+                <span class="text-[11px] text-[#9CA3AF]">${textoCatalog}</span>
               </div>
             </div>
             <button data-edit-id="${car.id}" class="btn-editar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
           </div>
 
-          <p class="text-[11px] text-[#4B5563] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
+          <p class="text-[11px] text-[#9CA3AF] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
           <p class="text-lg font-bold stat-mono">${formatCurrency(car.price)}</p>
           <p class="catalog-only text-[11px] text-[#6B7280] -mt-1">Financiamiento disponible desde <span class="font-semibold" style="color: var(--text);">${formatCurrency(car.enganche_minimo)}</span></p>
 
           <div class="internal-only space-y-1.5 pt-1">
-            <div class="flex items-center justify-between text-[9px] text-[#4B5563] uppercase font-bold tracking-wider">
+            <div class="flex items-center justify-between text-[9px] text-[#9CA3AF] uppercase font-bold tracking-wider">
               <span>Salud de Inventario</span>
               <span>${salud.percent}%</span>
             </div>
@@ -1156,15 +1167,15 @@ async function openDrawer(leadId) {
   if (expedienteContainer) {
     const docIneHtml = lead.url_ine
       ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>🪪 Clave Elector (INE)</span><span class="mt-1 text-[#6B7280] font-mono select-all">${escapeHtml(lead.url_ine)}</span></div>`
-      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#4B5563] text-xs px-3 py-2 rounded-lg border border-[#272A30]"><span>🪪 Clave Elector (INE)</span> <span class="text-[10px] italic">Pendiente</span></div>`;
+      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30]"><span>🪪 Clave Elector (INE)</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     const docDomicilioHtml = lead.url_comprobante_domicilio
       ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs mt-2" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>🏡 Dirección de Residencia</span><span class="mt-1 text-[#6B7280] font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
-      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#4B5563] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] italic">Pendiente</span></div>`;
+      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     const docIngresosHtml = lead.url_comprobante_ingresos
       ? `<a href="${lead.url_comprobante_ingresos}" target="_blank" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg mt-2 transition" style="background: var(--surface-2);"><span class="flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>📊 Estados de Cuenta</span> <span class="text-[10px] text-[#6B7280] font-semibold">Ver Archivo →</span></a>`
-      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#4B5563] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] italic">Pendiente</span></div>`;
+      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] italic">Pendiente</span></div>`;
 
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
   }
@@ -1197,8 +1208,8 @@ async function refreshChatLive(leadId) {
   if (!messages || messages.length === 0) {
     chatContainer.innerHTML = `
       <div class="my-auto text-center space-y-2 p-6">
-        <p class="text-[#4B5563] font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
-        <p class="text-[11px] text-[#4B5563] bg-[#161922] border border-[#272A30] rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
+        <p class="text-[#9CA3AF] font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
+        <p class="text-[11px] text-[#9CA3AF] bg-[#161922] border border-[#272A30] rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
       </div>`;
     return;
   }
@@ -1272,6 +1283,7 @@ function initSidebarNav() {
       navButtons.forEach(b => b.classList.remove('nav-active'));
       btn.classList.add('nav-active');
       document.getElementById('sidebar').classList.add('-translate-x-full');
+      document.getElementById('overlay').classList.add('hidden');
     });
   });
 }
@@ -1534,8 +1546,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await fetchCars();
   });
 
-  document.getElementById('openSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.remove('-translate-x-full'));
-  document.getElementById('closeSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.add('-translate-x-full'));
+  document.getElementById('openSidebar').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.remove('-translate-x-full');
+    document.getElementById('overlay').classList.remove('hidden');
+  });
+  document.getElementById('closeSidebar').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.add('-translate-x-full');
+    document.getElementById('overlay').classList.add('hidden');
+  });
+  document.getElementById('overlay').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.add('-translate-x-full');
+    document.getElementById('overlay').classList.add('hidden');
+  });
 
   initSidebarNav();
   initMarketingModule();
