@@ -220,6 +220,23 @@ input:focus, select:focus, textarea:focus {
   background: var(--amber-soft);
 }
 
+/* ---------- Selector de plataformas: checkbox plano ---------- */
+.platform-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.platform-check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--text);
+  cursor: pointer;
+}
+.platform-check:has(input:checked) { color: var(--text); }
+
 /* Tablas */
 table thead tr { color: var(--text-faint); border-color: var(--border); }
 table tbody tr { border-color: var(--border); }

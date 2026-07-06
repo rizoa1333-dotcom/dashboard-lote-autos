@@ -11,6 +11,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 const N8N_MARKETING_WEBHOOK_URL = '';
 // Webhook nuevo, en el MISMO workflow de n8n, para publicar en Facebook/Instagram.
 const N8N_PUBLISH_WEBHOOK_URL = '';
+// Webhook del flujo TikTok (Gemini guion + Content Posting API).
+const N8N_TIKTOK_WEBHOOK_URL = '';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -32,8 +34,8 @@ let activeLeadId = null;
 
 // Estado del Agente Publicitario IA
 let marketingSelectedCarId = null;
-let marketingImageFile = null;
 let marketingImageUrl = '';
+let marketingVideoUrl = '';
 
 // Cambiador Global de Vistas SPA
 function showView(viewId) {
@@ -817,6 +819,22 @@ function generarCopyLocal(car) {
     `📲 Escríbenos por WhatsApp y agenda tu cita hoy mismo. ¡Unidades como esta se van rápido!`;
 }
 
+// Guion local de respaldo (misma estructura que produce el nodo Gemini en n8n).
+function generarGuionLocal(car) {
+  const nombre = `${car.brand || ''} ${car.model || ''}`.trim();
+  const enganche = car.enganche_minimo ? formatCurrency(car.enganche_minimo) : 'un enganche accesible';
+  return {
+    hook: `¿Buscas un ${nombre} premium pero te asusta el enganche?`,
+    cuerpo: [
+      `Motor y manejo de ${nombre} ${car.year || ''} en excelente estado.`,
+      `Equipamiento completo, transmisión ${car.transmision || 'Automática'}.`,
+      `Desde ${enganche} de entrada, precio total ${formatCurrency(car.price)}.`
+    ],
+    cta: 'Escríbenos ahora por WhatsApp y agenda tu cita hoy mismo.',
+    caption: `${nombre} ${car.year || ''} en excelente estado #autosseminuevos #carrosusados #autofinanciamiento #${(car.brand || 'auto').toLowerCase().replace(/\s+/g, '')} #ofertadelmes`
+  };
+}
+
 async function generarCopyIA(car) {
   if (!N8N_MARKETING_WEBHOOK_URL) {
     return generarCopyLocal(car);
@@ -835,9 +853,39 @@ async function generarCopyIA(car) {
   }
 }
 
-async function subirImagenMarketing(file) {
+function getSelectedPlatforms() {
+  const platforms = [];
+  if (document.getElementById('platformFacebook').checked) platforms.push('facebook');
+  if (document.getElementById('platformInstagram').checked) platforms.push('instagram');
+  if (document.getElementById('platformTiktok').checked) platforms.push('tiktok');
+  return platforms;
+}
+
+function updateBtnPublicarLabel() {
+  const btnPublicar = document.getElementById('btnPublicarRedes');
+  if (!btnPublicar || btnPublicar.disabled) return;
+  const platforms = getSelectedPlatforms();
+  const usaMeta = platforms.includes('facebook') || platforms.includes('instagram');
+  const usaTiktok = platforms.includes('tiktok');
+
+  let label = '🚀 Publicar con IA en Redes Sociales';
+  if (usaMeta && usaTiktok) label = '🚀 Lanzar Campaña Omnicanal';
+  else if (usaTiktok) label = '🚀 Publicar Video con IA';
+
+  btnPublicar.style.opacity = '0';
+  setTimeout(() => { btnPublicar.textContent = label; btnPublicar.style.opacity = '1'; }, 120);
+}
+
+function toggleGuionWrap() {
+  const wrap = document.getElementById('marketingGuionWrap');
+  const usaTiktok = document.getElementById('platformTiktok').checked;
+  wrap.classList.toggle('hidden', !usaTiktok);
+}
+
+async function subirMediaMarketing(file) {
   const statusText = document.getElementById('marketingStatusText');
-  if (statusText) { statusText.textContent = 'Subiendo imagen a la nube... ⏳'; statusText.style.color = 'var(--amber-strong)'; }
+  const esVideo = file.type.startsWith('video/');
+  if (statusText) { statusText.textContent = `Subiendo ${esVideo ? 'video' : 'imagen'} a la nube... ⏳`; statusText.style.color = 'var(--amber-strong)'; }
 
   const fileExt = file.name.split('.').pop();
   const fileName = `marketing_${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
@@ -845,20 +893,27 @@ async function subirImagenMarketing(file) {
 
   const { error } = await supabaseClient.storage.from('car-images').upload(filePath, file);
   if (error) {
-    if (statusText) { statusText.textContent = 'Fallo de Storage al subir la imagen.'; statusText.style.color = 'var(--danger)'; }
+    if (statusText) { statusText.textContent = `Fallo de Storage al subir el ${esVideo ? 'video' : 'imagen'}.`; statusText.style.color = 'var(--danger)'; }
     return;
   }
 
   const { data: publicUrlData } = supabaseClient.storage.from('car-images').getPublicUrl(filePath);
-  marketingImageUrl = publicUrlData.publicUrl;
 
-  const preview = document.getElementById('marketingImagePreview');
-  const previewWrap = document.getElementById('marketingImagePreviewWrap');
-  if (preview && previewWrap) {
-    preview.src = marketingImageUrl;
-    previewWrap.classList.remove('hidden');
+  const imgWrap = document.getElementById('marketingImagePreviewWrap');
+  const vidWrap = document.getElementById('marketingVideoPreviewWrap');
+
+  if (esVideo) {
+    marketingVideoUrl = publicUrlData.publicUrl;
+    document.getElementById('marketingVideoPreview').src = marketingVideoUrl;
+    vidWrap.classList.remove('hidden');
+    imgWrap.classList.add('hidden');
+  } else {
+    marketingImageUrl = publicUrlData.publicUrl;
+    document.getElementById('marketingImagePreview').src = marketingImageUrl;
+    imgWrap.classList.remove('hidden');
+    vidWrap.classList.add('hidden');
   }
-  if (statusText) { statusText.textContent = '¡Imagen lista! Ahora genera el copy con IA. 🖼️'; statusText.style.color = 'var(--success)'; }
+  if (statusText) { statusText.textContent = `¡${esVideo ? 'Video' : 'Imagen'} listo! Ahora genera el contenido con IA. ${esVideo ? '🎬' : '🖼️'}`; statusText.style.color = 'var(--success)'; }
 }
 
 function initMarketingModule() {
@@ -874,10 +929,16 @@ function initMarketingModule() {
 
   select.addEventListener('change', () => { marketingSelectedCarId = select.value; });
 
+  ['platformFacebook', 'platformInstagram', 'platformTiktok'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => { toggleGuionWrap(); updateBtnPublicarLabel(); });
+  });
+  toggleGuionWrap();
+  updateBtnPublicarLabel();
+
   dropzone.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
-    if (file) { marketingImageFile = file; subirImagenMarketing(file); }
+    if (file) { subirMediaMarketing(file); }
   });
 
   ['dragenter', 'dragover'].forEach(evt => {
@@ -888,70 +949,108 @@ function initMarketingModule() {
   });
   dropzone.addEventListener('drop', (e) => {
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) { marketingImageFile = file; subirImagenMarketing(file); }
+    if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) { subirMediaMarketing(file); }
   });
 
   btnGenerar.addEventListener('click', async () => {
     const car = carsCache.find(c => String(c.id) === String(marketingSelectedCarId));
     if (!car) { alert('Selecciona una unidad del inventario primero.'); return; }
 
+    const platforms = getSelectedPlatforms();
+    const usaTiktok = platforms.includes('tiktok');
+
     btnGenerar.disabled = true;
-    btnGenerar.textContent = '⏳ Generando copy...';
+    btnGenerar.textContent = usaTiktok ? '⏳ Generando guion con IA...' : '⏳ Generando copy...';
     try {
-      const copy = await generarCopyIA(car);
-      copyText.value = copy;
-      if (statusText) { statusText.textContent = 'Copy generado. Puedes editarlo antes de publicar.'; statusText.style.color = 'var(--text-dim)'; }
+      if (platforms.includes('facebook') || platforms.includes('instagram')) {
+        copyText.value = await generarCopyIA(car);
+      }
+      if (usaTiktok) {
+        const guion = generarGuionLocal(car);
+        document.getElementById('guionHook').value = guion.hook;
+        document.getElementById('guionCuerpo').value = guion.cuerpo.join('\n');
+        document.getElementById('guionCta').value = guion.cta;
+        document.getElementById('guionCaption').value = guion.caption;
+      }
+      if (statusText) { statusText.textContent = 'Contenido generado. Puedes editarlo antes de publicar.'; statusText.style.color = 'var(--text-dim)'; }
     } finally {
       btnGenerar.disabled = false;
-      btnGenerar.textContent = '✨ Generar Copy con IA';
+      btnGenerar.textContent = usaTiktok ? '✨ Generar Guion con IA' : '✨ Generar Copy con IA';
     }
   });
 
   btnPublicar.addEventListener('click', async () => {
     const car = carsCache.find(c => String(c.id) === String(marketingSelectedCarId));
     if (!car) { alert('Selecciona una unidad del inventario primero.'); return; }
-    if (!copyText.value.trim()) { alert('Genera o escribe un copy antes de publicar.'); return; }
-    if (!N8N_PUBLISH_WEBHOOK_URL) { alert('Falta configurar N8N_PUBLISH_WEBHOOK_URL en dashboard.js.'); return; }
+
+    const platforms = getSelectedPlatforms();
+    if (platforms.length === 0) { alert('Selecciona al menos una red social.'); return; }
+
+    const usaMeta = platforms.includes('facebook') || platforms.includes('instagram');
+    const usaTiktok = platforms.includes('tiktok');
+
+    if (usaMeta && !copyText.value.trim()) { alert('Genera o escribe un copy antes de publicar.'); return; }
+    if (usaTiktok && !marketingVideoUrl) { alert('Sube un video para TikTok antes de publicar.'); return; }
+    if (usaTiktok && !document.getElementById('guionCaption').value.trim()) { alert('Genera o escribe el guion de TikTok antes de publicar.'); return; }
 
     btnPublicar.disabled = true;
-    btnPublicar.textContent = '🚀 Publicando...';
 
     try {
-      const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrl || car.image_url })
-      });
-      if (!resp.ok) throw new Error(`Webhook respondió ${resp.status}`);
+      if (usaMeta) {
+        btnPublicar.textContent = 'Publicando en Meta...';
+        if (!N8N_PUBLISH_WEBHOOK_URL) throw new Error('Falta configurar N8N_PUBLISH_WEBHOOK_URL en dashboard.js.');
+        const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrl || car.image_url })
+        });
+        if (!resp.ok) throw new Error(`Webhook Meta respondió ${resp.status}`);
+      }
+
+      if (usaTiktok) {
+        btnPublicar.textContent = 'Publicando en TikTok...';
+        if (!N8N_TIKTOK_WEBHOOK_URL) throw new Error('Falta configurar N8N_TIKTOK_WEBHOOK_URL en dashboard.js.');
+        const guionEditado = {
+          hook: document.getElementById('guionHook').value.trim(),
+          cuerpo: document.getElementById('guionCuerpo').value.split('\n').map(s => s.trim()).filter(Boolean),
+          cta: document.getElementById('guionCta').value.trim(),
+          caption: document.getElementById('guionCaption').value.trim()
+        };
+        const resp = await fetch(N8N_TIKTOK_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ car, video_url: marketingVideoUrl, lote_id: currentLote.id, guion_editado: guionEditado })
+        });
+        if (!resp.ok) throw new Error(`Webhook TikTok respondió ${resp.status}`);
+      }
     } catch (err) {
-      console.error('[Agente IA] Error al publicar en redes:', err);
+      console.error('[Agente IA] Error al publicar:', err);
       btnPublicar.disabled = false;
-      btnPublicar.textContent = '🚀 Publicar con IA en Redes Sociales';
-      if (statusText) { statusText.textContent = 'Fallo la publicación en redes. Revisa el webhook de n8n.'; statusText.style.color = 'var(--danger)'; }
+      updateBtnPublicarLabel();
+      if (statusText) { statusText.textContent = 'Fallo la publicación. Revisa los webhooks de n8n.'; statusText.style.color = 'var(--danger)'; }
       return;
     }
 
     const hoy = new Date().toISOString().split('T')[0];
-    const { error } = await supabaseClient.from('cars').update({
-      redes_status: 'Publicado',
-      copy_ia: copyText.value.trim(),
-      fecha_publicacion: hoy,
-      image_url: marketingImageUrl || car.image_url
-    }).eq('id', car.id);
+    const updatePayload = { redes_status: 'Publicado', fecha_publicacion: hoy };
+    if (usaMeta) { updatePayload.copy_ia = copyText.value.trim(); updatePayload.image_url = marketingImageUrl || car.image_url; }
+    if (usaTiktok) { updatePayload.tiktok_status = 'Publicado'; }
+
+    const { error } = await supabaseClient.from('cars').update(updatePayload).eq('id', car.id);
 
     btnPublicar.disabled = false;
-    btnPublicar.textContent = '🚀 Publicar con IA en Redes Sociales';
+    updateBtnPublicarLabel();
 
     if (error) {
       console.error('[Agente IA] Error al publicar:', error);
       if (statusText) {
-        statusText.textContent = 'No se pudo guardar. Agrega a tu tabla "cars" las columnas redes_status, copy_ia y fecha_publicacion.';
+        statusText.textContent = 'No se pudo guardar. Agrega a tu tabla "cars" las columnas redes_status, copy_ia, fecha_publicacion y tiktok_status.';
         statusText.style.color = 'var(--danger)';
       }
       return;
     }
 
-    if (statusText) { statusText.textContent = `¡Publicado! ${car.brand} ${car.model} ya está marcado como Publicado en redes.`; statusText.style.color = 'var(--success)'; }
+    if (statusText) { statusText.textContent = `¡Publicado! ${car.brand} ${car.model} ya está marcado como Publicado.`; statusText.style.color = 'var(--success)'; }
     await fetchCars();
   });
 }

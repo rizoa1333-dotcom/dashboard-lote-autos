@@ -313,26 +313,38 @@
         <section id="section-marketing" class="dashboard-section space-y-6 hidden">
           <div>
             <h2 class="text-lg font-bold tracking-tight uppercase text-sm">Agente Publicitario IA</h2>
-            <p class="text-xs text-[#4B5563] mt-0.5">Arrastra fotos de la unidad, deja que Gemini redacte el copy, y publica en un clic</p>
+            <p class="text-xs text-[#4B5563] mt-0.5">Arrastra fotos o video de la unidad, deja que Gemini redacte el contenido, y publica en un clic</p>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Columna Izquierda: Selección + Drop de Imagen -->
+            <!-- Columna Izquierda: Selección + Drop de Media -->
             <div class="card p-6 space-y-4">
               <div>
                 <label class="block text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider mb-1">Unidad a Promocionar</label>
                 <select id="marketingCarSelect" class="w-full px-3 py-2 rounded-lg border text-sm"></select>
               </div>
 
+              <div>
+                <label class="block text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider mb-2">Publicar en</label>
+                <div class="flex flex-col gap-2">
+                  <label class="platform-check"><input type="checkbox" id="platformFacebook" checked><span>Facebook Marketplace</span></label>
+                  <label class="platform-check"><input type="checkbox" id="platformInstagram" checked><span>Instagram</span></label>
+                  <label class="platform-check"><input type="checkbox" id="platformTiktok"><span>TikTok Video</span></label>
+                </div>
+              </div>
+
               <div id="marketingDropzone" class="dropzone flex flex-col items-center justify-center text-center p-8 cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mb-2 text-[#4B5563]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <p class="text-sm font-medium">Arrastra una foto aquí</p>
-                <p class="text-[11px] text-[#4B5563] mt-1">o haz clic para seleccionar desde tu equipo</p>
-                <input type="file" id="marketingFileInput" accept="image/*" class="hidden">
+                <p class="text-sm font-medium">Arrastra una foto o video aquí</p>
+                <p class="text-[11px] text-[#4B5563] mt-1">JPG, PNG o MP4/MOV vertical para TikTok</p>
+                <input type="file" id="marketingFileInput" accept="image/*,video/mp4,video/quicktime" class="hidden">
               </div>
 
               <div id="marketingImagePreviewWrap" class="hidden">
                 <img id="marketingImagePreview" class="w-full rounded-xl border border-[#272A30]" />
+              </div>
+              <div id="marketingVideoPreviewWrap" class="hidden">
+                <video id="marketingVideoPreview" class="w-full rounded-xl border border-[#272A30]" controls></video>
               </div>
 
               <button id="btnGenerarCopy" class="btn-ghost w-full text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2">
@@ -340,11 +352,31 @@
               </button>
             </div>
 
-            <!-- Columna Derecha: Copy generado + Publicación -->
+            <!-- Columna Derecha: Copy / Guion generado + Publicación -->
             <div class="card p-6 space-y-4 flex flex-col">
               <div>
                 <label class="block text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider mb-1">Copy Generado (editable)</label>
-                <textarea id="marketingCopyText" rows="10" class="w-full px-3 py-2.5 rounded-lg border text-sm leading-relaxed" placeholder="El copy generado por la IA aparecerá aquí. También puedes escribirlo o editarlo manualmente."></textarea>
+                <textarea id="marketingCopyText" rows="8" class="w-full px-3 py-2.5 rounded-lg border text-sm leading-relaxed" placeholder="El copy generado por la IA aparecerá aquí. También puedes escribirlo o editarlo manualmente."></textarea>
+              </div>
+
+              <div id="marketingGuionWrap" class="hidden space-y-3 pt-3 border-t border-[rgba(255,255,255,0.05)]">
+                <label class="block text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider">Guion de Video (TikTok)</label>
+                <div>
+                  <label class="text-[10px] text-[#4B5563] uppercase">Hook · seg. 1-3</label>
+                  <textarea id="guionHook" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm mt-1"></textarea>
+                </div>
+                <div>
+                  <label class="text-[10px] text-[#4B5563] uppercase">Cuerpo · seg. 4-20 (un punto por línea)</label>
+                  <textarea id="guionCuerpo" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm mt-1"></textarea>
+                </div>
+                <div>
+                  <label class="text-[10px] text-[#4B5563] uppercase">CTA · seg. 21-30</label>
+                  <textarea id="guionCta" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm mt-1"></textarea>
+                </div>
+                <div>
+                  <label class="text-[10px] text-[#4B5563] uppercase">Caption + Hashtags</label>
+                  <textarea id="guionCaption" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm mt-1"></textarea>
+                </div>
               </div>
 
               <p id="marketingStatusText" class="text-[11px] text-[#4B5563] italic min-h-[14px]"></p>
