@@ -621,9 +621,10 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-[#4B5563] uppercase">Subir Fotografía del Auto</label>
-          <input type="file" id="carImageFile" accept="image/*" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
+          <label class="block text-xs font-semibold text-[#4B5563] uppercase">Fotos del Auto (puedes subir varias)</label>
+          <input type="file" id="carImageFile" accept="image/*" multiple class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
           <input type="hidden" id="carImageUrl" value="">
+          <div id="carImageThumbs" class="flex flex-wrap gap-2 mt-2"></div>
           <p id="uploadStatusText" class="text-[11px] text-[#4B5563] mt-1 italic"></p>
         </div>
 

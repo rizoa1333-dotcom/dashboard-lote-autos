@@ -136,6 +136,44 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid var(--text-faint);
 }
 
+/* ---------- Miniaturas de fotos del auto (modal) ---------- */
+.car-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.car-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.car-thumb button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.6);
+  color: var(--text);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* Contador de fotos sobre la imagen de la tarjeta de inventario */
+.photo-count {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.55);
+  color: var(--text);
+}
+
 /* ---------- Badges ---------- */
 .badge {
   display: inline-flex;

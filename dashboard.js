@@ -31,6 +31,7 @@ let carsCache = [];
 let citasCache = [];
 let editingCarId = null;
 let activeLeadId = null;
+let carImageUrls = [];
 
 // Estado del Agente Publicitario IA
 let marketingSelectedCarId = null;
@@ -637,6 +638,23 @@ function calcularMetricasInventario() {
 // Composite de 3 señales operativas por unidad: foto real,
 // copy generado por el Agente IA, y publicación en redes.
 // ------------------------------------------------------------
+function renderCarThumbs() {
+  const wrap = document.getElementById('carImageThumbs');
+  wrap.innerHTML = carImageUrls.map((url, i) => `
+    <div class="car-thumb">
+      <img src="${url}" alt="foto ${i + 1}">
+      <button type="button" data-idx="${i}" class="btn-quitar-thumb">×</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.btn-quitar-thumb').forEach(btn => {
+    btn.addEventListener('click', () => {
+      carImageUrls.splice(Number(btn.getAttribute('data-idx')), 1);
+      document.getElementById('carImageUrl').value = carImageUrls[0] || '';
+      renderCarThumbs();
+    });
+  });
+}
+
 function calcularSaludInventario(car) {
   const tieneFoto = !!(car.image_url && !car.image_url.includes('placeholder'));
   const tieneCopy = !!(car.copy_ia && String(car.copy_ia).trim().length > 0);
@@ -680,9 +698,15 @@ function renderCars() {
     const salud = calcularSaludInventario(car);
     const saludColorClass = salud.percent >= 100 ? 'health-high' : salud.percent >= 50 ? 'health-mid' : 'health-low';
 
+    const totalFotos = Array.isArray(car.image_urls) ? car.image_urls.length : (car.image_url ? 1 : 0);
+    const fotoPortada = (Array.isArray(car.image_urls) && car.image_urls[0]) || car.image_url || 'https://via.placeholder.com/400x250?text=Sin+Foto';
+
     return `
       <div class="car-card flex flex-col ${esVendido ? 'status-vendido' : ''}">
-        <img src="${car.image_url || 'https://via.placeholder.com/400x250?text=Sin+Foto'}" class="car-card-img" alt="${escapeHtml(unidadNombre)}">
+        <div class="relative">
+          <img src="${fotoPortada}" class="car-card-img" alt="${escapeHtml(unidadNombre)}">
+          ${totalFotos > 1 ? `<span class="photo-count">${totalFotos} fotos</span>` : ''}
+        </div>
         <div class="p-5 flex flex-col gap-2 flex-1">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 flex-1">
@@ -756,11 +780,13 @@ function renderCars() {
       document.getElementById('carKilometraje').value = car.kilometraje || 0;
       document.getElementById('carEnganche').value = car.enganche_minimo || 0;
       document.getElementById('carStatus').value = car.status || 'Disponible';
-      document.getElementById('carImageUrl').value = car.image_url || '';
+      carImageUrls = Array.isArray(car.image_urls) && car.image_urls.length ? [...car.image_urls] : (car.image_url ? [car.image_url] : []);
+      document.getElementById('carImageUrl').value = carImageUrls[0] || '';
+      renderCarThumbs();
 
       document.getElementById('modalCarTitle').textContent = 'Editar Datos de Unidad';
       document.getElementById('btnSubmitCarForm').textContent = 'Actualizar Cambios en Patio';
-      document.getElementById('uploadStatusText').textContent = car.image_url ? 'Imagen de resguardo activa. Suba otra para reemplazar. 🖼️' : '';
+      document.getElementById('uploadStatusText').textContent = carImageUrls.length ? `${carImageUrls.length} foto(s) activa(s). Sube más o elimina las que no quieras.` : '';
 
       document.getElementById('modalCarOverlay').classList.remove('hidden');
     });
@@ -1349,9 +1375,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('btnAbrirModalCar').addEventListener('click', () => {
     editingCarId = null;
+    carImageUrls = [];
     document.getElementById('formNuevoCar').reset();
     document.getElementById('carImageUrl').value = '';
     document.getElementById('uploadStatusText').textContent = '';
+    renderCarThumbs();
     document.getElementById('modalCarTitle').textContent = 'Registrar Nuevo Vehículo';
     document.getElementById('btnSubmitCarForm').textContent = 'Guardar Unidad en Sistema';
     modalCar.classList.remove('hidden');
@@ -1417,34 +1445,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   const imageInput = document.getElementById('carImageFile');
   if (imageInput) {
     imageInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
 
       const statusText = document.getElementById('uploadStatusText');
-      statusText.textContent = 'Subiendo imagen a la nube... ⏳';
+      statusText.textContent = `Subiendo ${files.length} foto(s) a la nube... ⏳`;
       statusText.style.color = 'var(--amber-strong)';
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
-      const filePath = `${currentLote.id}/${fileName}`;
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
+        const filePath = `${currentLote.id}/${fileName}`;
 
-      const { error } = await supabaseClient.storage
-        .from('car-images')
-        .upload(filePath, file);
+        const { error } = await supabaseClient.storage.from('car-images').upload(filePath, file);
+        if (error) {
+          statusText.textContent = 'Fallo de Storage. Valida permisos del Bucket.';
+          statusText.style.color = 'var(--danger)';
+          continue;
+        }
 
-      if (error) {
-        statusText.textContent = 'Fallo de Storage. Valida permisos del Bucket.';
-        statusText.style.color = 'var(--danger)';
-        return;
+        const { data: publicUrlData } = supabaseClient.storage.from('car-images').getPublicUrl(filePath);
+        carImageUrls.push(publicUrlData.publicUrl);
       }
 
-      const { data: publicUrlData } = supabaseClient.storage
-        .from('car-images')
-        .getPublicUrl(filePath);
-
-      document.getElementById('carImageUrl').value = publicUrlData.publicUrl;
-      statusText.textContent = '¡Imagen montada! Link inyectado al formulario. 🖼️';
+      document.getElementById('carImageUrl').value = carImageUrls[0] || '';
+      renderCarThumbs();
+      statusText.textContent = `${carImageUrls.length} foto(s) lista(s). 🖼️`;
       statusText.style.color = 'var(--success)';
+      imageInput.value = '';
     });
   }
 
@@ -1459,6 +1487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       year: parseInt(document.getElementById('carYear').value),
       price: parseFloat(document.getElementById('carPrice').value),
       image_url: document.getElementById('carImageUrl').value.trim() || 'https://via.placeholder.com/400x250?text=Sin+Foto',
+      image_urls: carImageUrls,
       status: document.getElementById('carStatus').value,
       transmision: document.getElementById('carTransmision').value,
       kilometraje: parseFloat(document.getElementById('carKilometraje').value) || 0,
@@ -1479,6 +1508,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     e.target.reset();
     editingCarId = null;
+    carImageUrls = [];
+    renderCarThumbs();
     modalCar.classList.add('hidden');
     await fetchCars();
   });
