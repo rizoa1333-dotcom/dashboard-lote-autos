@@ -1485,6 +1485,11 @@ async function handleRegistroSubmit(e) {
   const password = document.getElementById('registroPassword').value;
   const nombreLote = document.getElementById('registroNombreLote').value.trim();
   const phoneLote = document.getElementById('registroPhoneLote').value.trim();
+  const rfc = document.getElementById('registroRFC').value.trim().toUpperCase();
+  const razonSocial = document.getElementById('registroRazonSocial').value.trim();
+  const cpFiscal = document.getElementById('registroCP').value.trim();
+  const regimenFiscal = document.getElementById('registroRegimenFiscal').value;
+  const usoCFDI = document.getElementById('registroUsoCFDI').value;
   const errorEl = document.getElementById('registroError');
   if (errorEl) errorEl.textContent = '';
 
@@ -1496,7 +1501,16 @@ async function handleRegistroSubmit(e) {
 
   const { data: loteData } = await supabaseClient
     .from('lotes')
-    .insert({ profile_id: signUpData.user.id, nombre: nombreLote, whatsapp_number: phoneLote })
+    .insert({
+      profile_id: signUpData.user.id,
+      nombre: nombreLote,
+      whatsapp_number: phoneLote,
+      rfc,
+      razon_social: razonSocial,
+      cp_fiscal: cpFiscal,
+      regimen_fiscal: regimenFiscal,
+      uso_cfdi: usoCFDI
+    })
     .select().single();
 
   currentUser = signUpData.user;

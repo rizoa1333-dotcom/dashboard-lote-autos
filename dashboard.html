@@ -59,6 +59,35 @@
       </div>
       <hr class="border-[#272A30]">
       <div>
+        <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">RFC</label>
+        <input type="text" id="registroRFC" required maxlength="13" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm uppercase" placeholder="ej. GORA850101ABC">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">Razón Social</label>
+        <input type="text" id="registroRazonSocial" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. Gomez Automotriz SA de CV">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">Código Postal Fiscal</label>
+        <input type="text" id="registroCP" required maxlength="5" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. 28000">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">Régimen Fiscal</label>
+        <select id="registroRegimenFiscal" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
+          <option value="601">601 - General de Ley Personas Morales</option>
+          <option value="612">612 - Personas Físicas con Actividades Empresariales</option>
+          <option value="626" selected>626 - RESICO</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">Uso de CFDI</label>
+        <select id="registroUsoCFDI" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
+          <option value="G03">G03 - Gastos en General</option>
+          <option value="P01">P01 - Por Definir</option>
+        </select>
+      </div>
+
+      <hr class="border-[#272A30]">
+      <div>
         <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">Correo Administrador</label>
         <input type="email" id="registroEmail" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="correo@ejemplo.com">
       </div>
