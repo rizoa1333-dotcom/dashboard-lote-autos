@@ -30,6 +30,8 @@ const N8N_MARKETING_WEBHOOK_URL = '';
 const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-redes';
 // Webhook del flujo TikTok (Gemini guion + Content Posting API).
 const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-tiktok';
+// Link de Stripe Checkout (modo suscripción, tarifa plana). El client_reference_id se inyecta en runtime.
+const STRIPE_CHECKOUT_URL = 'https://checkout.stripe.com/pay/TU_LINK_DE_PAGO';
 // Placeholder inline (SVG data URI): no depende de ningún servicio externo,
 // via.placeholder.com se ha caído en producción (net::ERR_CONNECTION_CLOSED).
 const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22250%22%20viewBox%3D%220%200%20400%20250%22%3E%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22%2320242F%22/%3E%3Ctext%20x%3D%22200%22%20y%3D%22125%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2216%22%20fill%3D%22%239CA3AF%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3ESin%20foto%3C/text%3E%3C/svg%3E';
@@ -1374,6 +1376,35 @@ function renderConfigLote() {
   document.querySelectorAll('.lote-nombre-display').forEach(el => el.textContent = currentLote.nombre);
 }
 
+function renderSubscriptionStatus() {
+  if (!currentLote) return;
+  const activeInfo = document.getElementById('subscriptionActiveInfo');
+  const payBtn = document.getElementById('subscriptionPayBtn');
+  const renewalDate = document.getElementById('subscriptionRenewalDate');
+  const isActive = currentLote.plan_status === 'active';
+
+  activeInfo.classList.toggle('hidden', !isActive);
+  payBtn.classList.toggle('hidden', isActive);
+  document.body.classList.toggle('plan-vencido', !isActive);
+
+  if (isActive && currentLote.fecha_vencimiento) {
+    const fecha = new Date(currentLote.fecha_vencimiento);
+    renewalDate.textContent = `Renueva el ${fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+  }
+}
+
+function handleStripeReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('payment') === 'success') {
+    alert('¡Pago recibido! Tu plan se activará en unos segundos.');
+    window.history.replaceState({}, '', window.location.pathname);
+    setTimeout(async () => {
+      const { data } = await supabaseClient.from('lotes').select('*').eq('id', currentLote.id).single();
+      if (data) { currentLote = data; renderSubscriptionStatus(); }
+    }, 2000);
+  }
+}
+
 async function checarEstatusWhatsApp() {
   if (!currentLote) return;
   try {
@@ -1414,6 +1445,7 @@ async function checkSessionAndLote() {
     if (loteData && loteData.length > 0) {
       currentLote = loteData[0];
       renderConfigLote();
+      renderSubscriptionStatus();
       showView('view-dashboard');
       startSync();
       return true;
@@ -1486,9 +1518,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
   document.getElementById('to-login-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
-  document.getElementById('to-registro-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
+  document.getElementById('subscriptionPayBtn').addEventListener('click', () => {
+    if (!currentLote) return;
+    const url = new URL(STRIPE_CHECKOUT_URL);
+    url.searchParams.set('client_reference_id', currentLote.id);
+    window.location.href = url.toString();
+  });
 
   await checkSessionAndLote();
+  handleStripeReturn();
 
   if (document.getElementById('configForm')) {
     document.getElementById('configForm').addEventListener('submit', async (e) => {
