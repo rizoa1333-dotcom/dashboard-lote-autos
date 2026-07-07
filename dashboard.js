@@ -27,9 +27,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 // Déjalo vacío para usar el generador local de respaldo; pon tu URL de producción para conectar el Agente IA real.
 const N8N_MARKETING_WEBHOOK_URL = '';
 // Webhook nuevo, en el MISMO workflow de n8n, para publicar en Facebook/Instagram.
-const N8N_PUBLISH_WEBHOOK_URL = '';
+const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-redes';
 // Webhook del flujo TikTok (Gemini guion + Content Posting API).
-const N8N_TIKTOK_WEBHOOK_URL = '';
+const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-tiktok';
 // Placeholder inline (SVG data URI): no depende de ningún servicio externo,
 // via.placeholder.com se ha caído en producción (net::ERR_CONNECTION_CLOSED).
 const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22250%22%20viewBox%3D%220%200%20400%20250%22%3E%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22%2320242F%22/%3E%3Ctext%20x%3D%22200%22%20y%3D%22125%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2216%22%20fill%3D%22%239CA3AF%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3ESin%20foto%3C/text%3E%3C/svg%3E';
