@@ -1621,6 +1621,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
   document.getElementById('to-login-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
+  document.getElementById('to-registro-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
   document.getElementById('subscriptionPayBtn').addEventListener('click', () => {
     if (!currentLote) return;
     const url = new URL(STRIPE_CHECKOUT_URL);
