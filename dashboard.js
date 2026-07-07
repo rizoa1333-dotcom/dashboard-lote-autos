@@ -1381,13 +1381,24 @@ function renderSubscriptionStatus() {
   const activeInfo = document.getElementById('subscriptionActiveInfo');
   const payBtn = document.getElementById('subscriptionPayBtn');
   const renewalDate = document.getElementById('subscriptionRenewalDate');
-  const isActive = currentLote.plan_status === 'active';
+  const planLabel = document.getElementById('subscriptionPlanLabel');
+
+  // 🔓 Cuentas internas (equipo, soporte, demos) quedan exentas del candado
+  // de facturación. Es una bandera en la fila del lote en Supabase — nunca
+  // un email hardcodeado en este archivo — así que activarla o quitarla no
+  // requiere tocar código ni volver a desplegar nada.
+  const esInterna = currentLote.es_cuenta_interna === true;
+  const isActive = currentLote.plan_status === 'active' || esInterna;
 
   activeInfo.classList.toggle('hidden', !isActive);
   payBtn.classList.toggle('hidden', isActive);
   document.body.classList.toggle('plan-vencido', !isActive);
 
-  if (isActive && currentLote.fecha_vencimiento) {
+  if (esInterna) {
+    if (planLabel) planLabel.textContent = 'Cuenta Interna';
+    if (renewalDate) renewalDate.textContent = 'Exenta de facturación';
+  } else if (isActive && currentLote.fecha_vencimiento) {
+    if (planLabel) planLabel.textContent = 'Plan Activo';
     const fecha = new Date(currentLote.fecha_vencimiento);
     renewalDate.textContent = `Renueva el ${fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}`;
   }
@@ -1451,6 +1462,30 @@ async function checkSessionAndLote() {
       return true;
     }
 
+    // Sin lote todavía: si venimos de un registro con confirmación de
+    // correo pendiente, los datos quedaron guardados en sessionStorage
+    // (ver handleRegistroSubmit) — los completamos ahora que ya hay sesión.
+    let pendienteRaw = null;
+    try { pendienteRaw = sessionStorage.getItem('p360-pending-lote'); } catch (_) {}
+
+    if (pendienteRaw) {
+      try {
+        const datosLote = JSON.parse(pendienteRaw);
+        const loteCreado = await crearLoteParaUsuarioActual(datosLote);
+        if (loteCreado) {
+          sessionStorage.removeItem('p360-pending-lote');
+          currentLote = loteCreado;
+          renderConfigLote();
+          renderSubscriptionStatus();
+          showView('view-dashboard');
+          startSync();
+          return true;
+        }
+      } catch (err) {
+        console.error('[Route Guard] No se pudo completar el lote pendiente:', err);
+      }
+    }
+
     currentLote = null;
     showView('view-registro');
     return true;
@@ -1493,31 +1528,85 @@ async function handleRegistroSubmit(e) {
   const errorEl = document.getElementById('registroError');
   if (errorEl) errorEl.textContent = '';
 
-  const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({ email, password });
+  const datosLote = {
+    nombre: nombreLote,
+    whatsapp_number: phoneLote,
+    rfc,
+    razon_social: razonSocial,
+    cp_fiscal: cpFiscal,
+    regimen_fiscal: regimenFiscal,
+    uso_cfdi: usoCFDI
+  };
+
+  const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: window.location.origin }
+  });
+
   if (signUpError) {
     if (errorEl) errorEl.textContent = signUpError.message;
     return;
   }
 
-  const { data: loteData } = await supabaseClient
-    .from('lotes')
-    .insert({
-      profile_id: signUpData.user.id,
-      nombre: nombreLote,
-      whatsapp_number: phoneLote,
-      rfc,
-      razon_social: razonSocial,
-      cp_fiscal: cpFiscal,
-      regimen_fiscal: regimenFiscal,
-      uso_cfdi: usoCFDI
-    })
-    .select().single();
+  // Supabase responde 200 aunque el correo YA exista (anti-enumeración): no
+  // hay forma de distinguirlo por el status, solo por `identities` vacío —
+  // eso significa que NO se creó una cuenta nueva. Sin este chequeo, el
+  // formulario "se enviaba" sin avisar y el lote nunca se creaba: exactamente
+  // el síntoma de "no puedo registrar más lotes".
+  const esCorreoDuplicado = signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0;
+  if (esCorreoDuplicado) {
+    if (errorEl) errorEl.textContent = 'Ese correo ya tiene una cuenta. Inicia sesión en vez de registrarte de nuevo.';
+    return;
+  }
+
+  // Si el proyecto tiene "Confirm email" activado en Supabase, signUp() no
+  // entrega una sesión activa todavía — y sin sesión, el insert de abajo lo
+  // rechaza RLS en silencio. Guardamos los datos del lote temporalmente
+  // (sessionStorage, no son credenciales) para completarlos automáticamente
+  // en cuanto el usuario confirme su correo y vuelva a entrar.
+  if (!signUpData.session) {
+    try {
+      sessionStorage.setItem('p360-pending-lote', JSON.stringify(datosLote));
+    } catch (_) { /* almacenamiento no disponible, no es crítico */ }
+    if (errorEl) {
+      errorEl.classList.remove('text-[#A9584A]');
+      errorEl.classList.add('text-[#4B8B72]');
+      errorEl.textContent = 'Cuenta creada. Revisa tu correo para confirmarla — al volver a entrar, tu lote se creará automáticamente.';
+    }
+    return;
+  }
 
   currentUser = signUpData.user;
-  currentLote = loteData;
+  const loteCreado = await crearLoteParaUsuarioActual(datosLote);
+  if (!loteCreado) {
+    if (errorEl) errorEl.textContent = 'Tu cuenta se creó, pero el lote no se pudo registrar. Intenta de nuevo o contacta soporte.';
+    return;
+  }
+
+  currentLote = loteCreado;
   renderConfigLote();
+  renderSubscriptionStatus();
   showView('view-dashboard');
   startSync();
+}
+
+// Inserta la fila de `lotes` para el usuario ya autenticado y SIEMPRE revisa
+// el error — antes se descartaba silenciosamente y el registro fallaba sin
+// ningún aviso.
+async function crearLoteParaUsuarioActual(datosLote) {
+  if (!currentUser) return null;
+  const { data, error } = await supabaseClient
+    .from('lotes')
+    .insert({ profile_id: currentUser.id, ...datosLote })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[Registro] No se pudo crear el lote:', error);
+    return null;
+  }
+  return data;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
