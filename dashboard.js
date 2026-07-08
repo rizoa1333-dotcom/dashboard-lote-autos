@@ -540,11 +540,11 @@ function renderCitasCronologicas() {
 
       if (accion === 'cancel') {
         if (!confirm('¿Deseas marcar esta cita como Cancelada manualmente? Esto liberará el horario de forma inmediata.')) return;
-        const { error } = await supabaseClient.from('citas').update({ estado_lead: 'Cancelada' }).eq('id', citaId);
+        const { error } = await supabaseClient.from('citas').update({ estado_lead: 'Cancelada' }).eq('id', citaId).eq('lote_id', currentLote.id);
         if (error) return alert('Error al actualizar estatus.');
       } else {
         if (!confirm('¿Deseas eliminar definitivamente este registro histórico de la pantalla?')) return;
-        const { error } = await supabaseClient.from('citas').delete().eq('id', citaId);
+        const { error } = await supabaseClient.from('citas').delete().eq('id', citaId).eq('lote_id', currentLote.id);
         if (error) return alert('Error al eliminar registro.');
       }
       await fetchCitasReal();
@@ -821,7 +821,8 @@ function renderCars() {
       const { error } = await supabaseClient
         .from('cars')
         .update({ status: 'Vendido', fecha_venta: hoyParaBD })
-        .eq('id', btn.getAttribute('data-action-id'));
+        .eq('id', btn.getAttribute('data-action-id'))
+        .eq('lote_id', currentLote.id);
 
       if (error) {
         alert('Error al actualizar estatus');
@@ -1149,7 +1150,7 @@ function initMarketingModule() {
     }
     if (usaTiktok) { updatePayload.tiktok_status = 'Publicado'; }
 
-    const { error } = await supabaseClient.from('cars').update(updatePayload).eq('id', car.id);
+    const { error } = await supabaseClient.from('cars').update(updatePayload).eq('id', car.id).eq('lote_id', currentLote.id);
 
     btnPublicar.disabled = false;
     updateBtnPublicarLabel();
@@ -1777,13 +1778,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let response;
     if (editingCarId) {
-      response = await supabaseClient.from('cars').update(carData).eq('id', editingCarId);
+      response = await supabaseClient.from('cars').update(carData).eq('id', editingCarId).eq('lote_id', currentLote.id);
     } else {
       response = await supabaseClient.from('cars').insert(carData);
     }
 
     if (response.error) {
-      alert('Error operativo en base de datos al guardar carro.');
+      console.error('[Inventario] Error al guardar carro:', response.error);
+      alert(`Error al guardar: ${response.error.message}`);
       return;
     }
 
