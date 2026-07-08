@@ -936,7 +936,7 @@ async function generarCopyIA(car) {
   try {
     const resp = await fetch(N8N_MARKETING_WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
       body: JSON.stringify({ car, lote_id: currentLote.id, image_url: marketingImageUrls[0], image_urls: marketingImageUrls })
     });
     const data = await resp.json();
@@ -1111,7 +1111,7 @@ function initMarketingModule() {
         if (!N8N_PUBLISH_WEBHOOK_URL) throw new Error('Falta configurar N8N_PUBLISH_WEBHOOK_URL en dashboard.js.');
         const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
           body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrls[0] || car.image_url, image_urls: marketingImageUrls.length ? marketingImageUrls : car.image_urls })
         });
         if (!resp.ok) throw new Error(`Webhook Meta respondió ${resp.status}`);
@@ -1128,7 +1128,7 @@ function initMarketingModule() {
         };
         const resp = await fetch(N8N_TIKTOK_WEBHOOK_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
           body: JSON.stringify({ car, video_url: marketingVideoUrl, lote_id: currentLote.id, guion_editado: guionEditado })
         });
         if (!resp.ok) throw new Error(`Webhook TikTok respondió ${resp.status}`);
