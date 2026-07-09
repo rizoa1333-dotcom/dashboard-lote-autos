@@ -71,6 +71,21 @@
         <input type="text" id="registroCP" required maxlength="5" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="ej. 28000">
       </div>
       <div>
+        <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">Estado</label>
+        <select id="registroEstado" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
+          <option value="" disabled selected>Selecciona tu estado</option>
+          <option value="Colima">Colima</option>
+          <option value="Jalisco">Jalisco</option>
+          <option value="Nuevo Leon">Nuevo León</option>
+          <option value="CDMX">CDMX</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div id="registroPrecioBox" class="hidden rounded-lg border border-[#272A30] bg-[#161922] px-4 py-3 flex items-center justify-between">
+        <span class="text-xs text-[#6B7280]">Tu plan mensual</span>
+        <span id="registroPrecioTexto" class="text-sm font-bold text-[#F5F5F4]">--</span>
+      </div>
+      <div>
         <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">Régimen Fiscal</label>
         <select id="registroRegimenFiscal" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
           <option value="601">601 - General de Ley Personas Morales</option>
@@ -98,8 +113,8 @@
 
       <div id="registroError" class="text-xs text-[#A9584A] text-center font-medium"></div>
 
-      <button type="submit" class="btn-primary w-full text-sm py-2.5 rounded-lg">
-        Registrar Lote e Ingresar
+      <button type="submit" id="btnSubmitRegistro" class="btn-primary w-full text-sm py-2.5 rounded-lg">
+        Registrar Lote y Continuar al Pago
       </button>
     </form>
     <p class="text-center text-xs text-[#9CA3AF]">¿Ya tienes cuenta? <button type="button" id="to-login-btn" class="text-[#F5F5F4] font-medium underline">Inicia sesión</button></p>
@@ -214,7 +229,7 @@
         </div>
         <div id="subscriptionStatus" class="flex items-center gap-3 flex-shrink-0">
           <div id="subscriptionActiveInfo" class="hidden text-right">
-            <p id="subscriptionPlanLabel" class="text-[11px] font-semibold text-[#4B8B72]">Plan Activo</p>
+            <p class="text-[11px] font-semibold text-[#4B8B72]">Plan Activo</p>
             <p id="subscriptionRenewalDate" class="text-[10px] text-[#9CA3AF]">Renueva el --</p>
           </div>
           <button id="subscriptionPayBtn" class="hidden btn-primary text-xs font-semibold px-4 py-2 rounded-lg">
@@ -515,6 +530,50 @@
 
         <!-- ===================== CONFIGURACIÓN ===================== -->
         <section id="section-configuracion" class="dashboard-section space-y-6 hidden">
+
+          <!-- ===== MÓDULO WHATSAPP (MANDATORIO, SIEMPRE VISIBLE) ===== -->
+          <div class="card p-6 max-w-md">
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Conexión de WhatsApp</h3>
+              <span id="whatsappEstadoBadge" class="badge badge-warm">Sin conectar</span>
+            </div>
+            <p class="text-[11px] text-[#6B7280] mb-4">Obligatorio para que el Agente IA pueda responder por WhatsApp.</p>
+
+            <div id="whatsappConectado" class="hidden items-center gap-3 py-4">
+              <span class="status-dot" style="width:10px;height:10px;background:var(--success);"></span>
+              <div>
+                <p class="text-sm font-semibold">Instancia conectada</p>
+                <p id="whatsappNumeroConectado" class="text-xs text-[#6B7280] font-mono">--</p>
+              </div>
+            </div>
+
+            <div id="whatsappQrWrap" class="flex flex-col items-center gap-3 py-2">
+              <div class="w-48 h-48 rounded-lg border border-[#272A30] bg-[#161922] flex items-center justify-center overflow-hidden">
+                <img id="whatsappQrImg" class="hidden w-full h-full object-contain" alt="QR de WhatsApp">
+                <p id="whatsappQrLoading" class="text-[11px] text-[#6B7280] px-4 text-center">Cargando código QR...</p>
+              </div>
+              <p class="text-[11px] text-[#6B7280] text-center max-w-xs">Abre WhatsApp en tu celular → Dispositivos vinculados → Vincular dispositivo, y escanea este código.</p>
+              <button id="btnRefrescarQr" class="btn-ghost text-xs font-medium px-4 py-2 rounded-lg">Actualizar QR</button>
+            </div>
+          </div>
+
+          <!-- ===== MÓDULO REDES SOCIALES (UPLOAD-POST) ===== -->
+          <div class="card p-6 max-w-md">
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Redes Sociales</h3>
+              <span id="redesEstadoBadge" class="badge badge-neutral">Sin conectar</span>
+            </div>
+            <p class="text-[11px] text-[#6B7280] mb-4">Conecta Facebook, Instagram y TikTok una sola vez para que el Agente Publicitario IA pueda publicar automáticamente.</p>
+
+            <button id="btnConectarRedes" class="btn-primary w-full text-sm font-semibold py-2.5 rounded-lg">
+              Conectar Redes Sociales
+            </button>
+            <button id="btnVerificarRedes" class="hidden btn-ghost w-full text-xs font-medium py-2 rounded-lg mt-2">
+              Ya conecté mis cuentas — Verificar
+            </button>
+            <p id="redesStatusText" class="text-[11px] text-[#6B7280] italic mt-2 min-h-[14px]"></p>
+          </div>
+
           <div class="card p-6 max-w-md">
             <h3 class="font-bold text-sm mb-4 uppercase tracking-wider text-xs">Datos de la Cuenta Multi-Tenant</h3>
             <form id="configForm" class="space-y-3">

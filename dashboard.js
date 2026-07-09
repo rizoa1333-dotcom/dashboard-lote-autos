@@ -30,8 +30,26 @@ const N8N_MARKETING_WEBHOOK_URL = '';
 const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-redes';
 // Webhook del flujo TikTok (Gemini guion + Content Posting API).
 const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-tiktok';
-// Link de Stripe Checkout (modo suscripción, tarifa plana). El client_reference_id se inyecta en runtime.
-const STRIPE_CHECKOUT_URL = 'https://checkout.stripe.com/pay/TU_LINK_DE_PAGO';
+// Estado/QR de la instancia de WhatsApp (Evolution API) — la apikey global de Evolution vive solo en n8n.
+const N8N_QR_WEBHOOK_URL = '';
+// Conectar/verificar redes sociales vía Upload-Post — la master ApiKey de Upload-Post vive solo en n8n.
+const N8N_REDES_WEBHOOK_URL = '';
+// Link de Stripe Checkout (modo suscripción). El client_reference_id se inyecta en runtime.
+// Planes reales de Stripe (Payment Links). "Colima" = plan local, cualquier
+// otro estado = plan foráneo. Si agregas un tercer plan, agrégalo aquí y en
+// el <select id="registroEstado"> del HTML — son las dos únicas fuentes de verdad.
+const STRIPE_LINKS = {
+  colima: 'https://buy.stripe.com/14A9AVft709bfoi93D3oA02',   // $25,000 MXN + IVA
+  foraneo: 'https://buy.stripe.com/9B6bJ36WB7BD7VQenX3oA03'   // $42,000 MXN + IVA
+};
+function resolverPlanStripe(estado) {
+  return estado === 'Colima' ? 'colima' : 'foraneo';
+}
+function redirigirAStripeCheckout(lote) {
+  const url = new URL(STRIPE_LINKS[resolverPlanStripe(lote.estado)]);
+  url.searchParams.set('client_reference_id', lote.id);
+  window.location.href = url.toString();
+}
 // Placeholder inline (SVG data URI): no depende de ningún servicio externo,
 // via.placeholder.com se ha caído en producción (net::ERR_CONNECTION_CLOSED).
 const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22250%22%20viewBox%3D%220%200%20400%20250%22%3E%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22%2320242F%22/%3E%3Ctext%20x%3D%22200%22%20y%3D%22125%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2216%22%20fill%3D%22%239CA3AF%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3ESin%20foto%3C/text%3E%3C/svg%3E';
@@ -1265,6 +1283,7 @@ async function refreshChatLive(leadId) {
     .from('chat_history')
     .select('*')
     .eq('phone_number', phoneFilter)
+    .eq('lote_id', currentLote.id)
     .order('created_at', { ascending: true });
 
   if (chatErr) {
@@ -1366,6 +1385,10 @@ function initSidebarNav() {
       btn.classList.add('nav-active');
       document.getElementById('sidebar').classList.add('-translate-x-full');
       document.getElementById('overlay').classList.add('hidden');
+      if (sectionId === 'section-configuracion') {
+        cargarEstadoWhatsappQr();
+        verificarRedesSociales();
+      }
     });
   });
 }
@@ -1417,6 +1440,20 @@ function handleStripeReturn() {
   }
 }
 
+// Upload-Post redirige de vuelta con ?social=connected tras el flujo de
+// conexión (redirect_url configurado en "Generar Link de Conexión" en n8n).
+function handleSocialReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('social') === 'connected') {
+    window.history.replaceState({}, '', window.location.pathname);
+    const btnConfig = document.querySelector('[data-section="section-configuracion"]');
+    if (btnConfig) btnConfig.click();
+    const statusText = document.getElementById('redesStatusText');
+    if (statusText) statusText.textContent = 'Verificando tu conexión...';
+    setTimeout(() => { verificarRedesSociales(); }, 1500);
+  }
+}
+
 async function checarEstatusWhatsApp() {
   if (!currentLote) return;
   try {
@@ -1424,6 +1461,130 @@ async function checarEstatusWhatsApp() {
     if (data) console.log(`[Multi-Tenant Node] Instancia vinculada activa: ${data.instance_name}`);
   } catch (err) {
     console.error(err);
+  }
+}
+
+// ------------------------------------------------------------
+// MÓDULO WHATSAPP QR (mandatorio, siempre visible en Configuración)
+// El apikey global de Evolution nunca toca el navegador: n8n hace
+// la llamada real y solo regresa el QR / estado ya resuelto.
+// ------------------------------------------------------------
+async function cargarEstadoWhatsappQr() {
+  if (!currentLote || !N8N_QR_WEBHOOK_URL) return;
+
+  const badge = document.getElementById('whatsappEstadoBadge');
+  const conectadoWrap = document.getElementById('whatsappConectado');
+  const qrWrap = document.getElementById('whatsappQrWrap');
+  const qrImg = document.getElementById('whatsappQrImg');
+  const qrLoading = document.getElementById('whatsappQrLoading');
+
+  qrLoading.textContent = 'Cargando código QR...';
+  qrImg.classList.add('hidden');
+  qrLoading.classList.remove('hidden');
+
+  try {
+    const resp = await fetch(N8N_QR_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
+      body: JSON.stringify({ lote_id: currentLote.id })
+    });
+    const data = await resp.json();
+
+    if (data.conectado) {
+      badge.textContent = 'Conectado';
+      badge.className = 'badge badge-success';
+      conectadoWrap.classList.remove('hidden');
+      conectadoWrap.classList.add('flex');
+      qrWrap.classList.add('hidden');
+      document.getElementById('whatsappNumeroConectado').textContent = data.numero || '--';
+    } else {
+      badge.textContent = 'Sin conectar';
+      badge.className = 'badge badge-warm';
+      conectadoWrap.classList.add('hidden');
+      qrWrap.classList.remove('hidden');
+      if (data.qr_base64) {
+        qrImg.src = data.qr_base64;
+        qrImg.classList.remove('hidden');
+        qrLoading.classList.add('hidden');
+      } else {
+        qrLoading.textContent = 'No se pudo generar el QR. Intenta actualizar.';
+      }
+    }
+  } catch (err) {
+    console.error('[WhatsApp QR] Error al consultar estado:', err);
+    qrLoading.textContent = 'Error al cargar el QR. Intenta actualizar.';
+  }
+}
+
+// ------------------------------------------------------------
+// MÓDULO REDES SOCIALES (Upload-Post) — la master ApiKey de
+// Upload-Post nunca toca el navegador, vive solo en n8n.
+// ------------------------------------------------------------
+async function conectarRedesSociales() {
+  if (!currentLote || !N8N_REDES_WEBHOOK_URL) { alert('Falta configurar N8N_REDES_WEBHOOK_URL en dashboard.js.'); return; }
+  const btnConectar = document.getElementById('btnConectarRedes');
+  const statusText = document.getElementById('redesStatusText');
+
+  btnConectar.disabled = true;
+  btnConectar.textContent = 'Generando enlace seguro...';
+
+  try {
+    const resp = await fetch(N8N_REDES_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
+      body: JSON.stringify({ accion: 'conectar', lote_id: currentLote.id })
+    });
+    const data = await resp.json();
+    if (!data.access_url) throw new Error('El servidor no devolvió un enlace de conexión.');
+
+    window.open(data.access_url, '_blank', 'noopener');
+    statusText.textContent = 'Conecta tus cuentas en la pestaña nueva y regresa aquí.';
+    document.getElementById('btnVerificarRedes').classList.remove('hidden');
+  } catch (err) {
+    console.error('[Redes Sociales] Error al conectar:', err);
+    statusText.textContent = 'No se pudo generar el enlace de conexión. Intenta de nuevo.';
+  } finally {
+    btnConectar.disabled = false;
+    btnConectar.textContent = 'Conectar Redes Sociales';
+  }
+}
+
+async function verificarRedesSociales() {
+  if (!currentLote || !N8N_REDES_WEBHOOK_URL) return;
+  const btnVerificar = document.getElementById('btnVerificarRedes');
+  const statusText = document.getElementById('redesStatusText');
+  const badge = document.getElementById('redesEstadoBadge');
+
+  btnVerificar.disabled = true;
+  btnVerificar.textContent = 'Verificando...';
+
+  try {
+    const resp = await fetch(N8N_REDES_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
+      body: JSON.stringify({ accion: 'verificar', lote_id: currentLote.id })
+    });
+    const data = await resp.json();
+
+    if (data.conectado) {
+      badge.textContent = 'Conectado';
+      badge.className = 'badge badge-success';
+      const btnConectar = document.getElementById('btnConectarRedes');
+      btnConectar.textContent = '✅ Conectado';
+      btnConectar.disabled = true;
+      btnConectar.style.background = 'var(--success)';
+      btnConectar.style.color = '#fff';
+      btnVerificar.classList.add('hidden');
+      statusText.textContent = 'Tus redes ya están conectadas.';
+    } else {
+      statusText.textContent = 'Todavía no detectamos la conexión. Termina el proceso en la otra pestaña y vuelve a verificar.';
+    }
+  } catch (err) {
+    console.error('[Redes Sociales] Error al verificar:', err);
+    statusText.textContent = 'Error al verificar. Intenta de nuevo.';
+  } finally {
+    btnVerificar.disabled = false;
+    btnVerificar.textContent = 'Ya conecté mis cuentas — Verificar';
   }
 }
 
@@ -1476,10 +1637,7 @@ async function checkSessionAndLote() {
         if (loteCreado) {
           sessionStorage.removeItem('p360-pending-lote');
           currentLote = loteCreado;
-          renderConfigLote();
-          renderSubscriptionStatus();
-          showView('view-dashboard');
-          startSync();
+          redirigirAStripeCheckout(currentLote);
           return true;
         }
       } catch (err) {
@@ -1526,8 +1684,21 @@ async function handleRegistroSubmit(e) {
   const cpFiscal = document.getElementById('registroCP').value.trim();
   const regimenFiscal = document.getElementById('registroRegimenFiscal').value;
   const usoCFDI = document.getElementById('registroUsoCFDI').value;
+  const estado = document.getElementById('registroEstado').value;
   const errorEl = document.getElementById('registroError');
   if (errorEl) errorEl.textContent = '';
+
+  if (!/^\d{5}$/.test(cpFiscal)) {
+    if (errorEl) errorEl.textContent = 'El código postal debe tener exactamente 5 dígitos.';
+    return;
+  }
+  if (!estado) {
+    if (errorEl) errorEl.textContent = 'Selecciona tu estado.';
+    return;
+  }
+
+  const btnRegistro = document.getElementById('btnSubmitRegistro');
+  if (btnRegistro) btnRegistro.disabled = true;
 
   const datosLote = {
     nombre: nombreLote,
@@ -1536,7 +1707,8 @@ async function handleRegistroSubmit(e) {
     razon_social: razonSocial,
     cp_fiscal: cpFiscal,
     regimen_fiscal: regimenFiscal,
-    uso_cfdi: usoCFDI
+    uso_cfdi: usoCFDI,
+    estado
   };
 
   const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
@@ -1547,6 +1719,7 @@ async function handleRegistroSubmit(e) {
 
   if (signUpError) {
     if (errorEl) errorEl.textContent = signUpError.message;
+    if (btnRegistro) btnRegistro.disabled = false;
     return;
   }
 
@@ -1558,6 +1731,7 @@ async function handleRegistroSubmit(e) {
   const esCorreoDuplicado = signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0;
   if (esCorreoDuplicado) {
     if (errorEl) errorEl.textContent = 'Ese correo ya tiene una cuenta. Inicia sesión en vez de registrarte de nuevo.';
+    if (btnRegistro) btnRegistro.disabled = false;
     return;
   }
 
@@ -1575,6 +1749,7 @@ async function handleRegistroSubmit(e) {
       errorEl.classList.add('text-[#4B8B72]');
       errorEl.textContent = 'Cuenta creada. Revisa tu correo para confirmarla — al volver a entrar, tu lote se creará automáticamente.';
     }
+    if (btnRegistro) btnRegistro.disabled = false;
     return;
   }
 
@@ -1582,14 +1757,12 @@ async function handleRegistroSubmit(e) {
   const loteCreado = await crearLoteParaUsuarioActual(datosLote);
   if (!loteCreado) {
     if (errorEl) errorEl.textContent = 'Tu cuenta se creó, pero el lote no se pudo registrar. Intenta de nuevo o contacta soporte.';
+    if (btnRegistro) btnRegistro.disabled = false;
     return;
   }
 
   currentLote = loteCreado;
-  renderConfigLote();
-  renderSubscriptionStatus();
-  showView('view-dashboard');
-  startSync();
+  redirigirAStripeCheckout(currentLote);
 }
 
 // Inserta la fila de `lotes` para el usuario ya autenticado y SIEMPRE revisa
@@ -1621,17 +1794,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ============================================================
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
+  if (document.getElementById('registroEstado')) {
+    document.getElementById('registroEstado').addEventListener('change', (e) => {
+      const box = document.getElementById('registroPrecioBox');
+      const texto = document.getElementById('registroPrecioTexto');
+      if (!e.target.value) { box.classList.add('hidden'); return; }
+      const plan = resolverPlanStripe(e.target.value);
+      const monto = plan === 'colima' ? 25000 : 42000;
+      texto.textContent = `${formatCurrency(monto)} + IVA`;
+      box.classList.remove('hidden');
+    });
+  }
   document.getElementById('to-login-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
   document.getElementById('to-registro-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
   document.getElementById('subscriptionPayBtn').addEventListener('click', () => {
     if (!currentLote) return;
-    const url = new URL(STRIPE_CHECKOUT_URL);
-    url.searchParams.set('client_reference_id', currentLote.id);
-    window.location.href = url.toString();
+    redirigirAStripeCheckout(currentLote);
   });
+  document.getElementById('btnRefrescarQr').addEventListener('click', cargarEstadoWhatsappQr);
+  document.getElementById('btnConectarRedes').addEventListener('click', conectarRedesSociales);
+  document.getElementById('btnVerificarRedes').addEventListener('click', verificarRedesSociales);
 
   await checkSessionAndLote();
   handleStripeReturn();
+  handleSocialReturn();
 
   if (document.getElementById('configForm')) {
     document.getElementById('configForm').addEventListener('submit', async (e) => {
@@ -1761,6 +1947,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentLote) return;
+    if (isNaN(parseInt(document.getElementById('carYear').value)) || isNaN(parseFloat(document.getElementById('carPrice').value))) {
+      alert('Revisa el año y el precio: deben ser números válidos.');
+      return;
+    }
+
+    const btnSubmit = document.getElementById('btnSubmitCarForm');
+    btnSubmit.disabled = true;
 
     const carData = {
       lote_id: currentLote.id,
@@ -1786,9 +1979,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (response.error) {
       console.error('[Inventario] Error al guardar carro:', response.error);
       alert(`Error al guardar: ${response.error.message}`);
+      btnSubmit.disabled = false;
       return;
     }
 
+    btnSubmit.disabled = false;
     e.target.reset();
     editingCarId = null;
     carImageUrls = [];
