@@ -31,9 +31,9 @@ const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webh
 // Webhook del flujo TikTok (Gemini guion + Content Posting API).
 const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-tiktok';
 // Estado/QR de la instancia de WhatsApp (Evolution API) — la apikey global de Evolution vive solo en n8n.
-const N8N_QR_WEBHOOK_URL = '';
+const N8N_QR_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-qr';
 // Conectar/verificar redes sociales vía Upload-Post — la master ApiKey de Upload-Post vive solo en n8n.
-const N8N_REDES_WEBHOOK_URL = '';
+const N8N_REDES_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/redes-conectar';
 // Link de Stripe Checkout (modo suscripción). El client_reference_id se inyecta en runtime.
 // Planes reales de Stripe (Payment Links). "Colima" = plan local, cualquier
 // otro estado = plan foráneo. Si agregas un tercer plan, agrégalo aquí y en
