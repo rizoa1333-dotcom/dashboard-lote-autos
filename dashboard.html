@@ -531,47 +531,51 @@
         <!-- ===================== CONFIGURACIÓN ===================== -->
         <section id="section-configuracion" class="dashboard-section space-y-6 hidden">
 
-          <!-- ===== MÓDULO WHATSAPP (MANDATORIO, SIEMPRE VISIBLE) ===== -->
-          <div class="card p-6 max-w-md">
-            <div class="flex items-center justify-between mb-1">
-              <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Conexión de WhatsApp</h3>
-              <span id="whatsappEstadoBadge" class="badge badge-warm">Sin conectar</span>
-            </div>
-            <p class="text-[11px] text-[#6B7280] mb-4">Obligatorio para que el Agente IA pueda responder por WhatsApp.</p>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            <div id="whatsappConectado" class="hidden items-center gap-3 py-4">
-              <span class="status-dot" style="width:10px;height:10px;background:var(--success);"></span>
-              <div>
-                <p class="text-sm font-semibold">Instancia conectada</p>
-                <p id="whatsappNumeroConectado" class="text-xs text-[#6B7280] font-mono">--</p>
+            <!-- ===== MÓDULO WHATSAPP (MANDATORIO, SIEMPRE VISIBLE) ===== -->
+            <div class="card p-6">
+              <div class="flex items-center justify-between mb-1">
+                <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Conexión de WhatsApp</h3>
+                <span id="whatsappEstadoBadge" class="badge badge-warm">Sin conectar</span>
+              </div>
+              <p class="text-[11px] text-[#6B7280] mb-4">Obligatorio para que el Agente IA pueda responder por WhatsApp.</p>
+
+              <div id="whatsappConectado" class="hidden items-center gap-3 py-4">
+                <span class="status-dot" style="width:10px;height:10px;background:var(--success);"></span>
+                <div>
+                  <p class="text-sm font-semibold">Instancia conectada</p>
+                  <p id="whatsappNumeroConectado" class="text-xs text-[#6B7280] font-mono">--</p>
+                </div>
+              </div>
+
+              <div id="whatsappQrWrap" class="flex flex-col items-center gap-3 py-2">
+                <div class="w-48 h-48 rounded-lg border border-[#272A30] bg-[#161922] flex items-center justify-center overflow-hidden">
+                  <img id="whatsappQrImg" class="hidden w-full h-full object-contain" alt="QR de WhatsApp">
+                  <p id="whatsappQrLoading" class="text-[11px] text-[#6B7280] px-4 text-center">Cargando código QR...</p>
+                </div>
+                <p class="text-[11px] text-[#6B7280] text-center max-w-xs">Abre WhatsApp en tu celular → Dispositivos vinculados → Vincular dispositivo, y escanea este código.</p>
+                <button id="btnRefrescarQr" class="btn-ghost text-xs font-medium px-4 py-2 rounded-lg">Actualizar QR</button>
               </div>
             </div>
 
-            <div id="whatsappQrWrap" class="flex flex-col items-center gap-3 py-2">
-              <div class="w-48 h-48 rounded-lg border border-[#272A30] bg-[#161922] flex items-center justify-center overflow-hidden">
-                <img id="whatsappQrImg" class="hidden w-full h-full object-contain" alt="QR de WhatsApp">
-                <p id="whatsappQrLoading" class="text-[11px] text-[#6B7280] px-4 text-center">Cargando código QR...</p>
+            <!-- ===== MÓDULO REDES SOCIALES (UPLOAD-POST) ===== -->
+            <div class="card p-6">
+              <div class="flex items-center justify-between mb-1">
+                <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Redes Sociales</h3>
+                <span id="redesEstadoBadge" class="badge badge-neutral">Sin conectar</span>
               </div>
-              <p class="text-[11px] text-[#6B7280] text-center max-w-xs">Abre WhatsApp en tu celular → Dispositivos vinculados → Vincular dispositivo, y escanea este código.</p>
-              <button id="btnRefrescarQr" class="btn-ghost text-xs font-medium px-4 py-2 rounded-lg">Actualizar QR</button>
-            </div>
-          </div>
+              <p class="text-[11px] text-[#6B7280] mb-4">Conecta Facebook, Instagram y TikTok una sola vez para que el Agente Publicitario IA pueda publicar automáticamente.</p>
 
-          <!-- ===== MÓDULO REDES SOCIALES (UPLOAD-POST) ===== -->
-          <div class="card p-6 max-w-md">
-            <div class="flex items-center justify-between mb-1">
-              <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Redes Sociales</h3>
-              <span id="redesEstadoBadge" class="badge badge-neutral">Sin conectar</span>
+              <button id="btnConectarRedes" class="btn-primary w-full text-sm font-semibold py-2.5 rounded-lg">
+                Conectar Redes Sociales
+              </button>
+              <button id="btnVerificarRedes" class="hidden btn-ghost w-full text-xs font-medium py-2 rounded-lg mt-2">
+                Ya conecté mis cuentas — Verificar
+              </button>
+              <p id="redesStatusText" class="text-[11px] text-[#6B7280] italic mt-2 min-h-[14px]"></p>
             </div>
-            <p class="text-[11px] text-[#6B7280] mb-4">Conecta Facebook, Instagram y TikTok una sola vez para que el Agente Publicitario IA pueda publicar automáticamente.</p>
 
-            <button id="btnConectarRedes" class="btn-primary w-full text-sm font-semibold py-2.5 rounded-lg">
-              Conectar Redes Sociales
-            </button>
-            <button id="btnVerificarRedes" class="hidden btn-ghost w-full text-xs font-medium py-2 rounded-lg mt-2">
-              Ya conecté mis cuentas — Verificar
-            </button>
-            <p id="redesStatusText" class="text-[11px] text-[#6B7280] italic mt-2 min-h-[14px]"></p>
           </div>
 
           <div class="card p-6 max-w-md">
