@@ -899,18 +899,19 @@ function populateMarketingCarSelect() {
   if (!select) return;
 
   const valorPrevio = select.value;
+  const carsDisponibles = carsCache.filter(car => car.status !== 'Vendido');
 
-  if (carsCache.length === 0) {
-    select.innerHTML = '<option value="">Sin unidades registradas</option>';
+  if (carsDisponibles.length === 0) {
+    select.innerHTML = '<option value="">Sin unidades disponibles para promocionar</option>';
     marketingSelectedCarId = null;
     return;
   }
 
-  select.innerHTML = carsCache.map(car =>
+  select.innerHTML = carsDisponibles.map(car =>
     `<option value="${car.id}">${escapeHtml(`${car.brand || ''} ${car.model || ''}`.trim())} · ${escapeHtml(String(car.year || ''))}</option>`
   ).join('');
 
-  if (valorPrevio && carsCache.some(c => String(c.id) === valorPrevio)) {
+  if (valorPrevio && carsDisponibles.some(c => String(c.id) === valorPrevio)) {
     select.value = valorPrevio;
   }
   marketingSelectedCarId = select.value;
