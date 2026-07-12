@@ -31,9 +31,13 @@ const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webh
 // Webhook del flujo TikTok (Gemini guion + Content Posting API).
 const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-tiktok';
 // Estado/QR de la instancia de WhatsApp (Evolution API) — la apikey global de Evolution vive solo en n8n.
-const N8N_QR_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-qr';
+const N8N_QR_WEBHOOK_URL = '';
 // Conectar/verificar redes sociales vía Upload-Post — la master ApiKey de Upload-Post vive solo en n8n.
-const N8N_REDES_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/redes-conectar';
+const N8N_REDES_WEBHOOK_URL = '';
+// Verifica contra Upload-Post si una publicación (Meta o TikTok) quedó realmente publicada.
+const N8N_VERIFICAR_PUBLICACION_URL = '';
+// Verifica contra Upload-Post si una publicación en proceso ya se confirmó o falló.
+const N8N_VERIFY_PUBLISH_WEBHOOK_URL = '';
 // Link de Stripe Checkout (modo suscripción). El client_reference_id se inyecta en runtime.
 // Planes reales de Stripe (Payment Links). "Colima" = plan local, cualquier
 // otro estado = plan foráneo. Si agregas un tercer plan, agrégalo aquí y en
@@ -692,16 +696,12 @@ function calcularMetricasInventario() {
     }
   }
 
-  // KPI: Autos publicados en redes este mes (columna opcional `redes_status` / `fecha_publicacion` en tabla cars)
+  // KPI: Autos publicados (Meta o TikTok). No hay columna de fecha de publicación en el
+  // esquema actual (`cars` no tiene `fecha_publicacion`), así que cuenta el total, no "este mes".
+  // Si quieres el filtro por mes de vuelta: `alter table cars add column fecha_publicacion timestamptz;`
+  // y que los nodos "Guardar Estado Meta"/"Guardar Estado TikTok" en n8n la llenen con `now()`.
   if (kpiPublicadosEl) {
-    const ahora = new Date();
-    const publicadosEsteMes = carsCache.filter(car => {
-      if (car.redes_status !== 'Publicado') return false;
-      const fechaRef = car.fecha_publicacion || car.updated_at;
-      if (!fechaRef) return true;
-      const f = new Date(fechaRef);
-      return !isNaN(f.getTime()) && f.getMonth() === ahora.getMonth() && f.getFullYear() === ahora.getFullYear();
-    }).length;
+    const publicadosEsteMes = carsCache.filter(car => car.publicado_meta === true || car.publicado_tiktok === true).length;
     kpiPublicadosEl.textContent = publicadosEsteMes;
   }
 }
@@ -730,8 +730,8 @@ function renderCarThumbs() {
 
 function calcularSaludInventario(car) {
   const tieneFoto = !!(car.image_url && !car.image_url.includes('placeholder'));
-  const tieneCopy = !!(car.copy_ia && String(car.copy_ia).trim().length > 0);
-  const publicado = car.redes_status === 'Publicado';
+  const tieneCopy = !!((car.copy_meta && car.copy_meta.trim()) || (car.tiktok_hook && car.tiktok_hook.trim()));
+  const publicado = car.publicado_meta === true || car.publicado_tiktok === true;
 
   const items = [
     { label: 'Foto HD', done: tieneFoto },
@@ -741,6 +741,42 @@ function calcularSaludInventario(car) {
   const completados = items.filter(i => i.done).length;
   const percent = Math.round((completados / items.length) * 100);
   return { percent, items };
+}
+
+async function verificarPublicacionReal(carId, requestId, plataforma, btnEl) {
+  if (!N8N_VERIFICAR_PUBLICACION_URL) { alert('Falta configurar N8N_VERIFICAR_PUBLICACION_URL en dashboard.js.'); return; }
+
+  const textoOriginal = btnEl.textContent;
+  btnEl.disabled = true;
+  btnEl.textContent = 'Verificando...';
+
+  try {
+    const resp = await fetch(N8N_VERIFICAR_PUBLICACION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
+      body: JSON.stringify({ car_id: carId, request_id: requestId, plataforma })
+    });
+    if (!resp.ok) throw new Error(`Webhook respondió ${resp.status}`);
+    const data = await resp.json();
+
+    if (data.completado && !data.fallo) {
+      btnEl.textContent = '✅ Confirmado';
+      btnEl.classList.add('opacity-60');
+      btnEl.disabled = true;
+    } else if (data.fallo) {
+      btnEl.textContent = '❌ Falló en la plataforma';
+      btnEl.disabled = false;
+    } else {
+      btnEl.textContent = `⏳ ${data.status || 'procesando'}`;
+      btnEl.disabled = false;
+    }
+    await fetchCars();
+  } catch (err) {
+    console.error('[Verificar Publicación] Error:', err);
+    btnEl.textContent = textoOriginal;
+    btnEl.disabled = false;
+    alert('No se pudo verificar el estado. Intenta de nuevo.');
+  }
 }
 
 function renderCars() {
@@ -768,7 +804,7 @@ function renderCars() {
     const unidadNombre = `${car.brand || ''} ${car.model || ''}`.trim();
     const esVendido = car.status === 'Vendido';
 
-    const estaPublicado = car.redes_status === 'Publicado';
+    const estaPublicado = car.publicado_meta === true || car.publicado_tiktok === true;
     const dotRedesClass = estaPublicado ? 'status-dot' : 'status-dot status-dot-outline';
     const textoRedes = estaPublicado ? 'Publicado' : 'Pendiente de publicar';
 
@@ -796,9 +832,11 @@ function renderCars() {
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 flex-1">
               <p class="font-semibold text-sm truncate">${escapeHtml(unidadNombre || 'Unidad')}</p>
-              <div class="flex items-center gap-1.5 mt-1.5 internal-only">
+              <div class="flex items-center gap-1.5 mt-1.5 internal-only flex-wrap">
                 <span class="${dotRedesClass}"></span>
                 <span class="text-[11px] text-[#9CA3AF]">${textoRedes}</span>
+                ${car.upload_post_request_id_meta ? `<button data-verify-id="${escapeHtml(car.id)}" data-request-id="${escapeHtml(car.upload_post_request_id_meta)}" data-plataforma="meta" class="btn-verificar-publicacion text-[10px] underline text-[#6B7280] hover:text-[#F5F5F4]">Verificar Meta</button>` : ''}
+                ${car.upload_post_request_id_tiktok ? `<button data-verify-id="${escapeHtml(car.id)}" data-request-id="${escapeHtml(car.upload_post_request_id_tiktok)}" data-plataforma="tiktok" class="btn-verificar-publicacion text-[10px] underline text-[#6B7280] hover:text-[#F5F5F4]">Verificar TikTok</button>` : ''}
               </div>
               <div class="flex items-center gap-1.5 mt-1.5 catalog-only">
                 <span class="${dotCatalogClass}"></span>
@@ -888,6 +926,15 @@ function renderCars() {
         select.dispatchEvent(new Event('change'));
       }
     });
+  });
+
+  grid.querySelectorAll('.btn-verificar-publicacion').forEach(btn => {
+    btn.addEventListener('click', () => verificarPublicacionReal(
+      btn.getAttribute('data-verify-id'),
+      btn.getAttribute('data-request-id'),
+      btn.getAttribute('data-plataforma'),
+      btn
+    ));
   });
 }
 
@@ -1160,28 +1207,32 @@ function initMarketingModule() {
       return;
     }
 
-    const hoy = new Date().toISOString().split('T')[0];
-    const updatePayload = { redes_status: 'Publicado', fecha_publicacion: hoy };
+    // n8n ya persistió publicado_meta/publicado_tiktok/tiktok_hook/etc. al llamar al webhook.
+    // Aquí solo se guarda lo que n8n no toca: el copy final y las fotos usadas en este post.
+    const updatePayload = {};
     if (usaMeta) {
-      updatePayload.copy_ia = copyText.value.trim();
+      updatePayload.copy_meta = copyText.value.trim();
       updatePayload.image_url = marketingImageUrls[0] || car.image_url;
       if (marketingImageUrls.length) updatePayload.image_urls = marketingImageUrls;
     }
-    if (usaTiktok) { updatePayload.tiktok_status = 'Publicado'; }
 
-    const { error } = await supabaseClient.from('cars').update(updatePayload).eq('id', car.id).eq('lote_id', currentLote.id);
+    if (Object.keys(updatePayload).length > 0) {
+      const { error } = await supabaseClient.from('cars').update(updatePayload).eq('id', car.id).eq('lote_id', currentLote.id);
+      if (error) {
+        console.error('[Agente IA] Error al guardar copy/fotos:', error);
+        btnPublicar.disabled = false;
+        updateBtnPublicarLabel();
+        if (statusText) {
+          statusText.textContent = `Se publicó, pero no se pudo guardar el copy/fotos en el auto: ${error.message}`;
+          statusText.style.color = 'var(--danger)';
+        }
+        await fetchCars();
+        return;
+      }
+    }
 
     btnPublicar.disabled = false;
     updateBtnPublicarLabel();
-
-    if (error) {
-      console.error('[Agente IA] Error al publicar:', error);
-      if (statusText) {
-        statusText.textContent = 'No se pudo guardar. Agrega a tu tabla "cars" las columnas redes_status, copy_ia, fecha_publicacion y tiktok_status.';
-        statusText.style.color = 'var(--danger)';
-      }
-      return;
-    }
 
     if (statusText) { statusText.textContent = `¡Publicado! ${car.brand} ${car.model} ya está marcado como Publicado.`; statusText.style.color = 'var(--success)'; }
     await fetchCars();
