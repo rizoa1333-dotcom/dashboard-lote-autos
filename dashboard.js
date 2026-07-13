@@ -25,7 +25,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
 // Webhook opcional de n8n para generación de copy con Gemini.
 // Déjalo vacío para usar el generador local de respaldo; pon tu URL de producción para conectar el Agente IA real.
-const N8N_MARKETING_WEBHOOK_URL = '';
+const N8N_MARKETING_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/redes-conectar';
 // Webhook nuevo, en el MISMO workflow de n8n, para publicar en Facebook/Instagram.
 const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-redes';
 // Webhook del flujo TikTok (Gemini guion + Content Posting API).
