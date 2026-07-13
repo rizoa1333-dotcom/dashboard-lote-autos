@@ -25,19 +25,18 @@ const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
 // Webhook opcional de n8n para generación de copy con Gemini.
 // Déjalo vacío para usar el generador local de respaldo; pon tu URL de producción para conectar el Agente IA real.
-const N8N_MARKETING_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/redes-conectar';
+const N8N_MARKETING_WEBHOOK_URL = '';
 // Webhook nuevo, en el MISMO workflow de n8n, para publicar en Facebook/Instagram.
 const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-redes';
 // Webhook del flujo TikTok (Gemini guion + Content Posting API).
 const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-tiktok';
 // Estado/QR de la instancia de WhatsApp (Evolution API) — la apikey global de Evolution vive solo en n8n.
-const N8N_QR_WEBHOOK_URL = '';
+const N8N_QR_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-qr';
 // Conectar/verificar redes sociales vía Upload-Post — la master ApiKey de Upload-Post vive solo en n8n.
-const N8N_REDES_WEBHOOK_URL = '';
+const N8N_REDES_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/redes-conectar';
 // Verifica contra Upload-Post si una publicación (Meta o TikTok) quedó realmente publicada.
-const N8N_VERIFICAR_PUBLICACION_URL = '';
+const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.app/webhook/verificar-publicacion';
 // Verifica contra Upload-Post si una publicación en proceso ya se confirmó o falló.
-const N8N_VERIFY_PUBLISH_WEBHOOK_URL = '';
 // Link de Stripe Checkout (modo suscripción). El client_reference_id se inyecta en runtime.
 // Planes reales de Stripe (Payment Links). "Colima" = plan local, cualquier
 // otro estado = plan foráneo. Si agregas un tercer plan, agrégalo aquí y en
