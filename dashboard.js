@@ -31,12 +31,13 @@ const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webh
 // Webhook del flujo TikTok (Gemini guion + Content Posting API).
 const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-tiktok';
 // Estado/QR de la instancia de WhatsApp (Evolution API) — la apikey global de Evolution vive solo en n8n.
-const N8N_QR_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-qr';
+const N8N_QR_WEBHOOK_URL = '';
 // Conectar/verificar redes sociales vía Upload-Post — la master ApiKey de Upload-Post vive solo en n8n.
-const N8N_REDES_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/redes-conectar';
+const N8N_REDES_WEBHOOK_URL = '';
 // Verifica contra Upload-Post si una publicación (Meta o TikTok) quedó realmente publicada.
-const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.app/webhook/verificar-publicacion';
+const N8N_VERIFICAR_PUBLICACION_URL = '';
 // Verifica contra Upload-Post si una publicación en proceso ya se confirmó o falló.
+const N8N_VERIFY_PUBLISH_WEBHOOK_URL = '';
 // Link de Stripe Checkout (modo suscripción). El client_reference_id se inyecta en runtime.
 // Planes reales de Stripe (Payment Links). "Colima" = plan local, cualquier
 // otro estado = plan foráneo. Si agregas un tercer plan, agrégalo aquí y en
@@ -1539,7 +1540,17 @@ async function cargarEstadoWhatsappQr() {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
       body: JSON.stringify({ lote_id: currentLote.id })
     });
-    const data = await resp.json();
+
+    const raw = await resp.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (_) {
+      throw new Error(`n8n respondió ${resp.status} sin JSON válido: "${raw.slice(0, 200)}"`);
+    }
+    if (!resp.ok) {
+      throw new Error(`n8n respondió ${resp.status}: ${data.error || raw.slice(0, 200)}`);
+    }
 
     if (data.conectado) {
       badge.textContent = 'Conectado';
@@ -1563,7 +1574,7 @@ async function cargarEstadoWhatsappQr() {
     }
   } catch (err) {
     console.error('[WhatsApp QR] Error al consultar estado:', err);
-    qrLoading.textContent = 'Error al cargar el QR. Intenta actualizar.';
+    qrLoading.textContent = err.message || 'Error al cargar el QR. Intenta actualizar.';
   }
 }
 
