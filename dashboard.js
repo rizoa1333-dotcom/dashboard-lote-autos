@@ -11,20 +11,11 @@
 // cliente: por sí sola NO concede ningún acceso — el acceso real
 // lo controlan las políticas de Row Level Security (RLS) en
 // Postgres, evaluadas en el servidor de Supabase en cada query.
-//
-// NUNCA pegues aquí ni en ningún otro archivo de /public:
-//   - La Service Role Key de Supabase (bypassa RLS por completo)
-//   - Tokens de acceso de Meta Graph API / TikTok Content API
-//   - API Keys de Gemini u otros proveedores de IA
-// Esas llaves viven EXCLUSIVAMENTE del lado servidor: en tus
-// workflows de n8n Cloud o en variables de entorno de Railway.
-// El navegador jamás debe poder leerlas.
 // ============================================================
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
 // Webhook opcional de n8n para generación de copy con Gemini.
-// Déjalo vacío para usar el generador local de respaldo; pon tu URL de producción para conectar el Agente IA real.
 const N8N_MARKETING_WEBHOOK_URL = '';
 // Webhook nuevo, en el MISMO workflow de n8n, para publicar en Facebook/Instagram.
 const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-redes';
@@ -33,38 +24,32 @@ const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webho
 // Estado/QR de la instancia de WhatsApp (Evolution API) — la apikey global de Evolution vive solo en n8n.
 const N8N_QR_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-qr';
 // Conectar/verificar redes sociales vía Upload-Post — la master ApiKey de Upload-Post vive solo en n8n.
-const N8N_REDES_WEBHOOK_URL = '';
+const N8N_REDES_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/redes-conectar';
 // Verifica contra Upload-Post si una publicación (Meta o TikTok) quedó realmente publicada.
-const N8N_VERIFICAR_PUBLICACION_URL = '';
+const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.app/webhook/verificar-publicacion';
 // Verifica contra Upload-Post si una publicación en proceso ya se confirmó o falló.
-const N8N_VERIFY_PUBLISH_WEBHOOK_URL = '';
-// Link de Stripe Checkout (modo suscripción). El client_reference_id se inyecta en runtime.
-// Planes reales de Stripe (Payment Links). "Colima" = plan local, cualquier
-// otro estado = plan foráneo. Si agregas un tercer plan, agrégalo aquí y en
-// el <select id="registroEstado"> del HTML — son las dos únicas fuentes de verdad.
+
+// ============================================================
+// ⚠️ MODIFICA AQUÍ PARA TU PRUEBA DE 1 PESO
+// Cambia la URL de "colima" temporalmente por tu Payment Link de $1.00 MXN
+// ============================================================
 const STRIPE_LINKS = {
-  colima: 'https://buy.stripe.com/14A9AVft709bfoi93D3oA02',   // $25,000 MXN + IVA
+  colima: 'https://buy.stripe.com/7sYeVf2Gl8FHb82enX3oA04',   // Pon aquí tu link de prueba de 1 peso
   foraneo: 'https://buy.stripe.com/9B6bJ36WB7BD7VQenX3oA03'   // $42,000 MXN + IVA
 };
+
 function resolverPlanStripe(estado) {
   return estado === 'Colima' ? 'colima' : 'foraneo';
 }
+
 function redirigirAStripeCheckout(lote) {
   const url = new URL(STRIPE_LINKS[resolverPlanStripe(lote.estado)]);
   url.searchParams.set('client_reference_id', lote.id);
   window.location.href = url.toString();
 }
-// Placeholder inline (SVG data URI): no depende de ningún servicio externo,
-// via.placeholder.com se ha caído en producción (net::ERR_CONNECTION_CLOSED).
-const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22250%22%20viewBox%3D%220%200%20400%20250%22%3E%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22%2320242F%22/%3E%3Ctext%20x%3D%22200%22%20y%3D%22125%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2216%22%20fill%3D%22%239CA3AF%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3ESin%20foto%3C/text%3E%3C/svg%3E';
-// Toda acción que requiera llaves maestras (Meta, TikTok, Service Role)
-// se delega 100% a estos webhooks de n8n / endpoints de Railway.
-// dashboard.js jamás debe hacer fetch() directo a graph.facebook.com,
-// open.tiktokapis.com ni ningún dominio administrativo — solo a estos.
 
-// Variables de Control Global — declaradas ANTES del cliente de Supabase
-// para que el listener onAuthStateChange (que puede disparar casi de
-// inmediato) nunca las referencie antes de que existan.
+const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22250%22%20viewBox%3D%220%200%20400%20250%22%3E%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22%2320242F%22/%3E%3Ctext%20x%3D%22200%22%20y%3D%22125%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2216%22%20fill%3D%22%239CA3AF%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3ESin%20foto%3C/text%3E%3C/svg%3E';
+
 let currentUser = null;
 let currentLote = null;
 let syncIntervalId = null;
@@ -76,34 +61,22 @@ let editingCarId = null;
 let activeLeadId = null;
 let carImageUrls = [];
 
-// Estado del Agente Publicitario IA
 let marketingSelectedCarId = null;
 let marketingImageUrls = [];
 let marketingVideoUrl = '';
 
-// Estado del Modo Catálogo / Presentación (ver initCatalogMode más abajo)
 let catalogModeActive = false;
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    // 🔐 Endurecimiento de sesión: usamos sessionStorage en vez del
-    // localStorage por defecto. El JWT vive solo mientras la pestaña
-    // está abierta y se borra al cerrarla — reduce la ventana de
-    // exposición si algún día existe un XSS en el sitio. No eliminamos
-    // el token del todo porque supabase-js lo necesita para firmar cada
-    // request; lo que sí garantizamos es que dashboard.js NUNCA copia
-    // ese token a una variable global propia (ver `currentUser` abajo:
-    // solo guarda el objeto de usuario, jamás el access_token).
     storage: window.sessionStorage,
     storageKey: 'p360-auth-session',
     detectSessionInUrl: true
   }
 });
 
-// Si la sesión expira, se revoca, o se cierra en otra pestaña,
-// cortamos el sync y devolvemos al usuario al login de inmediato.
 supabaseClient.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT' || (!session && currentUser)) {
     stopSync();
@@ -113,7 +86,6 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
   }
 });
 
-// Cambiador Global de Vistas SPA
 function showView(viewId) {
   ['view-registro', 'view-login', 'view-dashboard'].forEach(id => {
     const el = document.getElementById(id);
@@ -174,12 +146,6 @@ async function fetchLeads() {
   calcularOportunidadesRescatadas();
 }
 
-// ------------------------------------------------------------
-// OPORTUNIDADES RESCATADAS 🌙
-// Cuantifica el trabajo del Agente IA fuera de horario humano
-// (madrugada: 00:00–06:00) y estima el valor de venta potencial
-// de las unidades en que esos prospectos mostraron interés.
-// ------------------------------------------------------------
 function calcularOportunidadesRescatadas() {
   const leadsCountEl = document.getElementById('rescueLeadsCount');
   const valorEl = document.getElementById('rescueValorPotencial');
@@ -208,9 +174,6 @@ function calcularOportunidadesRescatadas() {
   valorEl.textContent = formatCurrency(valorPotencial);
 }
 
-// ------------------------------------------------------------
-// SECCIÓN CITAS REALES (EXTRACCIÓN MULTI-TENANT DIRECTA) 📅
-// ------------------------------------------------------------
 async function fetchCitasReal() {
   const { data, error } = await supabaseClient
     .from('citas')
@@ -340,11 +303,6 @@ function renderLeadsTable() {
   });
 }
 
-// ------------------------------------------------------------
-// CLASIFICADOR DE TEMPERATURA DE LEADS (PIPELINE) 🔥⚡❄️
-// Prioriza un campo explícito `temperatura` calculado por la IA en n8n si existe;
-// si no, deriva un estimado a partir del avance documental y la cita agendada.
-// ------------------------------------------------------------
 function getLeadTemperature(lead) {
   if (lead.temperatura) {
     const t = String(lead.temperatura).toLowerCase();
@@ -408,9 +366,6 @@ function renderPipelineKanban() {
   });
 }
 
-// ------------------------------------------------------------
-// MOTOR PREMIUM DE BUSINESS INTELLIGENCE (MÉTRICAS DEL SAAS) 📊
-// ------------------------------------------------------------
 function procesarMetricasBI() {
   const tasaConversionEl = document.getElementById('biTasaConversion');
   const sinIngresosEl = document.getElementById('biSinIngresosRate');
@@ -482,9 +437,6 @@ function procesarMetricasBI() {
   }
 }
 
-// ------------------------------------------------------------
-// CITAS CRONOLÓGICAS 📅
-// ------------------------------------------------------------
 function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
   if (!container) return;
@@ -587,9 +539,6 @@ function statusBadgeClass(status) {
   }
 }
 
-// ------------------------------------------------------------
-// SECCIÓN INVENTARIO (CATÁLOGO DE TARJETAS) 🏎️
-// ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
     .from('cars')
@@ -696,21 +645,12 @@ function calcularMetricasInventario() {
     }
   }
 
-  // KPI: Autos publicados (Meta o TikTok). No hay columna de fecha de publicación en el
-  // esquema actual (`cars` no tiene `fecha_publicacion`), así que cuenta el total, no "este mes".
-  // Si quieres el filtro por mes de vuelta: `alter table cars add column fecha_publicacion timestamptz;`
-  // y que los nodos "Guardar Estado Meta"/"Guardar Estado TikTok" en n8n la llenen con `now()`.
   if (kpiPublicadosEl) {
     const publicadosEsteMes = carsCache.filter(car => car.publicado_meta === true || car.publicado_tiktok === true).length;
     kpiPublicadosEl.textContent = publicadosEsteMes;
   }
 }
 
-// ------------------------------------------------------------
-// SALUD DEL INVENTARIO 🩺
-// Composite de 3 señales operativas por unidad: foto real,
-// copy generado por el Agente IA, y publicación en redes.
-// ------------------------------------------------------------
 function renderCarThumbs() {
   const wrap = document.getElementById('carImageThumbs');
   wrap.innerHTML = carImageUrls.map((url, i) => `
@@ -938,9 +878,6 @@ function renderCars() {
   });
 }
 
-// ------------------------------------------------------------
-// AGENTE PUBLICITARIO IA — Drag & Drop + Copy + Publicación ✨
-// ------------------------------------------------------------
 function populateMarketingCarSelect() {
   const select = document.getElementById('marketingCarSelect');
   if (!select) return;
@@ -979,7 +916,6 @@ function generarCopyLocal(car) {
     `📲 Escríbenos por WhatsApp y agenda tu cita hoy mismo. ¡Unidades como esta se van rápido!`;
 }
 
-// Guion local de respaldo (misma estructura que produce el nodo Gemini en n8n).
 function generarGuionLocal(car) {
   const nombre = `${car.brand || ''} ${car.model || ''}`.trim();
   const enganche = car.enganche_minimo ? formatCurrency(car.enganche_minimo) : 'un enganche accesible';
@@ -1207,8 +1143,6 @@ function initMarketingModule() {
       return;
     }
 
-    // n8n ya persistió publicado_meta/publicado_tiktok/tiktok_hook/etc. al llamar al webhook.
-    // Aquí solo se guarda lo que n8n no toca: el copy final y las fotos usadas en este post.
     const updatePayload = {};
     if (usaMeta) {
       updatePayload.copy_meta = copyText.value.trim();
@@ -1243,10 +1177,6 @@ function initMarketingModule() {
 // MODAL DRAWER LATERAL ULTRA-CRM (INTEGRACIÓN CHAT LIVE) 🗂️
 // ------------------------------------------------------------
 async function openDrawer(leadId) {
-  // 🛡️ Guard real, no cosmético: si alguien reactiva el botón oculto por
-  // CSS (o llama openDrawer(id) directo desde la consola F12), el drawer
-  // de un lead —con teléfono, INE, domicilio y comprobante de ingresos—
-  // sigue sin poder abrirse mientras el Modo Catálogo esté activo.
   if (catalogModeActive) {
     console.warn('[Modo Catálogo] Apertura de ficha de lead bloqueada mientras el modo presentación está activo.');
     return;
@@ -1386,14 +1316,6 @@ function closeDrawer() {
   document.getElementById('drawerOverlay').classList.add('hidden');
 }
 
-// ------------------------------------------------------------
-// ------------------------------------------------------------
-// MODO CATÁLOGO / PRESENTACIÓN 🖼️
-// Redacta datos financieros internos y de contacto del lead a
-// nivel de RENDERIZADO (no solo con CSS): los valores sensibles
-// nunca se escriben en el DOM mientras el modo está activo, así
-// que inspeccionar con F12 no revela nada de todas formas.
-// ------------------------------------------------------------
 function initCatalogMode() {
   const toggle = document.getElementById('catalogModeToggle');
   if (!toggle) return;
@@ -1405,19 +1327,12 @@ function initCatalogMode() {
     toggle.setAttribute('aria-pressed', String(catalogModeActive));
 
     if (catalogModeActive) {
-      // Cierra cualquier ficha de lead abierta y detiene el chat en vivo:
-      // nada de INE, domicilio, ingresos o teléfono debe seguir visible
-      // ni refrescándose mientras alguien muestra el inventario a un cliente.
       closeDrawer();
       activeLeadId = null;
-
       const inventarioBtn = document.querySelector('[data-section="section-inventario"]');
       if (inventarioBtn) inventarioBtn.click();
     }
 
-    // Re-renderiza de inmediato con los datos ya cacheados: la redacción
-    // (o su reversión, al desactivar) aplica al instante, sin esperar al
-    // siguiente ciclo de sync de 10s.
     renderLeadsTable();
     renderPipelineKanban();
     renderCitasCronologicas();
@@ -1459,10 +1374,6 @@ function renderSubscriptionStatus() {
   const renewalDate = document.getElementById('subscriptionRenewalDate');
   const planLabel = document.getElementById('subscriptionPlanLabel');
 
-  // 🔓 Cuentas internas (equipo, soporte, demos) quedan exentas del candado
-  // de facturación. Es una bandera en la fila del lote en Supabase — nunca
-  // un email hardcodeado en este archivo — así que activarla o quitarla no
-  // requiere tocar código ni volver a desplegar nada.
   const esInterna = currentLote.es_cuenta_interna === true;
   const isActive = currentLote.plan_status === 'active' || esInterna;
 
@@ -1492,8 +1403,6 @@ function handleStripeReturn() {
   }
 }
 
-// Upload-Post redirige de vuelta con ?social=connected tras el flujo de
-// conexión (redirect_url configurado en "Generar Link de Conexión" en n8n).
 function handleSocialReturn() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('social') === 'connected') {
@@ -1517,9 +1426,7 @@ async function checarEstatusWhatsApp() {
 }
 
 // ------------------------------------------------------------
-// MÓDULO WHATSAPP QR (mandatorio, siempre visible en Configuración)
-// El apikey global de Evolution nunca toca el navegador: n8n hace
-// la llamada real y solo regresa el QR / estado ya resuelto.
+// MÓDULO WHATSAPP QR (ACTUALIZADO PARA ERRORES 404)
 // ------------------------------------------------------------
 async function cargarEstadoWhatsappQr() {
   if (!currentLote || !N8N_QR_WEBHOOK_URL) return;
@@ -1537,20 +1444,24 @@ async function cargarEstadoWhatsappQr() {
   try {
     const resp = await fetch(N8N_QR_WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentLote.webhook_token}`
+      },
       body: JSON.stringify({ lote_id: currentLote.id })
     });
 
     const raw = await resp.text();
+    if (!raw) throw new Error("Respuesta vacía del servidor.");
+
     let data;
     try {
       data = JSON.parse(raw);
     } catch (_) {
-      throw new Error(`n8n respondió ${resp.status} sin JSON válido: "${raw.slice(0, 200)}"`);
+      throw new Error("El servidor devolvió datos corruptos.");
     }
-    if (!resp.ok) {
-      throw new Error(`n8n respondió ${resp.status}: ${data.error || raw.slice(0, 200)}`);
-    }
+
+    if (!resp.ok) throw new Error(data.error || "Fallo en la comunicación con Evolution API.");
 
     if (data.conectado) {
       badge.textContent = 'Conectado';
@@ -1558,30 +1469,30 @@ async function cargarEstadoWhatsappQr() {
       conectadoWrap.classList.remove('hidden');
       conectadoWrap.classList.add('flex');
       qrWrap.classList.add('hidden');
-      document.getElementById('whatsappNumeroConectado').textContent = data.numero || '--';
+      if (document.getElementById('whatsappNumeroConectado')) {
+          document.getElementById('whatsappNumeroConectado').textContent = data.numero || '--';
+      }
     } else {
       badge.textContent = 'Sin conectar';
       badge.className = 'badge badge-warm';
       conectadoWrap.classList.add('hidden');
       qrWrap.classList.remove('hidden');
-      if (data.qr_base64) {
-        qrImg.src = data.qr_base64;
+
+      if (data.qr_base64 || data.qrcode?.base64) {
+        const base64Str = data.qr_base64 || data.qrcode.base64;
+        qrImg.src = base64Str.includes('data:image') ? base64Str : `data:image/png;base64,${base64Str.replace(/^data:image\/[a-z]+;base64,/, '')}`;
         qrImg.classList.remove('hidden');
         qrLoading.classList.add('hidden');
       } else {
-        qrLoading.textContent = 'No se pudo generar el QR. Intenta actualizar.';
+        qrLoading.textContent = 'Instancia en creación. Presiona "Actualizar QR" en unos segundos.';
       }
     }
   } catch (err) {
-    console.error('[WhatsApp QR] Error al consultar estado:', err);
-    qrLoading.textContent = err.message || 'Error al cargar el QR. Intenta actualizar.';
+    console.error('[WhatsApp QR] Error:', err);
+    qrLoading.textContent = 'Error de conexión. Presiona "Actualizar QR" para reintentar.';
   }
 }
 
-// ------------------------------------------------------------
-// MÓDULO REDES SOCIALES (Upload-Post) — la master ApiKey de
-// Upload-Post nunca toca el navegador, vive solo en n8n.
-// ------------------------------------------------------------
 async function conectarRedesSociales() {
   if (!currentLote || !N8N_REDES_WEBHOOK_URL) { alert('Falta configurar N8N_REDES_WEBHOOK_URL en dashboard.js.'); return; }
   const btnConectar = document.getElementById('btnConectarRedes');
@@ -1650,19 +1561,6 @@ async function verificarRedesSociales() {
   }
 }
 
-// ============================================================
-// 🛡️ ROUTE GUARD (Middleware de Frontend)
-// Única puerta de entrada a datos del tenant. Valida la sesión de
-// Supabase contra el backend (getSession revalida el JWT, no solo
-// lee un valor cacheado) ANTES de permitir que se muestre o
-// sincronice cualquier dato del dashboard. Si no hay sesión válida,
-// corta aquí mismo y regresa a view-login — el HTML ya trae
-// view-dashboard oculto por defecto (`class="... hidden"`), así que
-// no hay ventana en la que datos sensibles puedan pintarse antes de
-// esta validación.
-// Devuelve `true` solo si hay un usuario autenticado (con o sin
-// lote todavía creado); `false` si se debe permanecer en login.
-// ============================================================
 async function checkSessionAndLote() {
   try {
     const { data: sessionData, error: sessionErr } = await supabaseClient.auth.getSession();
@@ -1686,9 +1584,6 @@ async function checkSessionAndLote() {
       return true;
     }
 
-    // Sin lote todavía: si venimos de un registro con confirmación de
-    // correo pendiente, los datos quedaron guardados en sessionStorage
-    // (ver handleRegistroSubmit) — los completamos ahora que ya hay sesión.
     let pendienteRaw = null;
     try { pendienteRaw = sessionStorage.getItem('p360-pending-lote'); } catch (_) {}
 
@@ -1785,11 +1680,6 @@ async function handleRegistroSubmit(e) {
     return;
   }
 
-  // Supabase responde 200 aunque el correo YA exista (anti-enumeración): no
-  // hay forma de distinguirlo por el status, solo por `identities` vacío —
-  // eso significa que NO se creó una cuenta nueva. Sin este chequeo, el
-  // formulario "se enviaba" sin avisar y el lote nunca se creaba: exactamente
-  // el síntoma de "no puedo registrar más lotes".
   const esCorreoDuplicado = signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0;
   if (esCorreoDuplicado) {
     if (errorEl) errorEl.textContent = 'Ese correo ya tiene una cuenta. Inicia sesión en vez de registrarte de nuevo.';
@@ -1797,15 +1687,10 @@ async function handleRegistroSubmit(e) {
     return;
   }
 
-  // Si el proyecto tiene "Confirm email" activado en Supabase, signUp() no
-  // entrega una sesión activa todavía — y sin sesión, el insert de abajo lo
-  // rechaza RLS en silencio. Guardamos los datos del lote temporalmente
-  // (sessionStorage, no son credenciales) para completarlos automáticamente
-  // en cuanto el usuario confirme su correo y vuelva a entrar.
   if (!signUpData.session) {
     try {
       sessionStorage.setItem('p360-pending-lote', JSON.stringify(datosLote));
-    } catch (_) { /* almacenamiento no disponible, no es crítico */ }
+    } catch (_) { }
     if (errorEl) {
       errorEl.classList.remove('text-[#A9584A]');
       errorEl.classList.add('text-[#4B8B72]');
@@ -1827,9 +1712,6 @@ async function handleRegistroSubmit(e) {
   redirigirAStripeCheckout(currentLote);
 }
 
-// Inserta la fila de `lotes` para el usuario ya autenticado y SIEMPRE revisa
-// el error — antes se descartaba silenciosamente y el registro fallaba sin
-// ningún aviso.
 async function crearLoteParaUsuarioActual(datosLote) {
   if (!currentUser) return null;
   const { data, error } = await supabaseClient
@@ -1846,14 +1728,6 @@ async function crearLoteParaUsuarioActual(datosLote) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // ============================================================
-  // 🛡️ El Route Guard corre PRIMERO, antes de enlazar cualquier
-  // listener o exponer cualquier dato del dashboard. Los forms de
-  // login/registro se enlazan siempre (son necesarios para poder
-  // autenticarse), pero ninguna consulta a leads/cars/citas ocurre
-  // hasta que este guard confirme sesión + lote válidos (ver
-  // startSync() dentro de checkSessionAndLote).
-  // ============================================================
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
   if (document.getElementById('registroEstado')) {
@@ -2072,7 +1946,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   initCatalogMode();
 });
 
-// Formateadores Globales
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -2083,14 +1956,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// ------------------------------------------------------------
-// 🧼 ANTI-XSS: sanitizador de URLs para atributos src/href.
-// Cualquier URL que llegue de la base de datos (fotos de autos,
-// comprobantes de leads, medios del Agente Publicitario) pasa por
-// aquí antes de tocar el DOM. Solo se permite http(s); cualquier
-// esquema peligroso (javascript:, data:, vbscript:) se descarta y
-// se sustituye por el fallback.
-// ------------------------------------------------------------
 function sanitizeUrl(rawUrl, fallback = '') {
   if (!rawUrl) return fallback;
   try {
@@ -2099,12 +1964,10 @@ function sanitizeUrl(rawUrl, fallback = '') {
       return parsed.href;
     }
   } catch (_) {
-    // URL inválida — cae al fallback
   }
   return fallback;
 }
 
-// Placeholder de redacción para Modo Catálogo (ver initCatalogMode).
 const CATALOG_REDACTED = '•••• Protegido';
 
 function formatCurrency(v) {
