@@ -3,39 +3,19 @@
 // SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
-// ============================================================
-// 🛡️ POLÍTICA DE LLAVES — Regla de Oro
-// Esta constante SOLO debe contener la llave pública "anon" /
-// "publishable" de Supabase (prefijo sb_publishable_ o el JWT
-// anon clásico). Esta llave está diseñada para vivir en el
-// cliente: por sí sola NO concede ningún acceso — el acceso real
-// lo controlan las políticas de Row Level Security (RLS) en
-// Postgres, evaluadas en el servidor de Supabase en cada query.
-// ============================================================
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
-// Webhook opcional de n8n para generación de copy con Gemini.
 const N8N_MARKETING_WEBHOOK_URL = '';
-// Webhook nuevo, en el MISMO workflow de n8n, para publicar en Facebook/Instagram.
 const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-redes';
-// Webhook del flujo TikTok (Gemini guion + Content Posting API).
 const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-tiktok';
-// Estado/QR de la instancia de WhatsApp (Evolution API) — la apikey global de Evolution vive solo en n8n.
 const N8N_QR_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-qr';
-// Conectar/verificar redes sociales vía Upload-Post — la master ApiKey de Upload-Post vive solo en n8n.
-const N8N_REDES_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/redes-conectar';
-// Verifica contra Upload-Post si una publicación (Meta o TikTok) quedó realmente publicada.
-const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.app/webhook/verificar-publicacion';
-// Verifica contra Upload-Post si una publicación en proceso ya se confirmó o falló.
+const N8N_REDES_WEBHOOK_URL = '';
+const N8N_VERIFICAR_PUBLICACION_URL = '';
 
-// ============================================================
-// ⚠️ MODIFICA AQUÍ PARA TU PRUEBA DE 1 PESO
-// Cambia la URL de "colima" temporalmente por tu Payment Link de $1.00 MXN
-// ============================================================
 const STRIPE_LINKS = {
-  colima: 'https://buy.stripe.com/7sYeVf2Gl8FHb82enX3oA04',   // Pon aquí tu link de prueba de 1 peso
-  foraneo: 'https://buy.stripe.com/9B6bJ36WB7BD7VQenX3oA03'   // $42,000 MXN + IVA
+  colima: 'https://buy.stripe.com/14A9AVft709bfoi93D3oA02',
+  foraneo: 'https://buy.stripe.com/9B6bJ36WB7BD7VQenX3oA03'
 };
 
 function resolverPlanStripe(estado) {
@@ -124,9 +104,6 @@ async function fetchAndRenderAll() {
   }
 }
 
-// ------------------------------------------------------------
-// SECCIÓN LEADS (MONITOR DE PROSPECTOS GENERALES)
-// ------------------------------------------------------------
 async function fetchLeads() {
   const { data, error } = await supabaseClient
     .from('leads')
@@ -1173,9 +1150,6 @@ function initMarketingModule() {
   });
 }
 
-// ------------------------------------------------------------
-// MODAL DRAWER LATERAL ULTRA-CRM (INTEGRACIÓN CHAT LIVE) 🗂️
-// ------------------------------------------------------------
 async function openDrawer(leadId) {
   if (catalogModeActive) {
     console.warn('[Modo Catálogo] Apertura de ficha de lead bloqueada mientras el modo presentación está activo.');
@@ -1425,9 +1399,6 @@ async function checarEstatusWhatsApp() {
   }
 }
 
-// ------------------------------------------------------------
-// MÓDULO WHATSAPP QR (ACTUALIZADO PARA ERRORES 404)
-// ------------------------------------------------------------
 async function cargarEstadoWhatsappQr() {
   if (!currentLote || !N8N_QR_WEBHOOK_URL) return;
 
@@ -1688,9 +1659,7 @@ async function handleRegistroSubmit(e) {
   }
 
   if (!signUpData.session) {
-    try {
-      sessionStorage.setItem('p360-pending-lote', JSON.stringify(datosLote));
-    } catch (_) { }
+    try { sessionStorage.setItem('p360-pending-lote', JSON.stringify(datosLote)); } catch (_) {}
     if (errorEl) {
       errorEl.classList.remove('text-[#A9584A]');
       errorEl.classList.add('text-[#4B8B72]');
@@ -1714,16 +1683,8 @@ async function handleRegistroSubmit(e) {
 
 async function crearLoteParaUsuarioActual(datosLote) {
   if (!currentUser) return null;
-  const { data, error } = await supabaseClient
-    .from('lotes')
-    .insert({ profile_id: currentUser.id, ...datosLote })
-    .select()
-    .single();
-
-  if (error) {
-    console.error('[Registro] No se pudo crear el lote:', error);
-    return null;
-  }
+  const { data, error } = await supabaseClient.from('lotes').insert({ profile_id: currentUser.id, ...datosLote }).select().single();
+  if (error) { console.error('[Registro] No se pudo crear el lote:', error); return null; }
   return data;
 }
 
@@ -1948,36 +1909,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return String(str).replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[m]));
 }
-
 function sanitizeUrl(rawUrl, fallback = '') {
   if (!rawUrl) return fallback;
   try {
-    const parsed = new URL(String(rawUrl), window.location.origin);
-    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-      return parsed.href;
-    }
-  } catch (_) {
-  }
-  return fallback;
+    const p = new URL(String(rawUrl), window.location.origin);
+    return (p.protocol === 'https:' || p.protocol === 'http:') ? p.href : fallback;
+  } catch (_) { return fallback; }
 }
-
 const CATALOG_REDACTED = '•••• Protegido';
-
-function formatCurrency(v) {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v) || 0);
-}
-function formatDate(d) {
-  if (!d) return '---';
-  return new Date(d).toLocaleString('es-MX', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }) + ' hrs';
-}
-function formatDateShort(d) {
-  if (!d) return '---';
-  return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
+function formatCurrency(v) { return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v) || 0); }
+function formatDate(d) { return d ? new Date(d).toLocaleString('es-MX', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }) + ' hrs' : '---'; }
+function formatDateShort(d) { return d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '---'; }
