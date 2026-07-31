@@ -1,13 +1,15 @@
 {
-  "name": "dashboard-lote-autos",
+  "name": "velodrive-dashboard",
   "version": "1.0.0",
-  "description": "Dashboard Multinquilino para PROJECT 360",
+  "description": "Dashboard Multinquilino para VeloDrive",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.22.2"
+    "express": "^4.22.2",
+    "helmet": "^8.0.0",
+    "express-rate-limit": "^7.4.1"
   },
   "engines": {
     "node": ">=18.0.0"

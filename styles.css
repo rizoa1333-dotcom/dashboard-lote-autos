@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   /* Superficies — gris neutro profundo, sin negro puro */
@@ -15,25 +15,26 @@
   --text-dim: #6B7280;
   --text-faint: #9CA3AF;
 
-  /* Acento neutro: hueso plano para botones primarios y logotipo.
-     Sin gradientes, sin brillo. */
-  --amber: #8A8F98;
-  --amber-soft: rgba(138,143,152,0.10);
-  --amber-strong: #A9AEB6;
+  /* Acento de señal: ámbar-óxido, referencia a señalización de taller/
+     tablero de instrumentos. Un solo acento con color real; todo lo
+     demás permanece neutro. */
+  --amber: #E5E5E3;
+  --amber-soft: rgba(229,229,227,0.10);
+  --amber-strong: #FFFFFF;
 
   /* Temperatura de leads y estados: tonos editoriales desaturados,
      uso restringido a puntos y bordes de 1-3px, nunca a bloques grandes */
-  --hot: #A9584A;
-  --hot-soft: rgba(169,88,74,0.10);
-  --warm: #9C8552;
-  --warm-soft: rgba(156,133,82,0.10);
-  --cold: #5B7A93;
-  --cold-soft: rgba(91,122,147,0.10);
+  --hot: #F5F5F4;
+  --hot-soft: rgba(245,245,244,0.12);
+  --warm: #9CA3AF;
+  --warm-soft: rgba(156,163,175,0.10);
+  --cold: #6B7280;
+  --cold-soft: rgba(107,114,128,0.08);
 
-  --success: #4B8B72;
-  --success-soft: rgba(75,139,114,0.10);
-  --danger: #A9584A;
-  --danger-soft: rgba(169,88,74,0.10);
+  --success: #F5F5F4;
+  --success-soft: rgba(245,245,244,0.08);
+  --danger: #F5F5F4;
+  --danger-soft: rgba(245,245,244,0.06);
 }
 
 * {
@@ -110,7 +111,7 @@ input:focus, select:focus, textarea:focus {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
 }
 .card-hover:hover { background: var(--surface-hover); border-color: var(--border-strong); }
 
@@ -120,7 +121,8 @@ input:focus, select:focus, textarea:focus {
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
+  border-top: 2px solid var(--border-strong);
 }
 .gauge-value {
   font-family: 'JetBrains Mono', monospace;
@@ -284,13 +286,13 @@ input:focus, select:focus, textarea:focus {
 .kanban-col {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
 }
 .kanban-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-left-width: 3px;
-  border-radius: 10px;
+  border-radius: 6px;
   transition: border-color 0.2s ease, background 0.2s ease;
 }
 .kanban-card:hover { background: var(--surface-hover); }
@@ -368,7 +370,8 @@ table tbody tr:hover { background: var(--surface-hover); }
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
+  border-top: 2px solid var(--amber);
 }
 .rescue-icon-orb {
   background: var(--amber-soft);
@@ -479,3 +482,165 @@ body.catalog-mode .car-card {
   border-color: var(--border-strong);
 }
 body.catalog-mode .car-card-img { filter: saturate(1.05) contrast(1.02); }
+/* ============================================================
+   IDENTIDAD VISUAL — "Tablero de instrumentos"
+   Una sola pieza de audacia (el riel de navegación como banco de
+   canales); todo lo demás permanece plano y disciplinado.
+   ============================================================ */
+
+/* Space Grotesk para toda la tipografía de mando: títulos, botones,
+   etiquetas en mayúsculas y navegación. Los datos numéricos siguen
+   en JetBrains Mono (sin cambios); la prosa descriptiva sigue en Inter. */
+h1, h2, h3,
+.nav-btn,
+.nav-group-label,
+.btn-primary,
+.btn-ghost,
+[class*="tracking-wider"],
+[class*="tracking-tight"] {
+  font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+}
+
+/* ---------- Botón primario: acento real en vez de blanco plano ---------- */
+.btn-primary {
+  background: var(--amber-strong);
+  color: #17110B;
+  font-weight: 600;
+  border-radius: 6px;
+}
+.btn-primary:hover { opacity: 0.88; }
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--amber) !important;
+  box-shadow: 0 0 0 3px var(--amber-soft) !important;
+}
+
+/* ---------- Riel de navegación — banco de canales ---------- */
+#sidebar nav.flex-1 { gap: 2px; }
+
+.nav-btn {
+  border-radius: 4px !important;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-left: 2px solid transparent;
+  padding-left: calc(0.75rem - 2px) !important;
+}
+.nav-btn svg {
+  width: 15px;
+  height: 15px;
+  opacity: 0.65;
+}
+.nav-btn.nav-active {
+  border-left-color: var(--amber);
+  background-color: var(--surface-2) !important;
+}
+.nav-btn.nav-active svg { opacity: 1; color: var(--amber-strong); }
+.nav-group-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.nav-group-label::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 1px;
+  background: var(--border-strong);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ---------- Pantallas de acceso — recorte de esquina como ticket de taller ---------- */
+#view-registro.card,
+#view-login.card {
+  border-radius: 8px;
+  border-top: 2px solid var(--amber);
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+  position: relative;
+}
+#view-registro.card::before,
+#view-login.card::before {
+  content: 'VELODRIVE';
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
+}
+
+/* ---------- Insignia superior "360" — tono del acento en el borde ---------- */
+header .w-9.h-9.font-mono {
+  border: 1px solid var(--amber);
+  background: transparent !important;
+  color: var(--amber-strong) !important;
+}
+
+/* ---------- Reducción de movimiento respetada ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, .dashboard-section, .health-fill, .catalog-switch-thumb { animation: none !important; transition: none !important; }
+}
+
+/* ============================================================
+   MODO BLANCO Y NEGRO — sin matices de color, solo escala de
+   grises. La jerarquía que antes daba el color ahora la dan el
+   grosor de borde, el peso tipográfico y el relleno.
+   ============================================================ */
+
+/* Kanban: temperatura por grosor de borde izquierdo, no por color */
+.kanban-card.temp-caliente { border-left-width: 4px; border-left-color: var(--text); }
+.kanban-card.temp-templado { border-left-width: 3px; border-left-color: var(--text-faint); }
+.kanban-card.temp-frio     { border-left-width: 1px; border-left-color: var(--border-strong); }
+
+/* Badges de estado: relleno sólido = urgente/negativo, borde punteado = neutral */
+.badge-hot {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1.5px solid var(--text);
+  font-weight: 800;
+}
+.badge-warm {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px dashed var(--border-strong);
+}
+.badge-cold {
+  background: transparent;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+}
+.badge-success {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--text-faint);
+}
+.badge-danger {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1.5px solid var(--text);
+  text-decoration: line-through;
+}
+
+/* Salud de inventario: barra por textura, no por color semáforo */
+.health-fill.health-low  { background: repeating-linear-gradient(45deg, var(--text-faint), var(--text-faint) 3px, transparent 3px, transparent 6px); }
+.health-fill.health-mid  { background: var(--text-faint); }
+.health-fill.health-high { background: var(--text); }
+
+/* Rescue card / gauge card: borde superior en blanco puro, sin ámbar */
+.rescue-card { border-top-color: var(--text) !important; }
+.gauge-card { border-top-color: var(--border-strong) !important; }
+
+/* Ticket de acceso (login/registro): borde en blanco, no ámbar */
+#view-registro.card,
+#view-login.card {
+  border-top-color: var(--text) !important;
+}
+
+/* Nav activo: barra izquierda blanca en vez de ámbar */
+.nav-btn.nav-active { border-left-color: var(--text) !important; }
+.nav-btn.nav-active svg { color: var(--text) !important; }

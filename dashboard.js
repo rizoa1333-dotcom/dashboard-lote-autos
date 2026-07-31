@@ -1,5 +1,5 @@
 // ============================================================
-// PROJECT 360 - dashboard.js (DARK MODE PREMIUM + PIPELINE + AGENTE IA)
+// VeloDrive - dashboard.js (DARK MODE PREMIUM + PIPELINE + AGENTE IA)
 // SPA: registro / login / dashboard / whatsapp multi-tenant
 // ============================================================
 
@@ -30,12 +30,12 @@ const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.ap
 // Verifica contra Upload-Post si una publicación en proceso ya se confirmó o falló.
 
 // ============================================================
-// ⚠️ MODIFICA AQUÍ PARA TU PRUEBA DE 1 PESO
-// Cambia la URL de "colima" temporalmente por tu Payment Link de $1.00 MXN
+// Plan único de producción: $15,000 MXN/mes para todos los lotes,
+// sin distinción por estado. Reemplaza los links de prueba anteriores.
 // ============================================================
 const STRIPE_LINKS = {
-  colima: 'https://buy.stripe.com/7sYeVf2Gl8FHb82enX3oA04',   // Pon aquí tu link de prueba de 1 peso
-  foraneo: 'https://buy.stripe.com/9B6bJ36WB7BD7VQenX3oA03'   // $42,000 MXN + IVA
+  colima: 'https://buy.stripe.com/8x27sN80F9JLa3Y7Zz3oA05',
+  foraneo: 'https://buy.stripe.com/8x27sN80F9JLa3Y7Zz3oA05'
 };
 
 function resolverPlanStripe(estado) {
@@ -1735,9 +1735,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const box = document.getElementById('registroPrecioBox');
       const texto = document.getElementById('registroPrecioTexto');
       if (!e.target.value) { box.classList.add('hidden'); return; }
-      const plan = resolverPlanStripe(e.target.value);
-      const monto = plan === 'colima' ? 25000 : 42000;
-      texto.textContent = `${formatCurrency(monto)} + IVA`;
+      const monto = 15000;
+      texto.textContent = `${formatCurrency(monto)} + IVA / mes`;
       box.classList.remove('hidden');
     });
   }
