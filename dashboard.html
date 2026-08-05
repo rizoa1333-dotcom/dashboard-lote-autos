@@ -428,52 +428,28 @@
                 <div class="flex flex-col gap-2">
                   <label class="platform-check"><input type="checkbox" id="platformFacebook" checked><span>Facebook Marketplace</span></label>
                   <label class="platform-check"><input type="checkbox" id="platformInstagram" checked><span>Instagram</span></label>
-                  <label class="platform-check"><input type="checkbox" id="platformTiktok"><span>TikTok Video</span></label>
                 </div>
               </div>
 
               <div id="marketingDropzone" class="dropzone flex flex-col items-center justify-center text-center p-8 cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mb-2 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <p class="text-sm font-medium">Arrastra una foto o video aquí</p>
-                <p class="text-[11px] text-[#9CA3AF] mt-1">JPG, PNG o MP4/MOV vertical para TikTok</p>
-                <input type="file" id="marketingFileInput" accept="image/*,video/mp4,video/quicktime" multiple class="hidden">
+                <p class="text-sm font-medium">Arrastra una foto aquí</p>
+                <p class="text-[11px] text-[#9CA3AF] mt-1">JPG o PNG</p>
+                <input type="file" id="marketingFileInput" accept="image/*" multiple class="hidden">
               </div>
 
               <div id="marketingImageThumbs" class="hidden flex flex-wrap gap-2"></div>
-              <div id="marketingVideoPreviewWrap" class="hidden">
-                <video id="marketingVideoPreview" class="w-full rounded-xl border border-[#272A30]" controls></video>
-              </div>
 
               <button id="btnGenerarCopy" class="btn-ghost w-full text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2">
                 ✨ Generar Copy con IA
               </button>
             </div>
 
-            <!-- Columna Derecha: Copy / Guion generado + Publicación -->
+            <!-- Columna Derecha: Copy Generado + Publicación -->
             <div class="card p-6 space-y-4 flex flex-col">
               <div>
                 <label class="block text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider mb-1">Copy Generado (editable)</label>
                 <textarea id="marketingCopyText" rows="8" class="w-full px-3 py-2.5 rounded-lg border text-sm leading-relaxed" placeholder="El copy generado por la IA aparecerá aquí. También puedes escribirlo o editarlo manualmente."></textarea>
-              </div>
-
-              <div id="marketingGuionWrap" class="hidden space-y-3 pt-3 border-t border-[rgba(255,255,255,0.05)]">
-                <label class="block text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider">Guion de Video (TikTok)</label>
-                <div>
-                  <label class="text-[10px] text-[#9CA3AF] uppercase">Hook · seg. 1-3</label>
-                  <textarea id="guionHook" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm mt-1"></textarea>
-                </div>
-                <div>
-                  <label class="text-[10px] text-[#9CA3AF] uppercase">Cuerpo · seg. 4-20 (un punto por línea)</label>
-                  <textarea id="guionCuerpo" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm mt-1"></textarea>
-                </div>
-                <div>
-                  <label class="text-[10px] text-[#9CA3AF] uppercase">CTA · seg. 21-30</label>
-                  <textarea id="guionCta" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm mt-1"></textarea>
-                </div>
-                <div>
-                  <label class="text-[10px] text-[#9CA3AF] uppercase">Caption + Hashtags</label>
-                  <textarea id="guionCaption" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm mt-1"></textarea>
-                </div>
               </div>
 
               <p id="marketingStatusText" class="text-[11px] text-[#9CA3AF] italic min-h-[14px]"></p>
@@ -580,7 +556,7 @@
                 <h3 class="font-bold text-sm uppercase tracking-wider text-xs">Redes Sociales</h3>
                 <span id="redesEstadoBadge" class="badge badge-neutral">Sin conectar</span>
               </div>
-              <p class="text-[11px] text-[#6B7280] mb-4">Conecta Facebook, Instagram y TikTok una sola vez para que el Agente Publicitario IA pueda publicar automáticamente.</p>
+              <p class="text-[11px] text-[#6B7280] mb-4">Conecta Facebook e Instagram una sola vez para que el Agente Publicitario IA pueda publicar automáticamente.</p>
 
               <button id="btnConectarRedes" class="btn-primary w-full text-sm font-semibold py-2.5 rounded-lg">
                 Conectar Redes Sociales
