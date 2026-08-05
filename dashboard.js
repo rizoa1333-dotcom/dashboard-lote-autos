@@ -39,18 +39,11 @@ const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.ap
 // bórrala si confirmas que nada la referencia, o elimínala en tu próxima limpieza.
 const N8N_VERIFY_PUBLISH_WEBHOOK_URL = '';
 // Link de Stripe Checkout (modo suscripción). El client_reference_id se inyecta en runtime.
-// Planes reales de Stripe (Payment Links). "Colima" = plan local, cualquier
-// otro estado = plan foráneo. Si agregas un tercer plan, agrégalo aquí y en
-// el <select id="registroEstado"> del HTML — son las dos únicas fuentes de verdad.
-const STRIPE_LINKS = {
-  colima: 'https://buy.stripe.com/14A9AVft709bfoi93D3oA02',   // $25,000 MXN + IVA
-  foraneo: 'https://buy.stripe.com/9B6bJ36WB7BD7VQenX3oA03'   // $42,000 MXN + IVA
-};
-function resolverPlanStripe(estado) {
-  return estado === 'Colima' ? 'colima' : 'foraneo';
-}
+// Plan único para todos los estados: $15,000 MXN + IVA.
+const STRIPE_LINK = 'https://buy.stripe.com/8x27sN80F9JLa3Y7Zz3oA05';
+const PRECIO_PLAN_MXN = 15000;
 function redirigirAStripeCheckout(lote) {
-  const url = new URL(STRIPE_LINKS[resolverPlanStripe(lote.estado)]);
+  const url = new URL(STRIPE_LINK);
   url.searchParams.set('client_reference_id', lote.id);
   window.location.href = url.toString();
 }
@@ -1783,9 +1776,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const box = document.getElementById('registroPrecioBox');
       const texto = document.getElementById('registroPrecioTexto');
       if (!e.target.value) { box.classList.add('hidden'); return; }
-      const plan = resolverPlanStripe(e.target.value);
-      const monto = plan === 'colima' ? 25000 : 42000;
-      texto.textContent = `${formatCurrency(monto)} + IVA`;
+      texto.textContent = `${formatCurrency(PRECIO_PLAN_MXN)} + IVA`;
       box.classList.remove('hidden');
     });
   }
