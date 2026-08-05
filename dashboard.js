@@ -28,8 +28,6 @@ const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 const N8N_MARKETING_WEBHOOK_URL = '';
 // Webhook nuevo, en el MISMO workflow de n8n, para publicar en Facebook/Instagram.
 const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-redes';
-// Webhook del flujo TikTok (Gemini guion + Content Posting API).
-const N8N_TIKTOK_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-tiktok';
 // Estado/QR de la instancia de WhatsApp (Evolution API) — la apikey global de Evolution vive solo en n8n.
 const N8N_QR_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-qr';
 // Conectar/verificar redes sociales vía Upload-Post — la master ApiKey de Upload-Post vive solo en n8n.
@@ -81,7 +79,6 @@ let carImageUrls = [];
 // Estado del Agente Publicitario IA
 let marketingSelectedCarId = null;
 let marketingImageUrls = [];
-let marketingVideoUrl = '';
 
 // Estado del Modo Catálogo / Presentación (ver initCatalogMode más abajo)
 let catalogModeActive = false;
@@ -981,22 +978,6 @@ function generarCopyLocal(car) {
     `📲 Escríbenos por WhatsApp y agenda tu cita hoy mismo. ¡Unidades como esta se van rápido!`;
 }
 
-// Guion local de respaldo (misma estructura que produce el nodo Gemini en n8n).
-function generarGuionLocal(car) {
-  const nombre = `${car.brand || ''} ${car.model || ''}`.trim();
-  const enganche = car.enganche_minimo ? formatCurrency(car.enganche_minimo) : 'un enganche accesible';
-  return {
-    hook: `¿Buscas un ${nombre} premium pero te asusta el enganche?`,
-    cuerpo: [
-      `Motor y manejo de ${nombre} ${car.year || ''} en excelente estado.`,
-      `Equipamiento completo, transmisión ${car.transmision || 'Automática'}.`,
-      `Desde ${enganche} de entrada, precio total ${formatCurrency(car.price)}.`
-    ],
-    cta: 'Escríbenos ahora por WhatsApp y agenda tu cita hoy mismo.',
-    caption: `${nombre} ${car.year || ''} en excelente estado #autosseminuevos #carrosusados #autofinanciamiento #${(car.brand || 'auto').toLowerCase().replace(/\s+/g, '')} #ofertadelmes`
-  };
-}
-
 async function generarCopyIA(car) {
   if (!N8N_MARKETING_WEBHOOK_URL) {
     return generarCopyLocal(car);
@@ -1019,34 +1000,18 @@ function getSelectedPlatforms() {
   const platforms = [];
   if (document.getElementById('platformFacebook').checked) platforms.push('facebook');
   if (document.getElementById('platformInstagram').checked) platforms.push('instagram');
-  if (document.getElementById('platformTiktok').checked) platforms.push('tiktok');
   return platforms;
 }
 
 function updateBtnPublicarLabel() {
   const btnPublicar = document.getElementById('btnPublicarRedes');
   if (!btnPublicar || btnPublicar.disabled) return;
-  const platforms = getSelectedPlatforms();
-  const usaMeta = platforms.includes('facebook') || platforms.includes('instagram');
-  const usaTiktok = platforms.includes('tiktok');
-
-  let label = '🚀 Publicar con IA en Redes Sociales';
-  if (usaMeta && usaTiktok) label = '🚀 Lanzar Campaña Omnicanal';
-  else if (usaTiktok) label = '🚀 Publicar Video con IA';
-
   btnPublicar.style.opacity = '0';
-  setTimeout(() => { btnPublicar.textContent = label; btnPublicar.style.opacity = '1'; }, 120);
-}
-
-function toggleGuionWrap() {
-  const wrap = document.getElementById('marketingGuionWrap');
-  const usaTiktok = document.getElementById('platformTiktok').checked;
-  wrap.classList.toggle('hidden', !usaTiktok);
+  setTimeout(() => { btnPublicar.textContent = '🚀 Publicar con IA en Redes Sociales'; btnPublicar.style.opacity = '1'; }, 120);
 }
 
 async function subirMediaMarketing(files) {
   const statusText = document.getElementById('marketingStatusText');
-  const videoFile = files.find(f => f.type.startsWith('video/'));
   const imageFiles = files.filter(f => f.type.startsWith('image/'));
 
   if (statusText) { statusText.textContent = `Subiendo ${files.length} archivo(s) a la nube... ⏳`; statusText.style.color = 'var(--amber-strong)'; }
@@ -1063,14 +1028,6 @@ async function subirMediaMarketing(files) {
   for (const file of imageFiles) {
     const url = await subir(file);
     if (url) marketingImageUrls.push(url);
-  }
-  if (videoFile) {
-    const url = await subir(videoFile);
-    if (url) {
-      marketingVideoUrl = sanitizeUrl(url, '');
-      document.getElementById('marketingVideoPreview').src = marketingVideoUrl;
-      document.getElementById('marketingVideoPreviewWrap').classList.remove('hidden');
-    }
   }
 
   renderMarketingThumbs();
@@ -1107,10 +1064,9 @@ function initMarketingModule() {
 
   select.addEventListener('change', () => { marketingSelectedCarId = select.value; });
 
-  ['platformFacebook', 'platformInstagram', 'platformTiktok'].forEach(id => {
-    document.getElementById(id).addEventListener('change', () => { toggleGuionWrap(); updateBtnPublicarLabel(); });
+  ['platformFacebook', 'platformInstagram'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => { updateBtnPublicarLabel(); });
   });
-  toggleGuionWrap();
   updateBtnPublicarLabel();
 
   dropzone.addEventListener('click', () => fileInput.click());
@@ -1134,26 +1090,14 @@ function initMarketingModule() {
     const car = carsCache.find(c => String(c.id) === String(marketingSelectedCarId));
     if (!car) { alert('Selecciona una unidad del inventario primero.'); return; }
 
-    const platforms = getSelectedPlatforms();
-    const usaTiktok = platforms.includes('tiktok');
-
     btnGenerar.disabled = true;
-    btnGenerar.textContent = usaTiktok ? '⏳ Generando guion con IA...' : '⏳ Generando copy...';
+    btnGenerar.textContent = '⏳ Generando copy...';
     try {
-      if (platforms.includes('facebook') || platforms.includes('instagram')) {
-        copyText.value = await generarCopyIA(car);
-      }
-      if (usaTiktok) {
-        const guion = generarGuionLocal(car);
-        document.getElementById('guionHook').value = guion.hook;
-        document.getElementById('guionCuerpo').value = guion.cuerpo.join('\n');
-        document.getElementById('guionCta').value = guion.cta;
-        document.getElementById('guionCaption').value = guion.caption;
-      }
+      copyText.value = await generarCopyIA(car);
       if (statusText) { statusText.textContent = 'Contenido generado. Puedes editarlo antes de publicar.'; statusText.style.color = 'var(--text-dim)'; }
     } finally {
       btnGenerar.disabled = false;
-      btnGenerar.textContent = usaTiktok ? '✨ Generar Guion con IA' : '✨ Generar Copy con IA';
+      btnGenerar.textContent = '✨ Generar Copy con IA';
     }
   });
 
@@ -1163,44 +1107,19 @@ function initMarketingModule() {
 
     const platforms = getSelectedPlatforms();
     if (platforms.length === 0) { alert('Selecciona al menos una red social.'); return; }
-
-    const usaMeta = platforms.includes('facebook') || platforms.includes('instagram');
-    const usaTiktok = platforms.includes('tiktok');
-
-    if (usaMeta && !copyText.value.trim()) { alert('Genera o escribe un copy antes de publicar.'); return; }
-    if (usaTiktok && !marketingVideoUrl) { alert('Sube un video para TikTok antes de publicar.'); return; }
-    if (usaTiktok && !document.getElementById('guionCaption').value.trim()) { alert('Genera o escribe el guion de TikTok antes de publicar.'); return; }
+    if (!copyText.value.trim()) { alert('Genera o escribe un copy antes de publicar.'); return; }
 
     btnPublicar.disabled = true;
 
     try {
-      if (usaMeta) {
-        btnPublicar.textContent = 'Publicando en Meta...';
-        if (!N8N_PUBLISH_WEBHOOK_URL) throw new Error('Falta configurar N8N_PUBLISH_WEBHOOK_URL en dashboard.js.');
-        const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
-          body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrls[0] || car.image_url, image_urls: marketingImageUrls.length ? marketingImageUrls : car.image_urls })
-        });
-        if (!resp.ok) throw new Error(`Webhook Meta respondió ${resp.status}`);
-      }
-
-      if (usaTiktok) {
-        btnPublicar.textContent = 'Publicando en TikTok...';
-        if (!N8N_TIKTOK_WEBHOOK_URL) throw new Error('Falta configurar N8N_TIKTOK_WEBHOOK_URL en dashboard.js.');
-        const guionEditado = {
-          hook: document.getElementById('guionHook').value.trim(),
-          cuerpo: document.getElementById('guionCuerpo').value.split('\n').map(s => s.trim()).filter(Boolean),
-          cta: document.getElementById('guionCta').value.trim(),
-          caption: document.getElementById('guionCaption').value.trim()
-        };
-        const resp = await fetch(N8N_TIKTOK_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
-          body: JSON.stringify({ car, video_url: marketingVideoUrl, lote_id: currentLote.id, guion_editado: guionEditado })
-        });
-        if (!resp.ok) throw new Error(`Webhook TikTok respondió ${resp.status}`);
-      }
+      btnPublicar.textContent = 'Publicando en Meta...';
+      if (!N8N_PUBLISH_WEBHOOK_URL) throw new Error('Falta configurar N8N_PUBLISH_WEBHOOK_URL en dashboard.js.');
+      const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
+        body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrls[0] || car.image_url, image_urls: marketingImageUrls.length ? marketingImageUrls : car.image_urls })
+      });
+      if (!resp.ok) throw new Error(`Webhook Meta respondió ${resp.status}`);
     } catch (err) {
       console.error('[Agente IA] Error al publicar:', err);
       btnPublicar.disabled = false;
@@ -1209,14 +1128,13 @@ function initMarketingModule() {
       return;
     }
 
-    // n8n ya persistió publicado_meta/publicado_tiktok/tiktok_hook/etc. al llamar al webhook.
+    // n8n ya persistió publicado_meta al llamar al webhook.
     // Aquí solo se guarda lo que n8n no toca: el copy final y las fotos usadas en este post.
-    const updatePayload = {};
-    if (usaMeta) {
-      updatePayload.copy_meta = copyText.value.trim();
-      updatePayload.image_url = marketingImageUrls[0] || car.image_url;
-      if (marketingImageUrls.length) updatePayload.image_urls = marketingImageUrls;
-    }
+    const updatePayload = {
+      copy_meta: copyText.value.trim(),
+      image_url: marketingImageUrls[0] || car.image_url
+    };
+    if (marketingImageUrls.length) updatePayload.image_urls = marketingImageUrls;
 
     if (Object.keys(updatePayload).length > 0) {
       const { error } = await supabaseClient.from('cars').update(updatePayload).eq('id', car.id).eq('lote_id', currentLote.id);
