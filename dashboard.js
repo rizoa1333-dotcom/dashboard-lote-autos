@@ -1217,18 +1217,9 @@ async function openDrawer(leadId) {
 
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
   if (expedienteContainer) {
-    const docIneHtml = lead.url_ine
-      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>🪪 Clave Elector (INE)</span><span class="mt-1 text-[#6B7280] font-mono select-all">${escapeHtml(lead.url_ine)}</span></div>`
-      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30]"><span>🪪 Clave Elector (INE)</span> <span class="text-[10px] italic">Pendiente</span></div>`;
-
-    const docDomicilioHtml = lead.url_comprobante_domicilio
-      ? `<div class="w-full flex flex-col p-2.5 rounded-lg text-xs mt-2" style="background: var(--surface-2);"><span class="font-bold flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>🏡 Dirección de Residencia</span><span class="mt-1 text-[#6B7280] font-medium select-all">${escapeHtml(lead.url_comprobante_domicilio)}</span></div>`
-      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>🏡 Dirección Residencia</span> <span class="text-[10px] italic">Pendiente</span></div>`;
-
-    const urlIngresosSegura = sanitizeUrl(lead.url_comprobante_ingresos, '');
-    const docIngresosHtml = urlIngresosSegura
-      ? `<a href="${escapeHtml(urlIngresosSegura)}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg mt-2 transition" style="background: var(--surface-2);"><span class="flex items-center gap-1.5 text-[#F5F5F4]"><span class="status-dot"></span>📊 Estados de Cuenta</span> <span class="text-[10px] text-[#6B7280] font-semibold">Ver Archivo →</span></a>`
-      : `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>📊 Estados de Cuenta</span> <span class="text-[10px] italic">Pendiente</span></div>`;
+    const docIneHtml = renderDocPreview(lead.url_ine, '🪪', 'Clave Elector (INE)');
+    const docDomicilioHtml = renderDocPreview(lead.url_comprobante_domicilio, '🏡', 'Dirección de Residencia');
+    const docIngresosHtml = renderDocPreview(lead.url_comprobante_ingresos, '📊', 'Estados de Cuenta');
 
     expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
   }
@@ -2023,6 +2014,29 @@ function sanitizeUrl(rawUrl, fallback = '') {
 
 // Placeholder de redacción para Modo Catálogo (ver initCatalogMode).
 const CATALOG_REDACTED = '•••• Protegido';
+
+function renderDocPreview(rawUrl, emoji, label) {
+  const url = sanitizeUrl(rawUrl, '');
+  if (!url) {
+    return `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>${emoji} ${escapeHtml(label)}</span> <span class="text-[10px] italic">Pendiente</span></div>`;
+  }
+  return `<div class="w-full p-2.5 rounded-lg text-xs mt-2" style="background: var(--surface-2);">
+    <span class="font-bold flex items-center gap-1.5 text-[#F5F5F4] mb-2"><span class="status-dot"></span>${emoji} ${escapeHtml(label)}</span>
+    <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-[#272A30]">
+      <img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="w-full max-h-40 object-cover" loading="lazy" data-url="${escapeHtml(url)}" data-label="${escapeHtml(label)}" onerror="handleDocPreviewError(this)">
+    </a>
+  </div>`;
+}
+
+// Si el archivo no es una imagen (ej. PDF), la <img> falla al cargar y esto la
+// reemplaza por un enlace simple para abrir/descargar el documento.
+function handleDocPreviewError(imgEl) {
+  const url = imgEl.dataset.url || '';
+  const label = imgEl.dataset.label || 'Documento';
+  const wrapper = imgEl.closest('a');
+  if (!wrapper) return;
+  wrapper.outerHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg transition" style="background: var(--surface-3, #1c2029);"><span class="flex items-center gap-1.5 text-[#F5F5F4]">📄 ${escapeHtml(label)}</span> <span class="text-[10px] text-[#6B7280] font-semibold">Ver Archivo →</span></a>`;
+}
 
 function formatCurrency(v) {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v) || 0);
