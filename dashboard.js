@@ -723,7 +723,7 @@ function renderCarThumbs() {
 }
 
 function calcularSaludInventario(car) {
-  const tieneFoto = !!(car.image_url && !car.image_url.includes('placeholder'));
+  const tieneFoto = !!(car.image_url && car.image_url !== PLACEHOLDER_IMG);
   const tieneCopy = !!((car.copy_meta && car.copy_meta.trim()) || (car.tiktok_hook && car.tiktok_hook.trim()));
   const publicado = car.publicado_meta === true || car.publicado_tiktok === true;
 
@@ -897,6 +897,7 @@ function renderCars() {
       document.getElementById('carTransmision').value = car.transmision || 'Automática';
       document.getElementById('carKilometraje').value = car.kilometraje || 0;
       document.getElementById('carEnganche').value = car.enganche_minimo || 0;
+      document.getElementById('carCaracteristicas').value = car.caracteristicas || '';
       document.getElementById('carStatus').value = car.status || 'Disponible';
       carImageUrls = Array.isArray(car.image_urls) && car.image_urls.length ? [...car.image_urls] : (car.image_url ? [car.image_url] : []);
       document.getElementById('carImageUrl').value = carImageUrls[0] || '';
@@ -1943,7 +1944,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       status: document.getElementById('carStatus').value,
       transmision: document.getElementById('carTransmision').value,
       kilometraje: parseFloat(document.getElementById('carKilometraje').value) || 0,
-      enganche_minimo: parseFloat(document.getElementById('carEnganche').value) || 0
+      enganche_minimo: parseFloat(document.getElementById('carEnganche').value) || 0,
+      caracteristicas: document.getElementById('carCaracteristicas').value.trim() || null
     };
 
     let response;
