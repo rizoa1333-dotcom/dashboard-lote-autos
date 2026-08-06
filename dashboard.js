@@ -1356,6 +1356,7 @@ function renderConfigLote() {
   if (!currentLote) return;
   if (document.getElementById('configNombreLote')) document.getElementById('configNombreLote').value = currentLote.nombre || '';
   if (document.getElementById('configPhoneLote')) document.getElementById('configPhoneLote').value = currentLote.whatsapp_number || '';
+  if (document.getElementById('configTelefonoNotificaciones')) document.getElementById('configTelefonoNotificaciones').value = currentLote.telefono_notificaciones || '';
   document.querySelectorAll('.lote-nombre-display').forEach(el => el.textContent = currentLote.nombre);
 }
 
@@ -1793,7 +1794,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       const { data, error } = await supabaseClient.from('lotes').update({
         nombre: document.getElementById('configNombreLote').value.trim(),
-        whatsapp_number: document.getElementById('configPhoneLote').value.trim()
+        whatsapp_number: document.getElementById('configPhoneLote').value.trim(),
+        telefono_notificaciones: document.getElementById('configTelefonoNotificaciones').value.trim() || null
       }).eq('id', currentLote.id).select().single();
       if (!error) { currentLote = data; renderConfigLote(); alert('Lote guardado.'); }
     });
