@@ -179,7 +179,8 @@ function calcularOportunidadesRescatadas() {
 
   const leadsMadrugada = leadsCache.filter(lead => {
     if (!lead.created_at) return false;
-    const hora = new Date(lead.created_at).getHours();
+    const horaMx = new Intl.DateTimeFormat('es-MX', { hour: '2-digit', hour12: false, timeZone: 'America/Mexico_City' }).format(new Date(lead.created_at));
+    const hora = parseInt(horaMx, 10);
     return hora >= 0 && hora < 6;
   });
 
@@ -255,7 +256,8 @@ function renderLeadsTable() {
   const leadsAgrupadosPorMes = {};
   leadsCache.forEach(lead => {
     const fecha = lead.created_at ? new Date(lead.created_at) : new Date();
-    const nombreMes = mesesNombres[fecha.getMonth()];
+    const mesIndexMx = parseInt(new Intl.DateTimeFormat('en-US', { month: 'numeric', timeZone: 'America/Mexico_City' }).format(fecha), 10) - 1;
+    const nombreMes = mesesNombres[mesIndexMx];
 
     if (!leadsAgrupadosPorMes[nombreMes]) {
       leadsAgrupadosPorMes[nombreMes] = [];
@@ -285,8 +287,8 @@ function renderLeadsTable() {
             <tbody class="divide-y divide-[#20242F] text-[#F5F5F4]">
               ${leadsAgrupadosPorMes[mes].map(lead => {
                 const fechaReg = lead.created_at ? new Date(lead.created_at) : new Date();
-                const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
-                const diaVisual = fechaReg.getDate();
+                const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' });
+                const diaVisual = parseInt(new Intl.DateTimeFormat('en-US', { day: 'numeric', timeZone: 'America/Mexico_City' }).format(fechaReg), 10);
 
                 const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
                 const badgeDocumentos = tieneDocumentos
@@ -493,7 +495,7 @@ function renderCitasCronologicas() {
     if (!cita.fecha_cita) return;
 
     const fechaObj = new Date(cita.fecha_cita + 'T00:00:00');
-    const diaTexto = fechaObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const diaTexto = fechaObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Mexico_City' });
 
     if (!citasAgrupadas[diaTexto]) {
       citasAgrupadas[diaTexto] = [];
@@ -1389,7 +1391,7 @@ function renderSubscriptionStatus() {
   } else if (isActive && currentLote.fecha_vencimiento) {
     if (planLabel) planLabel.textContent = 'Plan Activo';
     const fecha = new Date(currentLote.fecha_vencimiento);
-    renewalDate.textContent = `Renueva el ${fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+    renewalDate.textContent = `Renueva el ${fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Mexico_City' })}`;
   }
 }
 
@@ -2025,9 +2027,9 @@ function formatCurrency(v) {
 }
 function formatDate(d) {
   if (!d) return '---';
-  return new Date(d).toLocaleString('es-MX', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }) + ' hrs';
+  return new Date(d).toLocaleString('es-MX', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' }) + ' hrs';
 }
 function formatDateShort(d) {
   if (!d) return '---';
-  return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' });
 }
