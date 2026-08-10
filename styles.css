@@ -15,15 +15,10 @@
   --text-dim: #6B7280;
   --text-faint: #9CA3AF;
 
-  /* Acento de señal: ámbar-óxido, referencia a señalización de taller/
-     tablero de instrumentos. Un solo acento con color real; todo lo
-     demás permanece neutro. */
   --amber: #E5E5E3;
   --amber-soft: rgba(229,229,227,0.10);
   --amber-strong: #FFFFFF;
 
-  /* Temperatura de leads y estados: tonos editoriales desaturados,
-     uso restringido a puntos y bordes de 1-3px, nunca a bloques grandes */
   --hot: #F5F5F4;
   --hot-soft: rgba(245,245,244,0.12);
   --warm: #9CA3AF;
@@ -51,13 +46,11 @@ html, body {
   color: var(--text);
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
 
-/* Sidebar */
 .nav-active {
   background-color: var(--surface-2) !important;
   color: var(--text) !important;
@@ -81,7 +74,6 @@ html, body {
   padding: 14px 12px 4px;
 }
 
-/* Entradas de sección */
 .dashboard-section {
   animation: sectionFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -90,11 +82,9 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Drawer lateral */
 #drawerPro { transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
 .drawer-open { transform: translateX(0) !important; }
 
-/* Campos */
 input, select, textarea {
   background: var(--surface);
   border-color: var(--border) !important;
@@ -107,7 +97,6 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(255,255,255,0.05) !important;
 }
 
-/* ---------- Sistema de tarjetas ---------- */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -115,8 +104,6 @@ input:focus, select:focus, textarea:focus {
 }
 .card-hover:hover { background: var(--surface-hover); border-color: var(--border-strong); }
 
-/* Panel "cluster de instrumentos" — plano, sin degradado ni veta de color.
-   La jerarquía viene de la tipografía, no del fondo. */
 .gauge-card {
   position: relative;
   background: var(--surface);
@@ -131,8 +118,6 @@ input:focus, select:focus, textarea:focus {
   color: var(--text);
 }
 
-/* Etiqueta discreta de estado: punto sólido = activo/publicado,
-   punto hueco = pendiente. Sin color, la jerarquía es tipográfica. */
 .status-dot {
   display: inline-block;
   width: 6px;
@@ -146,7 +131,6 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid var(--text-faint);
 }
 
-/* ---------- Miniaturas de fotos del auto (modal) ---------- */
 .car-thumb {
   position: relative;
   width: 56px;
@@ -171,7 +155,6 @@ input:focus, select:focus, textarea:focus {
   cursor: pointer;
 }
 
-/* Contador de fotos sobre la imagen de la tarjeta de inventario */
 .photo-count {
   position: absolute;
   bottom: 8px;
@@ -184,7 +167,6 @@ input:focus, select:focus, textarea:focus {
   color: var(--text);
 }
 
-/* ---------- Estados vacíos ---------- */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -217,7 +199,6 @@ input:focus, select:focus, textarea:focus {
   font-style: italic;
 }
 
-/* ---------- Skeleton loading ---------- */
 .skeleton {
   background: var(--surface-2);
   border-radius: 8px;
@@ -228,7 +209,6 @@ input:focus, select:focus, textarea:focus {
   50% { opacity: 1; }
 }
 
-/* ---------- Badges ---------- */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -248,7 +228,6 @@ input:focus, select:focus, textarea:focus {
 .badge-danger { background: var(--danger-soft); color: var(--danger); border-color: rgba(229,87,63,0.3); }
 .badge-neutral { background: var(--surface-2); color: var(--text-dim); border-color: var(--border); }
 
-/* ---------- Botones ---------- */
 .btn-primary {
   background: var(--text);
   color: var(--bg);
@@ -266,7 +245,6 @@ input:focus, select:focus, textarea:focus {
 }
 .btn-ghost:hover { background: var(--surface-hover); border-color: var(--border-strong); }
 
-/* ---------- Inventario: catálogo de tarjetas ---------- */
 .car-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -282,7 +260,6 @@ input:focus, select:focus, textarea:focus {
   background: var(--surface-2);
 }
 
-/* ---------- Pipeline Kanban ---------- */
 .kanban-col {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -300,7 +277,6 @@ input:focus, select:focus, textarea:focus {
 .kanban-card.temp-templado { border-left-color: var(--amber); }
 .kanban-card.temp-frio { border-left-color: var(--cold); }
 
-/* ---------- Agente Publicitario IA: dropzone ---------- */
 .dropzone {
   border: 1.5px dashed var(--border-strong);
   border-radius: 12px;
@@ -312,7 +288,6 @@ input:focus, select:focus, textarea:focus {
   background: var(--amber-soft);
 }
 
-/* ---------- Selector de plataformas: checkbox plano ---------- */
 .platform-check {
   display: flex;
   align-items: center;
@@ -329,17 +304,10 @@ input:focus, select:focus, textarea:focus {
 }
 .platform-check:has(input:checked) { color: var(--text); }
 
-/* Tablas */
 table thead tr { color: var(--text-faint); border-color: var(--border); }
 table tbody tr { border-color: var(--border); }
 table tbody tr:hover { background: var(--surface-hover); }
 
-/* ============================================================
-   BENTO GRID — Panel "Monitor General"
-   Bloques modulares de ancho variable sobre una retícula de 12
-   columnas. Cada bloque declara cuántas columnas ocupa; el
-   grid decide el resto. Nada de alturas fijas ni recortes.
-   ============================================================ */
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -361,11 +329,6 @@ table tbody tr:hover { background: var(--surface-hover); }
   .bento-span-3, .bento-span-4, .bento-span-6, .bento-span-8, .bento-span-12 { grid-column: span 1; }
 }
 
-/* ============================================================
-   OPORTUNIDADES RESCATADAS — bloque insignia del panel
-   Gradiente contenido (no brillante), veta ámbar sutil en la
-   esquina, tipografía tabular para los montos.
-   ============================================================ */
 .rescue-card {
   position: relative;
   background: var(--surface);
@@ -382,9 +345,6 @@ table tbody tr:hover { background: var(--surface-hover); }
   background: var(--border);
 }
 
-/* ============================================================
-   SALUD DEL INVENTARIO — barra ultra-fina + checklist
-   ============================================================ */
 .health-track {
   height: 3px;
   width: 100%;
@@ -419,11 +379,6 @@ table tbody tr:hover { background: var(--surface-hover); }
   background: var(--success-soft);
 }
 
-/* ============================================================
-   MODO CATÁLOGO / PRESENTACIÓN
-   Switch minimalista + reglas globales que redactan datos
-   sensibles y despojan al inventario de su ropa operativa.
-   ============================================================ */
 .catalog-switch {
   display: inline-flex;
   align-items: center;
@@ -459,17 +414,13 @@ table tbody tr:hover { background: var(--surface-hover); }
 .catalog-switch-label { font-size: 11px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.01em; }
 .catalog-switch.active .catalog-switch-label { color: var(--text); }
 
-/* Datos sensibles: redactados con desenfoque, no eliminados —
-   comunica "protegido", no "roto". */
 body.catalog-mode .privacy-sensitive {
   filter: blur(5px);
   user-select: none;
   pointer-events: none;
   transition: filter 0.2s ease;
 }
-/* Controles y badges puramente operativos: fuera de vista */
 body.catalog-mode .internal-only { display: none !important; }
-/* Contenido exclusivo del modo presentación */
 .catalog-only { display: none; }
 body.catalog-mode .catalog-only { display: block; }
 body.catalog-mode .catalog-only.inline { display: inline-flex; }
@@ -482,15 +433,7 @@ body.catalog-mode .car-card {
   border-color: var(--border-strong);
 }
 body.catalog-mode .car-card-img { filter: saturate(1.05) contrast(1.02); }
-/* ============================================================
-   IDENTIDAD VISUAL — "Tablero de instrumentos"
-   Una sola pieza de audacia (el riel de navegación como banco de
-   canales); todo lo demás permanece plano y disciplinado.
-   ============================================================ */
 
-/* Space Grotesk para toda la tipografía de mando: títulos, botones,
-   etiquetas en mayúsculas y navegación. Los datos numéricos siguen
-   en JetBrains Mono (sin cambios); la prosa descriptiva sigue en Inter. */
 h1, h2, h3,
 .nav-btn,
 .nav-group-label,
@@ -501,7 +444,6 @@ h1, h2, h3,
   font-family: 'Space Grotesk', 'Inter', sans-serif !important;
 }
 
-/* ---------- Botón primario: acento real en vez de blanco plano ---------- */
 .btn-primary {
   background: var(--amber-strong);
   color: #17110B;
@@ -515,7 +457,6 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px var(--amber-soft) !important;
 }
 
-/* ---------- Riel de navegación — banco de canales ---------- */
 #sidebar nav.flex-1 { gap: 2px; }
 
 .nav-btn {
@@ -551,7 +492,6 @@ input:focus, select:focus, textarea:focus {
   vertical-align: middle;
 }
 
-/* ---------- Pantallas de acceso — recorte de esquina como ticket de taller ---------- */
 #view-registro.card,
 #view-login.card {
   border-radius: 8px;
@@ -574,30 +514,20 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-faint);
 }
 
-/* ---------- Insignia superior "360" — tono del acento en el borde ---------- */
 header .w-9.h-9.font-mono {
   border: 1px solid var(--amber);
   background: transparent !important;
   color: var(--amber-strong) !important;
 }
 
-/* ---------- Reducción de movimiento respetada ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, .dashboard-section, .health-fill, .catalog-switch-thumb { animation: none !important; transition: none !important; }
 }
 
-/* ============================================================
-   MODO BLANCO Y NEGRO — sin matices de color, solo escala de
-   grises. La jerarquía que antes daba el color ahora la dan el
-   grosor de borde, el peso tipográfico y el relleno.
-   ============================================================ */
-
-/* Kanban: temperatura por grosor de borde izquierdo, no por color */
 .kanban-card.temp-caliente { border-left-width: 4px; border-left-color: var(--text); }
 .kanban-card.temp-templado { border-left-width: 3px; border-left-color: var(--text-faint); }
 .kanban-card.temp-frio     { border-left-width: 1px; border-left-color: var(--border-strong); }
 
-/* Badges de estado: relleno sólido = urgente/negativo, borde punteado = neutral */
 .badge-hot {
   background: var(--surface-2);
   color: var(--text);
@@ -626,21 +556,56 @@ header .w-9.h-9.font-mono {
   text-decoration: line-through;
 }
 
-/* Salud de inventario: barra por textura, no por color semáforo */
 .health-fill.health-low  { background: repeating-linear-gradient(45deg, var(--text-faint), var(--text-faint) 3px, transparent 3px, transparent 6px); }
 .health-fill.health-mid  { background: var(--text-faint); }
 .health-fill.health-high { background: var(--text); }
 
-/* Rescue card / gauge card: borde superior en blanco puro, sin ámbar */
 .rescue-card { border-top-color: var(--text) !important; }
 .gauge-card { border-top-color: var(--border-strong) !important; }
 
-/* Ticket de acceso (login/registro): borde en blanco, no ámbar */
 #view-registro.card,
 #view-login.card {
   border-top-color: var(--text) !important;
 }
 
-/* Nav activo: barra izquierda blanca en vez de ámbar */
 .nav-btn.nav-active { border-left-color: var(--text) !important; }
 .nav-btn.nav-active svg { color: var(--text) !important; }
+
+/* ============================================================
+   MOBILE FIXES
+   ============================================================ */
+@media (max-width: 640px) {
+  input, select, textarea { font-size: 16px !important; }
+
+  .card, .gauge-card, .rescue-card { padding: 16px !important; }
+  .bento-grid { gap: 12px; }
+
+  /* Modal nuevo vehículo: 2 columnas se apretaban, a 1 en mobile */
+  #formNuevoCar .grid-cols-2 { grid-template-columns: 1fr; }
+
+  /* Drawer CRM: en mobile es flex-col; cada bloque (avatar, chat,
+     expediente) necesita alto acotado propio para poder scrollear,
+     si no el contenido se corta por el overflow-hidden del padre */
+  #drawerPro .flex-1.overflow-hidden { overflow-y: auto; }
+  #drawerPro .lg\:w-80, #drawerPro .lg\:w-72 {
+    max-height: 60vh;
+  }
+
+  /* Kanban: columnas ya son 1 sola en mobile (grid-cols-1) */
+  .kanban-col { padding: 10px !important; }
+
+  /* Header: 76px es alto para mobile */
+  header.h-\[76px\] { height: 64px; }
+
+  /* Botones de acción largos (import/agregar unidad) a ancho completo */
+  #section-inventario .flex.items-center.gap-2 {
+    flex-direction: column;
+    width: 100%;
+  }
+  #section-inventario .flex.items-center.gap-2 button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  table { display: block; overflow-x: auto; white-space: nowrap; }
+}
