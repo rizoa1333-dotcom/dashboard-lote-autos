@@ -65,6 +65,8 @@ let syncIntervalId = null;
 let leadsCache = [];
 let carsCache = [];
 let citasCache = [];
+let citasCalendarioMes = new Date();
+let citasDiaSeleccionado = null; // 'YYYY-MM-DD', o 'ALL' para ver todas
 let editingCarId = null;
 let activeLeadId = null;
 let carImageUrls = [];
@@ -216,7 +218,15 @@ async function fetchCitasReal() {
     return;
   }
   citasCache = data || [];
-  renderCitasCronologicas();
+  if (citasDiaSeleccionado === null) {
+    citasDiaSeleccionado = claveDiaMx(new Date());
+  }
+  if (citasDiaSeleccionado === 'ALL') {
+    renderCitasCronologicas();
+  } else {
+    renderCitasDelDia(citasDiaSeleccionado);
+  }
+  renderCitasCalendario();
   renderCounters();
   renderPipelineKanban();
 }
@@ -251,83 +261,123 @@ function renderLeadsTable() {
     return;
   }
 
-  const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  // Agrupar por día en hora de México, más recientes primero
+  const hoyClave   = claveDiaMx(new Date());
+  const ayerClave  = claveDiaMx(new Date(Date.now() - 86400000));
 
-  const leadsAgrupadosPorMes = {};
-  leadsCache.forEach(lead => {
+  const diasMap = {};
+  const leadsOrdenados = [...leadsCache].sort((a, b) =>
+    new Date(b.created_at || 0) - new Date(a.created_at || 0)
+  );
+
+  leadsOrdenados.forEach(lead => {
     const fecha = lead.created_at ? new Date(lead.created_at) : new Date();
-    const mesIndexMx = parseInt(new Intl.DateTimeFormat('en-US', { month: 'numeric', timeZone: 'America/Mexico_City' }).format(fecha), 10) - 1;
-    const nombreMes = mesesNombres[mesIndexMx];
-
-    if (!leadsAgrupadosPorMes[nombreMes]) {
-      leadsAgrupadosPorMes[nombreMes] = [];
-    }
-    leadsAgrupadosPorMes[nombreMes].push(lead);
+    const clave = claveDiaMx(fecha);
+    if (!diasMap[clave]) diasMap[clave] = [];
+    diasMap[clave].push(lead);
   });
 
-  container.innerHTML = Object.keys(leadsAgrupadosPorMes).map(mes => `
-    <div class="space-y-2.5">
-      <div class="text-xs font-bold text-[#6B7280] uppercase tracking-wider bg-[#161922] px-4 py-2 rounded-lg border border-[#272A30] inline-block">
-        📅 Registros de ${mes}
-      </div>
+  // Etiqueta humanizada del día
+  function labelDia(clave) {
+    if (clave === hoyClave)  return '🟢 Hoy';
+    if (clave === ayerClave) return '🕐 Ayer';
+    const [y, m, d] = clave.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d, 12))
+      .toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  }
 
-      <div class="card p-2">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm text-left">
-            <thead>
-              <tr class="text-[#9CA3AF] border-b border-[#272A30] text-xs uppercase font-semibold">
-                <th class="px-4 py-3 font-medium">Nombre Completo</th>
-                <th class="px-4 py-3 font-medium">Teléfono / WhatsApp</th>
-                <th class="px-4 py-3 font-medium">Auto de Interés</th>
-                <th class="px-4 py-3 font-medium">Hora Registro</th>
-                <th class="px-4 py-3 font-medium">Estatus</th>
-                <th class="px-4 py-3 font-medium text-right">Acción</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-[#20242F] text-[#F5F5F4]">
-              ${leadsAgrupadosPorMes[mes].map(lead => {
-                const fechaReg = lead.created_at ? new Date(lead.created_at) : new Date();
-                const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' });
-                const diaVisual = parseInt(new Intl.DateTimeFormat('en-US', { day: 'numeric', timeZone: 'America/Mexico_City' }).format(fechaReg), 10);
+  const diasOrdenados = Object.keys(diasMap).sort((a, b) => b.localeCompare(a));
 
-                const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
-                const badgeDocumentos = tieneDocumentos
-                  ? `<span class="badge badge-success ml-2">📎 Datos Recibidos</span>`
-                  : '';
+  container.innerHTML = diasOrdenados.map(clave => {
+    const leadsDelDia = diasMap[clave];
+    const label = labelDia(clave);
+    const esHoy = clave === hoyClave;
 
-                return `
-                  <tr class="hover:bg-[#1C202A] transition">
-                    <td class="px-4 py-3.5 font-semibold text-sm">
-                      <div class="flex items-center justify-start flex-wrap gap-1">
-                        <span>${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</span>
-                        ${badgeDocumentos}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3.5 text-xs text-[#6B7280] font-mono privacy-sensitive">${catalogModeActive ? CATALOG_REDACTED : escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</td>
-                    <td class="px-4 py-3.5 text-sm font-medium">
-                      <div class="flex flex-col">
-                        <span style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</span>
-                        ${lead.auto_sugerido ? `<span class="badge badge-success mt-1 w-fit">✨ Sugerido: ${escapeHtml(lead.auto_sugerido)}</span>` : ''}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3.5 text-xs text-[#9CA3AF]">${diaVisual} de ${mes.slice(0,3)}, ${horaVisual}</td>
-                    <td class="px-4 py-3.5">
-                      <span class="badge ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span>
-                    </td>
-                    <td class="px-4 py-3.5 text-right">
-                      <button data-lead-id="${escapeHtml(lead.id)}" class="btn-ver-perfil text-[11px] btn-primary px-2.5 py-1.5 rounded-lg font-medium cursor-pointer">
-                        Ver Perfil
-                      </button>
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
+    const filaHTML = lead => {
+      const fechaReg = lead.created_at ? new Date(lead.created_at) : new Date();
+      const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' });
+      const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
+      const badgeDocs = tieneDocumentos ? `<span class="badge badge-success ml-1">📎 Docs</span>` : '';
+      return `
+        <tr class="hover:bg-[#1C202A] transition">
+          <td class="px-4 py-3 font-semibold text-sm">
+            <div class="flex items-center flex-wrap gap-1">
+              <span>${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</span>
+              ${badgeDocs}
+            </div>
+          </td>
+          <td class="px-4 py-3 text-xs text-[#6B7280] font-mono privacy-sensitive">${catalogModeActive ? CATALOG_REDACTED : escapeHtml(lead.phone_number || lead.telefono || '—')}</td>
+          <td class="px-4 py-3 text-sm font-medium" style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</td>
+          <td class="px-4 py-3 text-xs text-[#9CA3AF]">${horaVisual}</td>
+          <td class="px-4 py-3"><span class="badge ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span></td>
+          <td class="px-4 py-3 text-right">
+            <button data-lead-id="${escapeHtml(lead.id)}" class="btn-ver-perfil text-[11px] btn-primary px-2.5 py-1.5 rounded-lg font-medium cursor-pointer">Ver Perfil</button>
+          </td>
+        </tr>`;
+    };
+
+    const tarjetaHTML = lead => {
+      const fechaReg = lead.created_at ? new Date(lead.created_at) : new Date();
+      const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' });
+      const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
+      return `
+        <div class="card p-4 space-y-2">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="font-semibold text-sm truncate">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</p>
+              <p class="text-xs text-[#6B7280] font-mono mt-0.5 privacy-sensitive">${catalogModeActive ? CATALOG_REDACTED : escapeHtml(lead.phone_number || lead.telefono || '—')}</p>
+            </div>
+            <span class="badge ${statusBadgeClass(lead.status)} flex-shrink-0">${escapeHtml(lead.status || 'Calificado')}</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-sm font-medium" style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</span>
+            ${tieneDocumentos ? `<span class="badge badge-success">📎 Docs</span>` : ''}
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-[#272A30]">
+            <span class="text-[11px] text-[#9CA3AF]">${horaVisual}</span>
+            <button data-lead-id="${escapeHtml(lead.id)}" class="btn-ver-perfil text-[11px] btn-primary px-3 py-1.5 rounded-lg font-medium cursor-pointer">Ver Perfil</button>
+          </div>
+        </div>`;
+    };
+
+    return `
+      <div class="space-y-2.5">
+        <div class="flex items-center gap-2">
+          <div class="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border inline-flex items-center gap-2
+            ${esHoy ? 'text-[#F5F5F4] border-[var(--amber)] bg-[var(--amber-soft)]' : 'text-[#6B7280] border-[#272A30] bg-[#161922]'}">
+            ${label}
+          </div>
+          <span class="text-[10px] text-[#6B7280]">${leadsDelDia.length} prospecto${leadsDelDia.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        <!-- Desktop: tabla -->
+        <div class="card p-2 hidden md:block">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead>
+                <tr class="text-[#9CA3AF] border-b border-[#272A30] text-xs uppercase font-semibold">
+                  <th class="px-4 py-3">Nombre</th>
+                  <th class="px-4 py-3">Teléfono</th>
+                  <th class="px-4 py-3">Auto de Interés</th>
+                  <th class="px-4 py-3">Hora</th>
+                  <th class="px-4 py-3">Estatus</th>
+                  <th class="px-4 py-3 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#20242F] text-[#F5F5F4]">
+                ${leadsDelDia.map(filaHTML).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Móvil: tarjetas -->
+        <div class="space-y-2 md:hidden">
+          ${leadsDelDia.map(tarjetaHTML).join('')}
         </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   container.querySelectorAll('.btn-ver-perfil').forEach(btn => {
     btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-lead-id')));
@@ -477,79 +527,47 @@ function procesarMetricasBI() {
 }
 
 // ------------------------------------------------------------
-// CITAS CRONOLÓGICAS 📅
+// CITAS — CALENDARIO Y VISTAS 📅
 // ------------------------------------------------------------
-function renderCitasCronologicas() {
-  const container = document.getElementById('citasListContainer');
-  if (!container) return;
+function claveDiaMx(date) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(date);
+}
 
-  const citas = citasCache;
+function renderCitaCardHTML(cita) {
+  const horaVisual = cita.hora_cita ? cita.hora_cita.slice(0, 5) : '12:00';
+  const esCancelada = cita.estado_lead === 'Cancelada';
 
-  if (citas.length === 0) {
-    container.innerHTML = '<p class="text-xs text-[#9CA3AF] p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
-    return;
-  }
+  const claseContenedor = esCancelada ? 'opacity-60' : 'card-hover';
+  const claseTextoNombre = esCancelada ? 'text-[#9CA3AF] line-through' : 'text-[#F5F5F4]';
 
-  const citasAgrupadas = {};
-  citas.forEach(cita => {
-    if (!cita.fecha_cita) return;
+  const botonAccion = esCancelada
+    ? `<button data-cita-id="${escapeHtml(cita.id)}" data-action="delete" class="btn-gestion-cita btn-ghost p-1.5 rounded-lg flex items-center justify-center cursor-pointer flex-shrink-0" title="Limpiar del historial">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+       </button>`
+    : `<button data-cita-id="${escapeHtml(cita.id)}" data-action="cancel" class="btn-gestion-cita p-1.5 rounded-lg flex items-center justify-center cursor-pointer transition flex-shrink-0" style="background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(229,87,63,0.25);" title="Marcar como Cancelada">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+       </button>`;
 
-    const fechaObj = new Date(cita.fecha_cita + 'T00:00:00');
-    const diaTexto = fechaObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Mexico_City' });
+  const indicadorEstatus = esCancelada
+    ? `<span class="badge badge-danger">❌ Cancelada por IA</span>`
+    : `<span class="badge badge-cold">${horaVisual} hrs</span>`;
 
-    if (!citasAgrupadas[diaTexto]) {
-      citasAgrupadas[diaTexto] = [];
-    }
-    citasAgrupadas[diaTexto].push(cita);
-  });
-
-  container.innerHTML = Object.keys(citasAgrupadas).map(dia => `
-    <div class="space-y-2">
-      <div class="text-xs font-bold text-[#9CA3AF] uppercase tracking-wider bg-[#161922] px-3 py-1.5 rounded-md border border-[#272A30]">${dia}</div>
-      <div class="grid grid-cols-1 gap-2 pl-1">
-        ${citasAgrupadas[dia].map(cita => {
-          const horaVisual = cita.hora_cita ? cita.hora_cita.slice(0, 5) : '12:00';
-          const esCancelada = cita.estado_lead === 'Cancelada';
-
-          const claseContenedor = esCancelada
-            ? 'opacity-60'
-            : 'card-hover';
-
-          const claseTextoNombre = esCancelada
-            ? 'text-[#9CA3AF] line-through'
-            : 'text-[#F5F5F4]';
-
-          const botonAccion = esCancelada
-            ? `<button data-cita-id="${escapeHtml(cita.id)}" data-action="delete" class="btn-gestion-cita btn-ghost p-1.5 rounded-lg flex items-center justify-center cursor-pointer" title="Limpiar del historial">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-               </button>`
-            : `<button data-cita-id="${escapeHtml(cita.id)}" data-action="cancel" class="btn-gestion-cita p-1.5 rounded-lg flex items-center justify-center cursor-pointer transition" style="background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(229,87,63,0.25);" title="Marcar como Cancelada">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-               </button>`;
-
-          const indicadorEstatus = esCancelada
-            ? `<span class="badge badge-danger">❌ Cancelada por IA</span>`
-            : `<span class="badge badge-cold">${horaVisual} hrs</span>`;
-
-          return `
-            <div class="flex items-center justify-between p-3 card ${claseContenedor}">
-              <div>
-                <p class="font-semibold text-sm ${claseTextoNombre}">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
-                <p class="text-xs text-[#9CA3AF] font-mono privacy-sensitive">Tel: ${catalogModeActive ? CATALOG_REDACTED : escapeHtml(cita.telefono || 'Sin número')} • Interés: <span style="color: var(--cold);" class="font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
-              </div>
-
-              <div class="flex items-center gap-3">
-                ${indicadorEstatus}
-                ${botonAccion}
-              </div>
-            </div>
-          `;
-        }).join('')}
+  return `
+    <div class="flex items-center justify-between gap-3 p-3 card ${claseContenedor}">
+      <div class="min-w-0">
+        <p class="font-semibold text-sm ${claseTextoNombre} truncate">${escapeHtml(cita.nombre_cliente || 'Cliente Patio')}</p>
+        <p class="text-xs text-[#9CA3AF] font-mono privacy-sensitive truncate">Tel: ${catalogModeActive ? CATALOG_REDACTED : escapeHtml(cita.telefono || 'Sin número')} • Interés: <span style="color: var(--cold);" class="font-medium">${escapeHtml(cita.auto_interes || 'General')}</span></p>
+      </div>
+      <div class="flex items-center gap-3 flex-shrink-0">
+        ${indicadorEstatus}
+        ${botonAccion}
       </div>
     </div>
-  `).join('');
+  `;
+}
 
-  container.querySelectorAll('.btn-gestion-cita').forEach(btn => {
+function activarBotonesGestionCita(scopeEl) {
+  scopeEl.querySelectorAll('.btn-gestion-cita').forEach(btn => {
     btn.addEventListener('click', async () => {
       const citaId = btn.getAttribute('data-cita-id');
       const accion = btn.getAttribute('data-action');
@@ -565,6 +583,144 @@ function renderCitasCronologicas() {
       }
       await fetchCitasReal();
     });
+  });
+}
+
+// Vista "Ver todas": historial completo agrupado por fecha, sin filtrar por el calendario.
+function renderCitasCronologicas() {
+  const container = document.getElementById('citasListContainer');
+  const label = document.getElementById('citasDiaSeleccionadoLabel');
+  if (!container) return;
+  if (label) label.textContent = 'Todas las Citas';
+
+  const citas = citasCache;
+
+  if (citas.length === 0) {
+    container.innerHTML = '<p class="text-xs text-[#9CA3AF] p-4 text-center">No hay citas de clientes agendadas en el patio.</p>';
+    return;
+  }
+
+  const citasAgrupadas = {};
+  citas.forEach(cita => {
+    if (!cita.fecha_cita) return;
+    const fechaObj = new Date(cita.fecha_cita + 'T00:00:00');
+    const diaTexto = fechaObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Mexico_City' });
+    if (!citasAgrupadas[diaTexto]) citasAgrupadas[diaTexto] = [];
+    citasAgrupadas[diaTexto].push(cita);
+  });
+
+  container.innerHTML = Object.keys(citasAgrupadas).map(dia => `
+    <div class="space-y-2">
+      <div class="text-xs font-bold text-[#9CA3AF] uppercase tracking-wider bg-[#161922] px-3 py-1.5 rounded-md border border-[#272A30]">${dia}</div>
+      <div class="grid grid-cols-1 gap-2 pl-1">
+        ${citasAgrupadas[dia].map(renderCitaCardHTML).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  activarBotonesGestionCita(container);
+}
+
+// Vista por defecto: solo las citas del día seleccionado en el calendario.
+function renderCitasDelDia(diaClave) {
+  const container = document.getElementById('citasListContainer');
+  const label = document.getElementById('citasDiaSeleccionadoLabel');
+  if (!container) return;
+
+  citasDiaSeleccionado = diaClave;
+
+  const [y, m, d] = diaClave.split('-').map(Number);
+  const hoyClave = claveDiaMx(new Date());
+  const fechaLabel = diaClave === hoyClave
+    ? 'Hoy'
+    : new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+  if (label) label.textContent = `Citas del ${fechaLabel}`;
+
+  const citasDelDia = citasCache.filter(c => c.fecha_cita === diaClave);
+
+  if (citasDelDia.length === 0) {
+    container.innerHTML = '<p class="text-xs text-[#9CA3AF] p-4 text-center">No hay citas agendadas para este día.</p>';
+  } else {
+    container.innerHTML = `<div class="grid grid-cols-1 gap-2">${citasDelDia.map(renderCitaCardHTML).join('')}</div>`;
+    activarBotonesGestionCita(container);
+  }
+
+  renderCitasCalendario();
+}
+
+// Dibuja la retícula del mes con un punto en los días que tienen citas.
+function renderCitasCalendario() {
+  const grid = document.getElementById('citasCalendarGrid');
+  const label = document.getElementById('citasCalendarioMesLabel');
+  if (!grid) return;
+
+  const year = citasCalendarioMes.getFullYear();
+  const month = citasCalendarioMes.getMonth();
+
+  if (label) {
+    label.textContent = citasCalendarioMes.toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  }
+
+  const primerDiaMes = new Date(Date.UTC(year, month, 1));
+  const offsetInicio = primerDiaMes.getUTCDay();
+  const diasEnMes = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const hoyClave = claveDiaMx(new Date());
+
+  const conteoPorDia = {};
+  citasCache.forEach(c => {
+    if (!c.fecha_cita || c.estado_lead === 'Cancelada') return;
+    conteoPorDia[c.fecha_cita] = (conteoPorDia[c.fecha_cita] || 0) + 1;
+  });
+
+  let celdas = '';
+  for (let i = 0; i < offsetInicio; i++) celdas += `<div></div>`;
+
+  for (let dia = 1; dia <= diasEnMes; dia++) {
+    const claveDia = `${year}-${String(month + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    const cantidad = conteoPorDia[claveDia] || 0;
+    const esHoy = claveDia === hoyClave;
+    const esSeleccionado = claveDia === citasDiaSeleccionado;
+
+    let clases = 'aspect-square rounded-lg flex flex-col items-center justify-center text-xs cursor-pointer transition relative';
+    if (esSeleccionado) {
+      clases += ' btn-primary font-bold';
+    } else if (esHoy) {
+      clases += ' border font-semibold text-[#F5F5F4]';
+    } else {
+      clases += ' text-[#9CA3AF] hover:bg-[#1C202A]';
+    }
+
+    celdas += `
+      <button type="button" data-dia="${claveDia}" class="btn-dia-calendario ${clases}" ${esHoy && !esSeleccionado ? 'style="border-color: var(--amber);"' : ''}>
+        <span>${dia}</span>
+        ${cantidad > 0 ? `<span class="w-1.5 h-1.5 rounded-full mt-0.5" style="background: ${esSeleccionado ? 'currentColor' : 'var(--amber)'};"></span>` : ''}
+      </button>
+    `;
+  }
+
+  grid.innerHTML = celdas;
+  grid.querySelectorAll('.btn-dia-calendario').forEach(btn => {
+    btn.addEventListener('click', () => renderCitasDelDia(btn.getAttribute('data-dia')));
+  });
+}
+
+function initCitasCalendario() {
+  const btnAnterior = document.getElementById('citasMesAnterior');
+  const btnSiguiente = document.getElementById('citasMesSiguiente');
+  const btnVerTodas = document.getElementById('btnVerTodasCitas');
+
+  if (btnAnterior) btnAnterior.addEventListener('click', () => {
+    citasCalendarioMes = new Date(Date.UTC(citasCalendarioMes.getFullYear(), citasCalendarioMes.getMonth() - 1, 1));
+    renderCitasCalendario();
+  });
+  if (btnSiguiente) btnSiguiente.addEventListener('click', () => {
+    citasCalendarioMes = new Date(Date.UTC(citasCalendarioMes.getFullYear(), citasCalendarioMes.getMonth() + 1, 1));
+    renderCitasCalendario();
+  });
+  if (btnVerTodas) btnVerTodas.addEventListener('click', () => {
+    citasDiaSeleccionado = 'ALL';
+    renderCitasCronologicas();
+    renderCitasCalendario();
   });
 }
 
@@ -1978,6 +2134,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSidebarNav();
   initMarketingModule();
   initCatalogMode();
+  initCitasCalendario();
 });
 
 // Formateadores Globales
