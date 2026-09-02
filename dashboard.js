@@ -648,23 +648,22 @@ function renderCitasDelDia(diaClave) {
   renderCitasCalendario();
 }
 
-// Dibuja la retícula del mes con un punto en los días que tienen citas.
+// Dibuja la fila compacta de días del mes — píldoras con bolita roja si hay citas.
 function renderCitasCalendario() {
   const grid = document.getElementById('citasCalendarGrid');
   const label = document.getElementById('citasCalendarioMesLabel');
   if (!grid) return;
 
-  const year = citasCalendarioMes.getFullYear();
+  const year  = citasCalendarioMes.getFullYear();
   const month = citasCalendarioMes.getMonth();
 
   if (label) {
     label.textContent = citasCalendarioMes.toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   }
 
-  const primerDiaMes = new Date(Date.UTC(year, month, 1));
-  const offsetInicio = primerDiaMes.getUTCDay();
-  const diasEnMes = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const hoyClave = claveDiaMx(new Date());
+  const diasEnMes   = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const hoyClave    = claveDiaMx(new Date());
+  const DIAS_CORTOS = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
 
   const conteoPorDia = {};
   citasCache.forEach(c => {
@@ -672,33 +671,43 @@ function renderCitasCalendario() {
     conteoPorDia[c.fecha_cita] = (conteoPorDia[c.fecha_cita] || 0) + 1;
   });
 
-  let celdas = '';
-  for (let i = 0; i < offsetInicio; i++) celdas += `<div></div>`;
-
+  let html = '';
   for (let dia = 1; dia <= diasEnMes; dia++) {
-    const claveDia = `${year}-${String(month + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-    const cantidad = conteoPorDia[claveDia] || 0;
-    const esHoy = claveDia === hoyClave;
-    const esSeleccionado = claveDia === citasDiaSeleccionado;
+    const claveDia   = `${year}-${String(month + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    const cantidad   = conteoPorDia[claveDia] || 0;
+    const esHoy      = claveDia === hoyClave;
+    const esSelec    = claveDia === citasDiaSeleccionado;
+    const diaSemana  = new Date(Date.UTC(year, month, dia)).getUTCDay();
 
-    let clases = 'aspect-square rounded-lg flex flex-col items-center justify-center text-xs cursor-pointer transition relative';
-    if (esSeleccionado) {
-      clases += ' btn-primary font-bold';
+    let clases = 'relative flex-shrink-0 flex flex-col items-center justify-center gap-0.5 w-10 h-12 rounded-xl cursor-pointer transition text-center select-none';
+    if (esSelec) {
+      clases += ' btn-primary';
     } else if (esHoy) {
-      clases += ' border font-semibold text-[#F5F5F4]';
+      clases += ' border border-[var(--amber)] text-[#F5F5F4] font-bold';
     } else {
-      clases += ' text-[#9CA3AF] hover:bg-[#1C202A]';
+      clases += ' bg-[#1C202A] text-[#9CA3AF] hover:bg-[#272A30]';
     }
 
-    celdas += `
-      <button type="button" data-dia="${claveDia}" class="btn-dia-calendario ${clases}" ${esHoy && !esSeleccionado ? 'style="border-color: var(--amber);"' : ''}>
-        <span>${dia}</span>
-        ${cantidad > 0 ? `<span class="w-1.5 h-1.5 rounded-full mt-0.5" style="background: ${esSeleccionado ? 'currentColor' : 'var(--amber)'};"></span>` : ''}
+    html += `
+      <button type="button" data-dia="${claveDia}" class="btn-dia-calendario ${clases}">
+        <span class="text-[9px] font-bold uppercase opacity-60">${DIAS_CORTOS[diaSemana]}</span>
+        <span class="text-sm font-bold leading-none">${dia}</span>
+        ${cantidad > 0
+          ? `<span class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style="background:${esSelec ? '#fff' : 'var(--amber)'};"></span>`
+          : ''}
       </button>
     `;
   }
 
-  grid.innerHTML = celdas;
+  grid.innerHTML = html;
+
+  // Scroll automático al día seleccionado o a hoy
+  requestAnimationFrame(() => {
+    const target = grid.querySelector(`[data-dia="${citasDiaSeleccionado}"]`)
+                || grid.querySelector(`[data-dia="${hoyClave}"]`);
+    if (target) target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  });
+
   grid.querySelectorAll('.btn-dia-calendario').forEach(btn => {
     btn.addEventListener('click', () => renderCitasDelDia(btn.getAttribute('data-dia')));
   });

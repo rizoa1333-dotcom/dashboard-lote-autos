@@ -451,21 +451,18 @@
 
         <!-- ===================== CITAS ===================== -->
         <section id="section-citas" class="dashboard-section space-y-6 hidden">
-          <div class="card p-6">
-            <div class="flex items-center justify-between mb-4">
+          <!-- Selector compacto de fechas -->
+          <div class="card p-4">
+            <div class="flex items-center gap-3 mb-3">
               <button id="citasMesAnterior" type="button" class="btn-ghost w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0">‹</button>
-              <div class="text-center min-w-0">
-                <h3 class="font-bold text-sm uppercase tracking-wider" id="citasCalendarioMesLabel">—</h3>
-                <p class="text-[11px] text-[#9CA3AF]">Toca un día para ver sus citas</p>
-              </div>
+              <span id="citasCalendarioMesLabel" class="text-xs font-bold uppercase tracking-wider text-[#9CA3AF] flex-1 text-center">—</span>
               <button id="citasMesSiguiente" type="button" class="btn-ghost w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0">›</button>
             </div>
-            <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-[#6B7280] uppercase mb-1">
-              <span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span>
-            </div>
-            <div id="citasCalendarGrid" class="grid grid-cols-7 gap-1"></div>
+            <!-- Fila de días del mes, scrolleable horizontalmente en móvil -->
+            <div id="citasCalendarGrid" class="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide"></div>
           </div>
 
+          <!-- Lista de citas del día seleccionado -->
           <div class="card p-6">
             <div class="flex items-center justify-between mb-4 gap-3">
               <div class="min-w-0">
