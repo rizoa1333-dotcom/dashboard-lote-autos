@@ -181,7 +181,7 @@ function calcularOportunidadesRescatadas() {
 
   const leadsMadrugada = leadsCache.filter(lead => {
     if (!lead.created_at) return false;
-    const horaMx = new Intl.DateTimeFormat('es-MX', { hour: '2-digit', hour12: false, timeZone: 'America/Mexico_City' }).format(new Date(lead.created_at));
+    const horaMx = new Intl.DateTimeFormat('es-MX', { hour: '2-digit', hour12: false, timeZone: 'America/Mexico_City' }).format(parseFechaMx(lead.created_at));
     const hora = parseInt(horaMx, 10);
     return hora >= 0 && hora < 6;
   });
@@ -218,8 +218,10 @@ async function fetchCitasReal() {
     return;
   }
   citasCache = data || [];
-  if (citasDiaSeleccionado === null) {
-    citasDiaSeleccionado = claveDiaMx(new Date());
+  const hoyClave = claveDiaMx(new Date());
+  // Si no hay selección o el día seleccionado ya pasó, volver a hoy
+  if (!citasDiaSeleccionado || (citasDiaSeleccionado !== 'ALL' && citasDiaSeleccionado < hoyClave)) {
+    citasDiaSeleccionado = hoyClave;
   }
   if (citasDiaSeleccionado === 'ALL') {
     renderCitasCronologicas();
@@ -271,7 +273,7 @@ function renderLeadsTable() {
   );
 
   leadsOrdenados.forEach(lead => {
-    const fecha = lead.created_at ? new Date(lead.created_at) : new Date();
+    const fecha = lead.created_at ? parseFechaMx(lead.created_at) : new Date();
     const clave = claveDiaMx(fecha);
     if (!diasMap[clave]) diasMap[clave] = [];
     diasMap[clave].push(lead);
@@ -294,7 +296,7 @@ function renderLeadsTable() {
     const esHoy = clave === hoyClave;
 
     const filaHTML = lead => {
-      const fechaReg = lead.created_at ? new Date(lead.created_at) : new Date();
+      const fechaReg = lead.created_at ? parseFechaMx(lead.created_at) : new Date();
       const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' });
       const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
       const badgeDocs = tieneDocumentos ? `<span class="badge badge-success ml-1">📎 Docs</span>` : '';
@@ -317,7 +319,7 @@ function renderLeadsTable() {
     };
 
     const tarjetaHTML = lead => {
-      const fechaReg = lead.created_at ? new Date(lead.created_at) : new Date();
+      const fechaReg = lead.created_at ? parseFechaMx(lead.created_at) : new Date();
       const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' });
       const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
       return `
@@ -1003,6 +1005,7 @@ function renderCars() {
               </div>
             </div>
             <button data-edit-id="${escapeHtml(car.id)}" class="btn-editar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
+            <button data-delete-id="${escapeHtml(car.id)}" data-nombre="${escapeHtml(unidadNombre)}" class="btn-eliminar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Eliminar Unidad">🗑️</button>
           </div>
 
           <p class="text-[11px] text-[#9CA3AF] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
@@ -1073,6 +1076,25 @@ function renderCars() {
       document.getElementById('uploadStatusText').textContent = carImageUrls.length ? `${carImageUrls.length} foto(s) activa(s). Sube más o elimina las que no quieras.` : '';
 
       document.getElementById('modalCarOverlay').classList.remove('hidden');
+    });
+  });
+
+  // ── Eliminar auto ──────────────────────────────────────────
+  grid.querySelectorAll('.btn-eliminar-car').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const carId = btn.getAttribute('data-delete-id');
+      const nombre = btn.getAttribute('data-nombre') || 'esta unidad';
+      if (!confirm(`¿Eliminar permanentemente "${nombre}" del inventario?\n\nEsta acción no se puede deshacer.`)) return;
+      btn.textContent = '⏳';
+      btn.disabled = true;
+      const { error } = await supabaseClient.from('cars').delete().eq('id', carId).eq('lote_id', currentLote.id);
+      if (error) {
+        alert('Error al eliminar la unidad. Intenta de nuevo.');
+        btn.textContent = '🗑️';
+        btn.disabled = false;
+        return;
+      }
+      await fetchInventario();
     });
   });
 
@@ -1427,20 +1449,23 @@ async function refreshChatLive(leadId) {
   const despegadoDelFondo = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight > 100;
 
   chatContainer.innerHTML = messages.map(msg => {
-    const isBot = String(msg.role).toLowerCase() === 'assistant' || String(msg.role).toLowerCase() === 'bot' || !!msg.response;
+    const isBot = String(msg.role).toLowerCase() === 'assistant' || String(msg.role).toLowerCase() === 'bot' || String(msg.role).toLowerCase() === 'model' || !!msg.response;
     const textContent = msg.message || msg.content || msg.response || '---';
+    const hora = msg.created_at
+      ? parseFechaMx(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' })
+      : '';
 
     if (isBot) {
       return `
         <div class="self-start max-w-[85%] bg-[#161922] border border-[#272A30] p-3 rounded-2xl rounded-tl-none space-y-1">
-          <p class="font-bold text-[10px] uppercase tracking-wide" style="color: var(--cold);">🤖 Cerebro IA</p>
+          <p class="font-bold text-[10px] uppercase tracking-wide" style="color: var(--cold);">🤖 Cerebro IA ${hora ? '· ' + hora : ''}</p>
           <p class="leading-relaxed select-text">${escapeHtml(textContent)}</p>
         </div>
       `;
     } else {
       return `
         <div class="self-end max-w-[85%] p-3 rounded-2xl rounded-tr-none space-y-1 text-right" style="background: var(--text); color: var(--bg);">
-          <p class="font-bold text-[10px] uppercase tracking-wide opacity-70">👤 Prospecto</p>
+          <p class="font-bold text-[10px] uppercase tracking-wide opacity-70">👤 Prospecto ${hora ? '· ' + hora : ''}</p>
           <p class="leading-relaxed text-left select-text">${escapeHtml(textContent)}</p>
         </div>
       `;
@@ -2202,6 +2227,16 @@ function handleDocPreviewError(imgEl) {
   const wrapper = imgEl.closest('a');
   if (!wrapper) return;
   wrapper.outerHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg transition" style="background: var(--surface-3, #1c2029);"><span class="flex items-center gap-1.5 text-[#F5F5F4]">📄 ${escapeHtml(label)}</span> <span class="text-[10px] text-[#6B7280] font-semibold">Ver Archivo →</span></a>`;
+}
+
+// Parsea un timestamp de Supabase garantizando hora Mexico City correcta.
+// Supabase puede devolver sin offset (UTC) o con offset; este helper normaliza ambos.
+function parseFechaMx(str) {
+  if (!str) return new Date();
+  // Si ya trae offset (+/-HH:MM o Z), new Date() lo parsea bien
+  if (/[Z+\-]\d{2}:?\d{2}$/.test(str) || str.endsWith('Z')) return new Date(str);
+  // Sin offset: Supabase guarda en UTC, agregar Z explícitamente
+  return new Date(str.includes('.') ? str + 'Z' : str + '.000Z');
 }
 
 function formatCurrency(v) {
