@@ -1,0 +1,22 @@
+[staticFiles]
+assets = "."
+
+[[deploy.headers]]
+path = "/*"
+name = "Content-Security-Policy"
+value = "frame-ancestors 'none'"
+
+[[deploy.headers]]
+path = "/*"
+name = "X-Frame-Options"
+value = "DENY"
+
+[[deploy.headers]]
+path = "/*"
+name = "X-Content-Type-Options"
+value = "nosniff"
+
+[[deploy.headers]]
+path = "/*"
+name = "Referrer-Policy"
+value = "strict-origin-when-cross-origin"
