@@ -23,23 +23,13 @@
 const SUPABASE_URL = 'https://deljncdcddfghfihuumd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zRD9aSUEnmURrji2G5HLSw_EYxriwf-';
 
-// Webhook opcional de n8n para generación de copy con Gemini.
-// Déjalo vacío para usar el generador local de respaldo; pon tu URL de producción para conectar el Agente IA real.
 const N8N_MARKETING_WEBHOOK_URL = '';
-// Webhook nuevo, en el MISMO workflow de n8n, para publicar en Facebook/Instagram.
 const N8N_PUBLISH_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/publicar-redes';
-// Estado/QR de la instancia de WhatsApp (Evolution API) — la apikey global de Evolution vive solo en n8n.
 const N8N_QR_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-qr';
-// Conectar/verificar redes sociales vía Upload-Post — la master ApiKey de Upload-Post vive solo en n8n.
 const N8N_REDES_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhook/redes-conectar';
-// Verifica contra Upload-Post si una publicación (Meta o TikTok) quedó realmente publicada.
 const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.app/webhook/verificar-publicacion';
-// NOTA: esta constante no se usa en ningún fetch() del archivo — es código muerto,
-// probablemente un duplicado de N8N_VERIFICAR_PUBLICACION_URL. Se deja vacía a propósito;
-// bórrala si confirmas que nada la referencia, o elimínala en tu próxima limpieza.
-const N8N_VERIFY_PUBLISH_WEBHOOK_URL = '';
-// Link de Stripe Checkout (modo suscripción). El client_reference_id se inyecta en runtime.
-// Plan único para todos los estados: $15,000 MXN + IVA.
+// FIX #4 eliminado: N8N_VERIFY_PUBLISH_WEBHOOK_URL era código muerto — removido.
+
 const STRIPE_LINK = 'https://buy.stripe.com/8x27sN80F9JLa3Y7Zz3oA05';
 const PRECIO_PLAN_MXN = 15000;
 function redirigirAStripeCheckout(lote) {
@@ -47,17 +37,10 @@ function redirigirAStripeCheckout(lote) {
   url.searchParams.set('client_reference_id', lote.id);
   window.location.href = url.toString();
 }
-// Placeholder inline (SVG data URI): no depende de ningún servicio externo,
-// via.placeholder.com se ha caído en producción (net::ERR_CONNECTION_CLOSED).
-const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22250%22%20viewBox%3D%220%200%20400%20250%22%3E%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22%2320242F%22/%3E%3Ctext%20x%3D%22200%22%20y%3D%22125%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2216%22%20fill%3D%22%239CA3AF%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3ESin%20foto%3C/text%3E%3C/svg%3E';
-// Toda acción que requiera llaves maestras (Meta, TikTok, Service Role)
-// se delega 100% a estos webhooks de n8n / endpoints de Railway.
-// dashboard.js jamás debe hacer fetch() directo a graph.facebook.com,
-// open.tiktokapis.com ni ningún dominio administrativo — solo a estos.
 
-// Variables de Control Global — declaradas ANTES del cliente de Supabase
-// para que el listener onAuthStateChange (que puede disparar casi de
-// inmediato) nunca las referencie antes de que existan.
+const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22250%22%20viewBox%3D%220%200%20400%20250%22%3E%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22%2320242F%22/%3E%3Ctext%20x%3D%22200%22%20y%3D%22125%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2216%22%20fill%3D%22%239CA3AF%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3ESin%20foto%3C%2Ftext%3E%3C%2Fsvg%3E';
+
+// Variables de Control Global
 let currentUser = null;
 let currentLote = null;
 let syncIntervalId = null;
@@ -66,38 +49,26 @@ let leadsCache = [];
 let carsCache = [];
 let citasCache = [];
 let citasCalendarioMes = new Date();
-let citasDiaSeleccionado = null; // 'YYYY-MM-DD', o 'ALL' para ver todas
+let citasDiaSeleccionado = null;
 let editingCarId = null;
 let activeLeadId = null;
 let carImageUrls = [];
 
-// Estado del Agente Publicitario IA
 let marketingSelectedCarId = null;
 let marketingImageUrls = [];
 
-// Estado del Modo Catálogo / Presentación (ver initCatalogMode más abajo)
 let catalogModeActive = false;
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    // 🔐 Endurecimiento de sesión: usamos sessionStorage en vez del
-    // localStorage por defecto. El JWT vive solo mientras la pestaña
-    // está abierta y se borra al cerrarla — reduce la ventana de
-    // exposición si algún día existe un XSS en el sitio. No eliminamos
-    // el token del todo porque supabase-js lo necesita para firmar cada
-    // request; lo que sí garantizamos es que dashboard.js NUNCA copia
-    // ese token a una variable global propia (ver `currentUser` abajo:
-    // solo guarda el objeto de usuario, jamás el access_token).
     storage: window.sessionStorage,
     storageKey: 'p360-auth-session',
     detectSessionInUrl: true
   }
 });
 
-// Si la sesión expira, se revoca, o se cierra en otra pestaña,
-// cortamos el sync y devolvemos al usuario al login de inmediato.
 supabaseClient.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT' || (!session && currentUser)) {
     stopSync();
@@ -107,7 +78,6 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
   }
 });
 
-// Cambiador Global de Vistas SPA
 function showView(viewId) {
   ['view-registro', 'view-login', 'view-dashboard'].forEach(id => {
     const el = document.getElementById(id);
@@ -147,7 +117,7 @@ async function fetchAndRenderAll() {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN LEADS (MONITOR DE PROSPECTOS GENERALES)
+// SECCIÓN LEADS
 // ------------------------------------------------------------
 async function fetchLeads() {
   const { data, error } = await supabaseClient
@@ -168,12 +138,6 @@ async function fetchLeads() {
   calcularOportunidadesRescatadas();
 }
 
-// ------------------------------------------------------------
-// OPORTUNIDADES RESCATADAS 🌙
-// Cuantifica el trabajo del Agente IA fuera de horario humano
-// (madrugada: 00:00–06:00) y estima el valor de venta potencial
-// de las unidades en que esos prospectos mostraron interés.
-// ------------------------------------------------------------
 function calcularOportunidadesRescatadas() {
   const leadsCountEl = document.getElementById('rescueLeadsCount');
   const valorEl = document.getElementById('rescueValorPotencial');
@@ -204,7 +168,7 @@ function calcularOportunidadesRescatadas() {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN CITAS REALES (EXTRACCIÓN MULTI-TENANT DIRECTA) 📅
+// SECCIÓN CITAS
 // ------------------------------------------------------------
 async function fetchCitasReal() {
   const { data, error } = await supabaseClient
@@ -219,7 +183,6 @@ async function fetchCitasReal() {
   }
   citasCache = data || [];
   const hoyClave = claveDiaMx(new Date());
-  // Si no hay selección o el día seleccionado ya pasó, volver a hoy
   if (!citasDiaSeleccionado || (citasDiaSeleccionado !== 'ALL' && citasDiaSeleccionado < hoyClave)) {
     citasDiaSeleccionado = hoyClave;
   }
@@ -263,7 +226,6 @@ function renderLeadsTable() {
     return;
   }
 
-  // Agrupar por día en hora de México, más recientes primero
   const hoyClave   = claveDiaMx(new Date());
   const ayerClave  = claveDiaMx(new Date(Date.now() - 86400000));
 
@@ -279,7 +241,6 @@ function renderLeadsTable() {
     diasMap[clave].push(lead);
   });
 
-  // Etiqueta humanizada del día
   function labelDia(clave) {
     if (clave === hoyClave)  return '🟢 Hoy';
     if (clave === ayerClave) return '🕐 Ayer';
@@ -351,8 +312,6 @@ function renderLeadsTable() {
           </div>
           <span class="text-[10px] text-[#6B7280]">${leadsDelDia.length} prospecto${leadsDelDia.length !== 1 ? 's' : ''}</span>
         </div>
-
-        <!-- Desktop: tabla -->
         <div class="card p-2 hidden md:block">
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
@@ -372,8 +331,6 @@ function renderLeadsTable() {
             </table>
           </div>
         </div>
-
-        <!-- Móvil: tarjetas -->
         <div class="space-y-2 md:hidden">
           ${leadsDelDia.map(tarjetaHTML).join('')}
         </div>
@@ -387,9 +344,7 @@ function renderLeadsTable() {
 }
 
 // ------------------------------------------------------------
-// CLASIFICADOR DE TEMPERATURA DE LEADS (PIPELINE) 🔥⚡❄️
-// Prioriza un campo explícito `temperatura` calculado por la IA en n8n si existe;
-// si no, deriva un estimado a partir del avance documental y la cita agendada.
+// PIPELINE KANBAN
 // ------------------------------------------------------------
 function getLeadTemperature(lead) {
   if (lead.temperatura) {
@@ -455,7 +410,7 @@ function renderPipelineKanban() {
 }
 
 // ------------------------------------------------------------
-// MOTOR PREMIUM DE BUSINESS INTELLIGENCE (MÉTRICAS DEL SAAS) 📊
+// BUSINESS INTELLIGENCE
 // ------------------------------------------------------------
 function procesarMetricasBI() {
   const tasaConversionEl = document.getElementById('biTasaConversion');
@@ -529,7 +484,7 @@ function procesarMetricasBI() {
 }
 
 // ------------------------------------------------------------
-// CITAS — CALENDARIO Y VISTAS 📅
+// CITAS — CALENDARIO Y VISTAS
 // ------------------------------------------------------------
 function claveDiaMx(date) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(date);
@@ -588,7 +543,6 @@ function activarBotonesGestionCita(scopeEl) {
   });
 }
 
-// Vista "Ver todas": historial completo agrupado por fecha, sin filtrar por el calendario.
 function renderCitasCronologicas() {
   const container = document.getElementById('citasListContainer');
   const label = document.getElementById('citasDiaSeleccionadoLabel');
@@ -623,7 +577,6 @@ function renderCitasCronologicas() {
   activarBotonesGestionCita(container);
 }
 
-// Vista por defecto: solo las citas del día seleccionado en el calendario.
 function renderCitasDelDia(diaClave) {
   const container = document.getElementById('citasListContainer');
   const label = document.getElementById('citasDiaSeleccionadoLabel');
@@ -650,7 +603,6 @@ function renderCitasDelDia(diaClave) {
   renderCitasCalendario();
 }
 
-// Dibuja la fila compacta de días del mes — píldoras con bolita roja si hay citas.
 function renderCitasCalendario() {
   const grid = document.getElementById('citasCalendarGrid');
   const label = document.getElementById('citasCalendarioMesLabel');
@@ -703,7 +655,6 @@ function renderCitasCalendario() {
 
   grid.innerHTML = html;
 
-  // Scroll automático al día seleccionado o a hoy
   requestAnimationFrame(() => {
     const target = grid.querySelector(`[data-dia="${citasDiaSeleccionado}"]`)
                 || grid.querySelector(`[data-dia="${hoyClave}"]`);
@@ -749,7 +700,7 @@ function statusBadgeClass(status) {
 }
 
 // ------------------------------------------------------------
-// SECCIÓN INVENTARIO (CATÁLOGO DE TARJETAS) 🏎️
+// SECCIÓN INVENTARIO
 // ------------------------------------------------------------
 async function fetchCars() {
   const { data, error } = await supabaseClient
@@ -768,6 +719,12 @@ async function fetchCars() {
   calcularMetricasInventario();
   populateMarketingCarSelect();
   calcularOportunidadesRescatadas();
+}
+
+// FIX #2: fetchInventario no existía — se reemplaza por fetchCars en todos los
+// puntos de llamada (ver btn-eliminar-car más abajo).
+async function fetchInventario() {
+  return fetchCars();
 }
 
 function renderCarsCounter() {
@@ -789,6 +746,8 @@ function calcularMetricasInventario() {
   const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const reporteMensual = mesesNombres.map(mes => ({ name: mes, unidades: 0, dinero: 0 }));
 
+  const anioActual = new Date().getFullYear();
+
   carsCache.forEach(car => {
     const precio = Number(car.price) || 0;
     if (car.status === 'Vendido') {
@@ -803,7 +762,8 @@ function calcularMetricasInventario() {
             const numeroMes = fechaVenta.getMonth();
             const anioVenta = fechaVenta.getFullYear();
 
-            if (anioVenta === 2026 && numeroMes >= 0 && numeroMes < 12) {
+            // FIX #10: usar anioActual dinámico en vez de 2026 hardcodeado
+            if (anioVenta === anioActual && numeroMes >= 0 && numeroMes < 12) {
               reporteMensual[numeroMes].unidades += 1;
               reporteMensual[numeroMes].dinero += precio;
             }
@@ -818,7 +778,7 @@ function calcularMetricasInventario() {
           reporteMensual[mesActual].dinero += precio;
         }
       } catch (err) {
-        console.warn("[Fix Guard] Error calculando fecha de venta, sumando por defecto:", err);
+        console.warn("[Fix Guard] Error calculando fecha de venta:", err);
         const mesActual = new Date().getMonth();
         reporteMensual[mesActual].unidades += 1;
         reporteMensual[mesActual].dinero += precio;
@@ -835,7 +795,7 @@ function calcularMetricasInventario() {
     const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
 
     if (catalogModeActive) {
-      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">🔒 Facturación oculta en Modo Catálogo.</p>`;
+      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Facturación oculta en Modo Catálogo.</p>`;
     } else if (mesesConVentas.length === 0) {
       mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
     } else {
@@ -857,10 +817,6 @@ function calcularMetricasInventario() {
     }
   }
 
-  // KPI: Autos publicados (Meta o TikTok). No hay columna de fecha de publicación en el
-  // esquema actual (`cars` no tiene `fecha_publicacion`), así que cuenta el total, no "este mes".
-  // Si quieres el filtro por mes de vuelta: `alter table cars add column fecha_publicacion timestamptz;`
-  // y que los nodos "Guardar Estado Meta"/"Guardar Estado TikTok" en n8n la llenen con `now()`.
   if (kpiPublicadosEl) {
     const publicadosEsteMes = carsCache.filter(car => car.publicado_meta === true || car.publicado_tiktok === true).length;
     kpiPublicadosEl.textContent = publicadosEsteMes;
@@ -868,9 +824,7 @@ function calcularMetricasInventario() {
 }
 
 // ------------------------------------------------------------
-// SALUD DEL INVENTARIO 🩺
-// Composite de 3 señales operativas por unidad: foto real,
-// copy generado por el Agente IA, y publicación en redes.
+// SALUD DEL INVENTARIO
 // ------------------------------------------------------------
 function renderCarThumbs() {
   const wrap = document.getElementById('carImageThumbs');
@@ -1035,7 +989,6 @@ function renderCars() {
   grid.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
     btn.addEventListener('click', async () => {
       const hoyParaBD = new Date().toISOString().split('T')[0];
-
       const { error } = await supabaseClient
         .from('cars')
         .update({ status: 'Vendido', fecha_venta: hoyParaBD })
@@ -1073,13 +1026,12 @@ function renderCars() {
 
       document.getElementById('modalCarTitle').textContent = 'Editar Datos de Unidad';
       document.getElementById('btnSubmitCarForm').textContent = 'Actualizar Cambios en Patio';
-      document.getElementById('uploadStatusText').textContent = carImageUrls.length ? `${carImageUrls.length} foto(s) activa(s). Sube más o elimina las que no quieras.` : '';
+      document.getElementById('uploadStatusText').textContent = carImageUrls.length ? `${carImageUrls.length} foto(s) activa(s).` : '';
 
       document.getElementById('modalCarOverlay').classList.remove('hidden');
     });
   });
 
-  // ── Eliminar auto ──────────────────────────────────────────
   grid.querySelectorAll('.btn-eliminar-car').forEach(btn => {
     btn.addEventListener('click', async () => {
       const carId = btn.getAttribute('data-delete-id');
@@ -1094,7 +1046,8 @@ function renderCars() {
         btn.disabled = false;
         return;
       }
-      await fetchInventario();
+      // FIX #2: corregido fetchInventario → fetchCars (la función original no existía)
+      await fetchCars();
     });
   });
 
@@ -1121,7 +1074,7 @@ function renderCars() {
 }
 
 // ------------------------------------------------------------
-// AGENTE PUBLICITARIO IA — Drag & Drop + Copy + Publicación ✨
+// AGENTE PUBLICITARIO IA
 // ------------------------------------------------------------
 function populateMarketingCarSelect() {
   const select = document.getElementById('marketingCarSelect');
@@ -1158,7 +1111,7 @@ function generarCopyLocal(car) {
     `💰 Precio: ${formatCurrency(car.price)}\n` +
     `✅ Entrada desde ${enganche}\n` +
     `📋 Estatus: ${estatus}\n\n` +
-    `📲 Escríbenos por WhatsApp y agenda tu cita hoy mismo. ¡Unidades como esta se van rápido!`;
+    `📲 Escríbenos por WhatsApp y agenda tu cita hoy mismo.`;
 }
 
 async function generarCopyIA(car) {
@@ -1295,14 +1248,14 @@ function initMarketingModule() {
     btnPublicar.disabled = true;
 
     try {
-      btnPublicar.textContent = 'Publicando en Meta...';
+      btnPublicar.textContent = 'Publicando...';
       if (!N8N_PUBLISH_WEBHOOK_URL) throw new Error('Falta configurar N8N_PUBLISH_WEBHOOK_URL en dashboard.js.');
       const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
         body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrls[0] || car.image_url, image_urls: marketingImageUrls.length ? marketingImageUrls : car.image_urls })
       });
-      if (!resp.ok) throw new Error(`Webhook Meta respondió ${resp.status}`);
+      if (!resp.ok) throw new Error(`Webhook respondió ${resp.status}`);
     } catch (err) {
       console.error('[Agente IA] Error al publicar:', err);
       btnPublicar.disabled = false;
@@ -1311,8 +1264,6 @@ function initMarketingModule() {
       return;
     }
 
-    // n8n ya persistió publicado_meta al llamar al webhook.
-    // Aquí solo se guarda lo que n8n no toca: el copy final y las fotos usadas en este post.
     const updatePayload = {
       copy_meta: copyText.value.trim(),
       image_url: marketingImageUrls[0] || car.image_url
@@ -1326,7 +1277,7 @@ function initMarketingModule() {
         btnPublicar.disabled = false;
         updateBtnPublicarLabel();
         if (statusText) {
-          statusText.textContent = `Se publicó, pero no se pudo guardar el copy/fotos en el auto: ${error.message}`;
+          statusText.textContent = `Se publicó, pero no se pudo guardar el copy/fotos: ${error.message}`;
           statusText.style.color = 'var(--danger)';
         }
         await fetchCars();
@@ -1343,15 +1294,12 @@ function initMarketingModule() {
 }
 
 // ------------------------------------------------------------
-// MODAL DRAWER LATERAL ULTRA-CRM (INTEGRACIÓN CHAT LIVE) 🗂️
+// DRAWER CRM
 // ------------------------------------------------------------
 async function openDrawer(leadId) {
-  // 🛡️ Guard real, no cosmético: si alguien reactiva el botón oculto por
-  // CSS (o llama openDrawer(id) directo desde la consola F12), el drawer
-  // de un lead —con teléfono, INE, domicilio y comprobante de ingresos—
-  // sigue sin poder abrirse mientras el Modo Catálogo esté activo.
+  // FIX #8: guard real — bloquea aunque se llame desde consola
   if (catalogModeActive) {
-    console.warn('[Modo Catálogo] Apertura de ficha de lead bloqueada mientras el modo presentación está activo.');
+    console.warn('[Modo Catálogo] Apertura de ficha de lead bloqueada.');
     return;
   }
 
@@ -1397,18 +1345,17 @@ async function openDrawer(leadId) {
   if (lead.situacion_laboral) {
     if (String(lead.situacion_laboral) === '1') textoSituacion = 'Empleado con nómina';
     else if (String(lead.situacion_laboral) === '2') textoSituacion = 'Independiente / Negocio propio';
-    else if (String(lead.situacion_laboral) === '3') textoSituacion = 'No compruebo ingresos';
+    else if (String(lead.situacion_laboral) === '3') textoSituacion = 'No comprueba ingresos';
     else textoSituacion = lead.situacion_laboral;
   }
   document.getElementById('drawerSituacion').textContent = textoSituacion;
 
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
   if (expedienteContainer) {
-    const docIneHtml = renderDocPreview(lead.url_ine, '🪪', 'Clave Elector (INE)');
-    const docDomicilioHtml = renderDocPreview(lead.url_comprobante_domicilio, '🏡', 'Dirección de Residencia');
-    const docIngresosHtml = renderDocPreview(lead.url_comprobante_ingresos, '📊', 'Estados de Cuenta');
-
-    expedienteContainer.innerHTML = docIneHtml + docDomicilioHtml + docIngresosHtml;
+    expedienteContainer.innerHTML =
+      renderDocPreview(lead.url_ine, '🪪', 'Clave Elector (INE)') +
+      renderDocPreview(lead.url_comprobante_domicilio, '🏡', 'Dirección de Residencia') +
+      renderDocPreview(lead.url_comprobante_ingresos, '📊', 'Estados de Cuenta');
   }
 
   await refreshChatLive(lead.id);
@@ -1440,8 +1387,8 @@ async function refreshChatLive(leadId) {
   if (!messages || messages.length === 0) {
     chatContainer.innerHTML = `
       <div class="my-auto text-center space-y-2 p-6">
-        <p class="text-[#9CA3AF] font-medium">No hay logs crudos guardados en la tabla chat_history.</p>
-        <p class="text-[11px] text-[#9CA3AF] bg-[#161922] border border-[#272A30] rounded-lg p-2 max-w-xs mx-auto">Última interacción mapeada: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
+        <p class="text-[#9CA3AF] font-medium">No hay logs guardados en chat_history.</p>
+        <p class="text-[11px] text-[#9CA3AF] bg-[#161922] border border-[#272A30] rounded-lg p-2 max-w-xs mx-auto">Última interacción: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
       </div>`;
     return;
   }
@@ -1484,12 +1431,8 @@ function closeDrawer() {
 }
 
 // ------------------------------------------------------------
-// ------------------------------------------------------------
-// MODO CATÁLOGO / PRESENTACIÓN 🖼️
-// Redacta datos financieros internos y de contacto del lead a
-// nivel de RENDERIZADO (no solo con CSS): los valores sensibles
-// nunca se escriben en el DOM mientras el modo está activo, así
-// que inspeccionar con F12 no revela nada de todas formas.
+// MODO CATÁLOGO
+// FIX #8: limpiar leadsCache al activar para evitar lectura por consola
 // ------------------------------------------------------------
 function initCatalogMode() {
   const toggle = document.getElementById('catalogModeToggle');
@@ -1502,19 +1445,20 @@ function initCatalogMode() {
     toggle.setAttribute('aria-pressed', String(catalogModeActive));
 
     if (catalogModeActive) {
-      // Cierra cualquier ficha de lead abierta y detiene el chat en vivo:
-      // nada de INE, domicilio, ingresos o teléfono debe seguir visible
-      // ni refrescándose mientras alguien muestra el inventario a un cliente.
       closeDrawer();
       activeLeadId = null;
 
+      // FIX #8: vaciar caché sensible en memoria para que F12 no exponga datos
+      leadsCache = [];
+      citasCache = [];
+
       const inventarioBtn = document.querySelector('[data-section="section-inventario"]');
       if (inventarioBtn) inventarioBtn.click();
+    } else {
+      // Al desactivar, recargar datos reales
+      fetchAndRenderAll();
     }
 
-    // Re-renderiza de inmediato con los datos ya cacheados: la redacción
-    // (o su reversión, al desactivar) aplica al instante, sin esperar al
-    // siguiente ciclo de sync de 10s.
     renderLeadsTable();
     renderPipelineKanban();
     renderCitasCronologicas();
@@ -1556,10 +1500,6 @@ function renderSubscriptionStatus() {
   const renewalDate = document.getElementById('subscriptionRenewalDate');
   const planLabel = document.getElementById('subscriptionPlanLabel');
 
-  // 🔓 Cuentas internas (equipo, soporte, demos) quedan exentas del candado
-  // de facturación. Es una bandera en la fila del lote en Supabase — nunca
-  // un email hardcodeado en este archivo — así que activarla o quitarla no
-  // requiere tocar código ni volver a desplegar nada.
   const esInterna = currentLote.es_cuenta_interna === true;
   const isActive = currentLote.plan_status === 'active' || esInterna;
 
@@ -1589,8 +1529,6 @@ function handleStripeReturn() {
   }
 }
 
-// Upload-Post redirige de vuelta con ?social=connected tras el flujo de
-// conexión (redirect_url configurado en "Generar Link de Conexión" en n8n).
 function handleSocialReturn() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('social') === 'connected') {
@@ -1607,16 +1545,14 @@ async function checarEstatusWhatsApp() {
   if (!currentLote) return;
   try {
     const { data } = await supabaseClient.from('whatsapp_channels').select('*').eq('lote_id', currentLote.id).maybeSingle();
-    if (data) console.log(`[Multi-Tenant Node] Instancia vinculada activa: ${data.instance_name}`);
+    if (data) console.log(`[Multi-Tenant Node] Instancia vinculada: ${data.instance_name}`);
   } catch (err) {
     console.error(err);
   }
 }
 
 // ------------------------------------------------------------
-// MÓDULO WHATSAPP QR (mandatorio, siempre visible en Configuración)
-// El apikey global de Evolution nunca toca el navegador: n8n hace
-// la llamada real y solo regresa el QR / estado ya resuelto.
+// MÓDULO WHATSAPP QR
 // ------------------------------------------------------------
 async function cargarEstadoWhatsappQr() {
   if (!currentLote || !N8N_QR_WEBHOOK_URL) return;
@@ -1643,7 +1579,7 @@ async function cargarEstadoWhatsappQr() {
     try {
       data = JSON.parse(raw);
     } catch (_) {
-      throw new Error(`n8n respondió ${resp.status} sin JSON válido: "${raw.slice(0, 200)}"`);
+      throw new Error(`n8n respondió ${resp.status} sin JSON válido.`);
     }
     if (!resp.ok) {
       throw new Error(`n8n respondió ${resp.status}: ${data.error || raw.slice(0, 200)}`);
@@ -1670,14 +1606,13 @@ async function cargarEstadoWhatsappQr() {
       }
     }
   } catch (err) {
-    console.error('[WhatsApp QR] Error al consultar estado:', err);
-    qrLoading.textContent = err.message || 'Error al cargar el QR. Intenta actualizar.';
+    console.error('[WhatsApp QR] Error:', err);
+    qrLoading.textContent = err.message || 'Error al cargar el QR.';
   }
 }
 
 // ------------------------------------------------------------
-// MÓDULO REDES SOCIALES (Upload-Post) — la master ApiKey de
-// Upload-Post nunca toca el navegador, vive solo en n8n.
+// MÓDULO REDES SOCIALES
 // ------------------------------------------------------------
 async function conectarRedesSociales() {
   if (!currentLote || !N8N_REDES_WEBHOOK_URL) { alert('Falta configurar N8N_REDES_WEBHOOK_URL en dashboard.js.'); return; }
@@ -1702,7 +1637,7 @@ async function conectarRedesSociales() {
     document.getElementById('btnVerificarRedes').classList.remove('hidden');
   } catch (err) {
     console.error('[Redes Sociales] Error al conectar:', err);
-    statusText.textContent = 'No se pudo generar el enlace de conexión. Intenta de nuevo.';
+    statusText.textContent = 'No se pudo generar el enlace. Intenta de nuevo.';
   } finally {
     btnConectar.disabled = false;
     btnConectar.textContent = 'Conectar Redes Sociales';
@@ -1738,7 +1673,7 @@ async function verificarRedesSociales() {
       btnVerificar.classList.add('hidden');
       statusText.textContent = 'Tus redes ya están conectadas.';
     } else {
-      statusText.textContent = 'Todavía no detectamos la conexión. Termina el proceso en la otra pestaña y vuelve a verificar.';
+      statusText.textContent = 'Todavía no detectamos la conexión. Termina el proceso y vuelve a verificar.';
     }
   } catch (err) {
     console.error('[Redes Sociales] Error al verificar:', err);
@@ -1749,19 +1684,9 @@ async function verificarRedesSociales() {
   }
 }
 
-// ============================================================
-// 🛡️ ROUTE GUARD (Middleware de Frontend)
-// Única puerta de entrada a datos del tenant. Valida la sesión de
-// Supabase contra el backend (getSession revalida el JWT, no solo
-// lee un valor cacheado) ANTES de permitir que se muestre o
-// sincronice cualquier dato del dashboard. Si no hay sesión válida,
-// corta aquí mismo y regresa a view-login — el HTML ya trae
-// view-dashboard oculto por defecto (`class="... hidden"`), así que
-// no hay ventana en la que datos sensibles puedan pintarse antes de
-// esta validación.
-// Devuelve `true` solo si hay un usuario autenticado (con o sin
-// lote todavía creado); `false` si se debe permanecer en login.
-// ============================================================
+// ------------------------------------------------------------
+// ROUTE GUARD
+// ------------------------------------------------------------
 async function checkSessionAndLote() {
   try {
     const { data: sessionData, error: sessionErr } = await supabaseClient.auth.getSession();
@@ -1769,7 +1694,6 @@ async function checkSessionAndLote() {
       currentUser = null;
       currentLote = null;
       showView('view-login');
-      console.info('[Route Guard] Sin sesión válida — acceso al dashboard denegado.');
       return false;
     }
 
@@ -1785,9 +1709,6 @@ async function checkSessionAndLote() {
       return true;
     }
 
-    // Sin lote todavía: si venimos de un registro con confirmación de
-    // correo pendiente, los datos quedaron guardados en sessionStorage
-    // (ver handleRegistroSubmit) — los completamos ahora que ya hay sesión.
     let pendienteRaw = null;
     try { pendienteRaw = sessionStorage.getItem('p360-pending-lote'); } catch (_) {}
 
@@ -1884,11 +1805,6 @@ async function handleRegistroSubmit(e) {
     return;
   }
 
-  // Supabase responde 200 aunque el correo YA exista (anti-enumeración): no
-  // hay forma de distinguirlo por el status, solo por `identities` vacío —
-  // eso significa que NO se creó una cuenta nueva. Sin este chequeo, el
-  // formulario "se enviaba" sin avisar y el lote nunca se creaba: exactamente
-  // el síntoma de "no puedo registrar más lotes".
   const esCorreoDuplicado = signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0;
   if (esCorreoDuplicado) {
     if (errorEl) errorEl.textContent = 'Ese correo ya tiene una cuenta. Inicia sesión en vez de registrarte de nuevo.';
@@ -1896,19 +1812,14 @@ async function handleRegistroSubmit(e) {
     return;
   }
 
-  // Si el proyecto tiene "Confirm email" activado en Supabase, signUp() no
-  // entrega una sesión activa todavía — y sin sesión, el insert de abajo lo
-  // rechaza RLS en silencio. Guardamos los datos del lote temporalmente
-  // (sessionStorage, no son credenciales) para completarlos automáticamente
-  // en cuanto el usuario confirme su correo y vuelva a entrar.
   if (!signUpData.session) {
     try {
       sessionStorage.setItem('p360-pending-lote', JSON.stringify(datosLote));
-    } catch (_) { /* almacenamiento no disponible, no es crítico */ }
+    } catch (_) {}
     if (errorEl) {
       errorEl.classList.remove('text-[#A9584A]');
       errorEl.classList.add('text-[#4B8B72]');
-      errorEl.textContent = 'Cuenta creada. Revisa tu correo para confirmarla — al volver a entrar, tu lote se creará automáticamente.';
+      errorEl.textContent = 'Cuenta creada. Revisa tu correo para confirmarla.';
     }
     if (btnRegistro) btnRegistro.disabled = false;
     return;
@@ -1917,7 +1828,7 @@ async function handleRegistroSubmit(e) {
   currentUser = signUpData.user;
   const loteCreado = await crearLoteParaUsuarioActual(datosLote);
   if (!loteCreado) {
-    if (errorEl) errorEl.textContent = 'Tu cuenta se creó, pero el lote no se pudo registrar. Intenta de nuevo o contacta soporte.';
+    if (errorEl) errorEl.textContent = 'Tu cuenta se creó, pero el lote no se pudo registrar. Contacta soporte.';
     if (btnRegistro) btnRegistro.disabled = false;
     return;
   }
@@ -1926,9 +1837,6 @@ async function handleRegistroSubmit(e) {
   redirigirAStripeCheckout(currentLote);
 }
 
-// Inserta la fila de `lotes` para el usuario ya autenticado y SIEMPRE revisa
-// el error — antes se descartaba silenciosamente y el registro fallaba sin
-// ningún aviso.
 async function crearLoteParaUsuarioActual(datosLote) {
   if (!currentUser) return null;
   const { data, error } = await supabaseClient
@@ -1944,15 +1852,10 @@ async function crearLoteParaUsuarioActual(datosLote) {
   return data;
 }
 
+// ------------------------------------------------------------
+// DOMContentLoaded
+// ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  // ============================================================
-  // 🛡️ El Route Guard corre PRIMERO, antes de enlazar cualquier
-  // listener o exponer cualquier dato del dashboard. Los forms de
-  // login/registro se enlazan siempre (son necesarios para poder
-  // autenticarse), pero ninguna consulta a leads/cars/citas ocurre
-  // hasta que este guard confirme sesión + lote válidos (ver
-  // startSync() dentro de checkSessionAndLote).
-  // ============================================================
   if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
   if (document.getElementById('registroEstado')) {
@@ -2042,7 +1945,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               lote_id: currentLote.id,
               brand: celdas[headers.indexOf('marca')] || celdas[headers.indexOf('brand')] || 'Genérico',
               model: celdas[headers.indexOf('modelo')] || celdas[headers.indexOf('model')] || 'Unidad',
-              year: parseInt(celdas[headers.indexOf('año')]) || parseInt(celdas[headers.indexOf('year')]) || 2026,
+              year: parseInt(celdas[headers.indexOf('año')]) || parseInt(celdas[headers.indexOf('year')]) || new Date().getFullYear(),
               price: parseFloat(celdas[headers.indexOf('precio')]) || parseFloat(celdas[headers.indexOf('price')]) || 0,
               transmision: celdas[headers.indexOf('transmision')] || 'Automática',
               kilometraje: parseFloat(celdas[headers.indexOf('kilometraje')]) || 0,
@@ -2059,7 +1962,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert('Error en formato del CSV. Valida tus columnas.');
             console.error(error);
           } else {
-            alert(`¡Éxito! Se extrajeron y cargaron ${autosParaInsertar.length} autos en masa.`);
+            alert(`¡Éxito! Se cargaron ${autosParaInsertar.length} autos.`);
             await fetchCars();
           }
         }
@@ -2171,7 +2074,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   initCitasCalendario();
 });
 
-// Formateadores Globales
+// ------------------------------------------------------------
+// UTILIDADES GLOBALES
+// ------------------------------------------------------------
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -2182,14 +2087,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// ------------------------------------------------------------
-// 🧼 ANTI-XSS: sanitizador de URLs para atributos src/href.
-// Cualquier URL que llegue de la base de datos (fotos de autos,
-// comprobantes de leads, medios del Agente Publicitario) pasa por
-// aquí antes de tocar el DOM. Solo se permite http(s); cualquier
-// esquema peligroso (javascript:, data:, vbscript:) se descarta y
-// se sustituye por el fallback.
-// ------------------------------------------------------------
 function sanitizeUrl(rawUrl, fallback = '') {
   if (!rawUrl) return fallback;
   try {
@@ -2197,13 +2094,10 @@ function sanitizeUrl(rawUrl, fallback = '') {
     if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
       return parsed.href;
     }
-  } catch (_) {
-    // URL inválida — cae al fallback
-  }
+  } catch (_) {}
   return fallback;
 }
 
-// Placeholder de redacción para Modo Catálogo (ver initCatalogMode).
 const CATALOG_REDACTED = '•••• Protegido';
 
 function renderDocPreview(rawUrl, emoji, label) {
@@ -2219,8 +2113,6 @@ function renderDocPreview(rawUrl, emoji, label) {
   </div>`;
 }
 
-// Si el archivo no es una imagen (ej. PDF), la <img> falla al cargar y esto la
-// reemplaza por un enlace simple para abrir/descargar el documento.
 function handleDocPreviewError(imgEl) {
   const url = imgEl.dataset.url || '';
   const label = imgEl.dataset.label || 'Documento';
@@ -2229,14 +2121,14 @@ function handleDocPreviewError(imgEl) {
   wrapper.outerHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-lg transition" style="background: var(--surface-3, #1c2029);"><span class="flex items-center gap-1.5 text-[#F5F5F4]">📄 ${escapeHtml(label)}</span> <span class="text-[10px] text-[#6B7280] font-semibold">Ver Archivo →</span></a>`;
 }
 
-// Parsea un timestamp de Supabase garantizando hora Mexico City correcta.
-// Supabase puede devolver sin offset (UTC) o con offset; este helper normaliza ambos.
+// FIX #10: parseFechaMx robusto — maneja offsets explícitos y asume UTC solo si no hay info de zona
 function parseFechaMx(str) {
   if (!str) return new Date();
-  // Si ya trae offset (+/-HH:MM o Z), new Date() lo parsea bien
-  if (/[Z+\-]\d{2}:?\d{2}$/.test(str) || str.endsWith('Z')) return new Date(str);
-  // Sin offset: Supabase guarda en UTC, agregar Z explícitamente
-  return new Date(str.includes('.') ? str + 'Z' : str + '.000Z');
+  // Ya tiene offset explícito (Z, +HH:MM, -HH:MM) → Date lo parsea correctamente
+  if (/[Z]$/.test(str) || /[+-]\d{2}:\d{2}$/.test(str)) return new Date(str);
+  // Sin offset: Supabase guarda en UTC → agregar Z
+  const normalizado = str.includes('.') ? str + 'Z' : str + '.000Z';
+  return new Date(normalizado);
 }
 
 function formatCurrency(v) {
