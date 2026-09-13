@@ -85,6 +85,11 @@ function showView(viewId) {
   });
   const target = document.getElementById(viewId);
   if (target) target.classList.remove('hidden');
+  // FIX: login y registro usan flex para centrado vertical
+  // el CSS :not(.hidden) ya lo maneja, pero por si acaso:
+  if (target && (viewId === 'view-login' || viewId === 'view-registro')) {
+    target.style.display = 'flex';
+  }
 }
 
 function stopSync() {
@@ -171,7 +176,7 @@ function calcularOportunidadesRescatadas() {
 // SECCIÓN CITAS
 // ------------------------------------------------------------
 async function fetchCitasReal() {
-  // FIX: filtrar citas pasadas — solo de hoy en adelante
+  // FIX: solo traer citas de hoy en adelante — las pasadas no deben aparecer
   const hoy = claveDiaMx(new Date());
   const { data, error } = await supabaseClient
     .from('citas')
@@ -830,7 +835,15 @@ function renderCarThumbs() {
 }
 
 function calcularSaludInventario(car) {
-  const tieneFoto = !!(car.image_url && car.image_url !== PLACEHOLDER_IMG);
+  // FIX: verificar que hay foto real (no placeholder SVG ni vacío)
+  const urlFoto = (Array.isArray(car.image_urls) && car.image_urls[0]) || car.image_url || '';
+  const esPlaceholder = !urlFoto
+    || urlFoto === PLACEHOLDER_IMG
+    || urlFoto.startsWith('data:image/svg')
+    || urlFoto.includes('Sin%20foto')
+    || urlFoto.includes('Sin foto');
+  const tieneFoto = !esPlaceholder;
+
   const tieneCopy = !!((car.copy_meta && car.copy_meta.trim()) || (car.tiktok_hook && car.tiktok_hook.trim()));
   const publicado = car.publicado_meta === true || car.publicado_tiktok === true;
 
@@ -1768,7 +1781,7 @@ async function handleRegistroSubmit(e) {
   const btnRegistro = document.getElementById('btnSubmitRegistro');
   if (btnRegistro) btnRegistro.disabled = true;
 
-  // FIX: si el wizard está activo, usar sus datos completos (incluye horario, financiamiento, etc.)
+  // FIX: si el wizard está activo, usa sus datos completos (horario, financiamiento, etc.)
   const datosLote = window._wizardGetDatosLote ? window._wizardGetDatosLote() : {
     nombre: nombreLote,
     whatsapp_number: phoneLote,
