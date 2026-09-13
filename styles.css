@@ -1,393 +1,454 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* ============================================================
+   VELODRIVE — styles.css
+   Dark Mode Premium UI + Responsividad + Fix Scroll
+   ============================================================ */
 
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* FIX SCROLL: solo el área de contenido scrollea, no toda la pantalla */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #0F1219;
+  color: #F5F5F4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Variables ---- */
 :root {
-  /* Superficies */
-  --bg: #0F1219;
-  --bg-elevated: #12151C;
-  --surface: #161922;
-  --surface-hover: #1C202A;
-  --surface-2: #20242F;
-
-  --border: rgba(255,255,255,0.05);
-  --border-strong: rgba(255,255,255,0.10);
-
-  --text: #F5F5F4;
-  --text-dim: #6B7280;
-  --text-faint: #9CA3AF;
-
-  /* ── ACENTO PRINCIPAL: Rojo VeloDrive ── */
-  --amber: #D1373A;              /* rojo primario del logo  */
-  --amber-soft: rgba(209,55,58,0.12);
-  --amber-strong: #FF4A4E;       /* rojo ligeramente más brillante para texto sobre oscuro */
-
-  /* Temperatura de leads */
-  --hot: #F5F5F4;
-  --hot-soft: rgba(245,245,244,0.12);
-  --warm: #9CA3AF;
-  --warm-soft: rgba(156,163,175,0.10);
-  --cold: #6B7280;
-  --cold-soft: rgba(107,114,128,0.08);
-
-  --success: #F5F5F4;
-  --success-soft: rgba(245,245,244,0.08);
-  --danger: #F5F5F4;
-  --danger-soft: rgba(245,245,244,0.06);
+  --bg:           #0F1219;
+  --surface:      #12151C;
+  --surface-2:    #161922;
+  --surface-3:    #1C202A;
+  --border:       #272A30;
+  --border-strong:#343840;
+  --text:         #F5F5F4;
+  --text-dim:     #9CA3AF;
+  --text-muted:   #6B7280;
+  --amber:        #D4A843;
+  --amber-strong: #E8B84B;
+  --amber-soft:   rgba(212,168,67,0.12);
+  --success:      #4B8B72;
+  --danger:       #E5573F;
+  --danger-soft:  rgba(229,87,63,0.12);
+  --cold:         #5B8DB8;
+  --hot:          #E8724A;
+  --primary:      #D1373A;
+  --primary-hover:#B82E31;
 }
 
-* { font-family: 'Inter', sans-serif; box-shadow: none; }
-.font-mono, .mono, .stat-mono { font-family: 'JetBrains Mono', monospace; }
-html, body { background: var(--bg); color: var(--text); }
+/* ---- Login / Registro: scroll propio ---- */
+#view-registro,
+#view-login {
+  overflow-y: auto;
+  height: 100vh;
+}
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ---- Dashboard: layout fijo ---- */
+#view-dashboard {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 768px) {
+  #view-dashboard { flex-direction: row; }
+}
+
+/* Sidebar fijo, nunca scrollea */
+#view-dashboard aside { flex-shrink: 0; }
+
+/* Columna derecha: columna flex */
+#view-dashboard > .flex-1 {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Header: fijo arriba */
+#view-dashboard header {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* FIX CRÍTICO: SOLO el main scrollea */
+#view-dashboard main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+::-webkit-scrollbar-thumb { background: #272A30; border-radius: 4px; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Sidebar */
-.nav-active { background-color: var(--surface-2) !important; color: var(--text) !important; font-weight: 600; }
-.nav-btn { color: var(--text-dim); background-color: transparent; transition: background 0.2s ease, color 0.2s ease; }
-.nav-btn:hover { background-color: var(--surface); color: var(--text); }
-.nav-group-label {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--text-faint); padding: 14px 12px 4px;
-}
-
-/* Entradas de sección */
-.dashboard-section { animation: sectionFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-@keyframes sectionFadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Drawer lateral */
-#drawerPro { transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-.drawer-open { transform: translateX(0) !important; }
-
-/* Campos */
-input, select, textarea {
-  background: var(--surface);
-  border-color: var(--border) !important;
-  color: var(--text);
-}
-input::placeholder, textarea::placeholder { color: var(--text-faint); }
-input:focus, select:focus, textarea:focus {
-  outline: none;
-  border-color: var(--amber) !important;
-  box-shadow: 0 0 0 3px var(--amber-soft) !important;
-}
-
-/* ---------- Tarjetas ---------- */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-.card-hover:hover { background: var(--surface-hover); border-color: var(--border-strong); }
-
-.gauge-card {
-  position: relative;
+/* ---- Cards ---- */
+.card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  border-top: 2px solid var(--amber);
+  border-radius: 14px;
 }
-.gauge-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
+.card-hover { transition: border-color 0.15s; }
+.card-hover:hover { border-color: var(--border-strong); }
 
-.status-dot {
-  display: inline-block;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--amber);
-  flex-shrink: 0;
-}
-.status-dot-outline { background: transparent; border: 1px solid var(--amber); }
-
-/* ---------- Miniaturas fotos ---------- */
-.car-thumb {
-  position: relative; width: 56px; height: 56px;
-  border-radius: 6px; overflow: hidden; border: 1px solid var(--border);
-}
-.car-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.car-thumb button {
-  position: absolute; top: 2px; right: 2px;
-  width: 16px; height: 16px; border-radius: 50%;
-  background: rgba(0,0,0,0.6); color: var(--text);
-  font-size: 10px; line-height: 16px; text-align: center; cursor: pointer;
-}
-
-.photo-count {
-  position: absolute; bottom: 8px; right: 8px;
-  font-size: 10px; font-weight: 600; padding: 2px 7px;
-  border-radius: 999px; background: rgba(0,0,0,0.55); color: var(--text);
-}
-
-/* ---------- Estados vacíos ---------- */
-.empty-state {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; text-align: center; padding: 56px 24px;
-  border: 1px dashed var(--border-strong); border-radius: 12px; background: var(--surface);
-}
-.empty-state-icon {
-  width: 40px; height: 40px; border-radius: 50%;
-  background: var(--surface-2); display: flex;
-  align-items: center; justify-content: center;
-  color: var(--amber); margin-bottom: 14px;
-}
-.empty-state-title { font-size: 14px; font-weight: 600; color: var(--text); }
-.empty-state-desc { font-size: 12px; color: var(--text-faint); margin-top: 4px; max-width: 320px; }
-.empty-state-mini { text-align: center; padding: 24px 12px; font-size: 11px; color: var(--text-faint); font-style: italic; }
-
-/* ---------- Skeleton ---------- */
-.skeleton { background: var(--surface-2); border-radius: 8px; animation: skeletonPulse 1.6s ease-in-out infinite; }
-@keyframes skeletonPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-
-/* ---------- Badges ---------- */
-.badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.03em;
-  text-transform: uppercase; padding: 3px 9px;
-  border-radius: 999px; border: 1px solid transparent;
-}
-.badge-hot     { background: var(--hot-soft);     color: var(--hot);     border-color: rgba(245,245,244,0.2); }
-.badge-warm    { background: var(--amber-soft);   color: var(--amber-strong); border-color: rgba(209,55,58,0.3); }
-.badge-cold    { background: var(--cold-soft);    color: var(--cold);    border-color: rgba(107,114,128,0.3); }
-.badge-success { background: var(--success-soft); color: var(--success); border-color: rgba(245,245,244,0.2); }
-.badge-danger  { background: rgba(209,55,58,0.1); color: var(--amber-strong); border-color: rgba(209,55,58,0.4); }
-.badge-neutral { background: var(--surface-2);    color: var(--text-dim); border-color: var(--border); }
-
-/* ---------- Botones ---------- */
+/* ---- Botones ---- */
 .btn-primary {
-  background: var(--amber);
-  color: #FFFFFF;
-  font-weight: 700;
-  border-radius: 6px;
-  transition: opacity 0.2s ease;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
 }
-.btn-primary:hover { opacity: 0.88; }
-.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-primary:hover  { background: var(--primary-hover); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-ghost {
-  background: var(--surface-2); border: 1px solid var(--border);
-  color: var(--text); transition: all 0.2s ease;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
-.btn-ghost:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.btn-ghost:hover { background: var(--surface-3); color: var(--text); }
 
-/* ---------- Inventario ---------- */
-.car-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 8px; overflow: hidden; transition: border-color 0.2s ease;
+/* ---- Inputs ---- */
+input, select, textarea {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
 }
-.car-card:hover { border-color: var(--amber); }
-.car-card-img { aspect-ratio: 16/10; object-fit: cover; width: 100%; background: var(--surface-2); }
+input:focus, select:focus, textarea:focus { border-color: var(--amber); }
+input::placeholder, textarea::placeholder { color: var(--text-muted); }
+select option { background: var(--surface-2); }
 
-/* ---------- Pipeline Kanban ---------- */
-.kanban-col { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; }
-.kanban-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-left-width: 3px; border-radius: 6px;
-  transition: border-color 0.2s ease, background 0.2s ease;
+/* ---- Nav sidebar ---- */
+.nav-btn {
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-align: left;
 }
-.kanban-card:hover { background: var(--surface-hover); }
-.kanban-card.temp-caliente { border-left-color: var(--amber); }
-.kanban-card.temp-templado { border-left-color: var(--text-faint); }
-.kanban-card.temp-frio     { border-left-color: var(--border-strong); }
-
-/* ---------- Dropzone ---------- */
-.dropzone {
-  border: 1.5px dashed var(--border-strong); border-radius: 12px;
-  background: var(--bg-elevated); transition: border-color 0.2s ease, background 0.2s ease;
+.nav-btn:hover  { background: var(--surface-2); color: var(--text); }
+.nav-active     { background: var(--surface-2) !important; color: var(--text) !important; }
+.nav-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0.75rem 0.75rem 0.25rem;
 }
-.dropzone.drag-active { border-color: var(--amber); background: var(--amber-soft); }
 
-/* ---------- Selector plataformas ---------- */
-.platform-check {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: var(--text-dim); cursor: pointer;
+/* ---- Badges ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-.platform-check input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--amber); cursor: pointer; }
-.platform-check:has(input:checked) { color: var(--text); }
+.badge-success { background: rgba(75,139,114,0.15);  color: #4B8B72; border: 1px solid rgba(75,139,114,0.3); }
+.badge-warm    { background: rgba(212,168,67,0.15);  color: #D4A843; border: 1px solid rgba(212,168,67,0.3); }
+.badge-danger  { background: rgba(229,87,63,0.15);   color: #E5573F; border: 1px solid rgba(229,87,63,0.3); }
+.badge-cold    { background: rgba(91,141,184,0.15);  color: #5B8DB8; border: 1px solid rgba(91,141,184,0.3); }
+.badge-hot     { background: rgba(232,114,74,0.15);  color: #E8724A; border: 1px solid rgba(232,114,74,0.3); }
+.badge-neutral { background: var(--surface-3);       color: var(--text-dim); border: 1px solid var(--border); }
 
-/* Tablas */
-table thead tr { color: var(--text-faint); border-color: var(--border); }
-table tbody tr { border-color: var(--border); }
-table tbody tr:hover { background: var(--surface-hover); }
+/* ---- Status dot ---- */
+.status-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}
+.status-dot-outline {
+  background: transparent;
+  border: 1.5px solid var(--amber);
+}
 
-/* ============================================================
-   BENTO GRID
-   ============================================================ */
-.bento-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; }
+/* ---- Bento grid ---- */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+}
 .bento-span-3  { grid-column: span 3; }
-.bento-span-4  { grid-column: span 4; }
-.bento-span-6  { grid-column: span 6; }
-.bento-span-8  { grid-column: span 8; }
 .bento-span-12 { grid-column: span 12; }
 
-@media (max-width: 1024px) {
-  .bento-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .bento-span-3, .bento-span-4 { grid-column: span 3; }
-  .bento-span-6, .bento-span-8, .bento-span-12 { grid-column: span 6; }
-}
-@media (max-width: 640px) {
-  .bento-grid { grid-template-columns: 1fr; gap: 14px; }
-  .bento-span-3, .bento-span-4, .bento-span-6, .bento-span-8, .bento-span-12 { grid-column: span 1; }
-}
-
-/* ============================================================
-   OPORTUNIDADES RESCATADAS
-   ============================================================ */
+/* ---- Rescue card ---- */
 .rescue-card {
-  position: relative; background: var(--surface);
-  border: 1px solid var(--border); border-radius: 8px;
-  border-top: 2px solid var(--amber);
+  background: linear-gradient(135deg, rgba(232,184,75,0.06) 0%, rgba(15,18,25,0) 60%);
+  border: 1px solid rgba(232,184,75,0.18);
+  border-radius: 14px;
 }
-.rescue-icon-orb { background: var(--amber-soft); }
-.rescue-divider { width: 1px; align-self: stretch; background: var(--border); }
+.rescue-icon-orb { background: rgba(232,184,75,0.1); }
+.rescue-divider  { width: 1px; height: 40px; background: var(--border); }
+.gauge-value     { color: var(--amber-strong); font-feature-settings: 'tnum'; }
+.gauge-card      { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
 
-/* ============================================================
-   SALUD DEL INVENTARIO
-   ============================================================ */
-.health-track { height: 3px; width: 100%; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; }
-.health-fill { height: 100%; border-radius: 999px; transition: width 0.3s cubic-bezier(0.4,0,0.2,1); }
-.health-fill.health-low  { background: var(--amber); }
-.health-fill.health-mid  { background: #FF6B6B; }
-.health-fill.health-high { background: var(--text); }
+/* ---- Car cards ---- */
+.car-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.car-card:hover { border-color: var(--border-strong); }
+.car-card-img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  background: var(--surface-2);
+  display: block;
+}
+.status-vendido { opacity: 0.55; }
+.photo-count {
+  position: absolute;
+  bottom: 8px; right: 8px;
+  font-size: 10px; font-weight: 700;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
 
-.health-checklist { display: flex; flex-wrap: wrap; gap: 5px; }
+/* ---- Salud inventario ---- */
+.health-track {
+  width: 100%; height: 4px;
+  background: var(--surface-3);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.health-fill  { height: 100%; border-radius: 9999px; transition: width 0.4s; }
+.health-high  { background: var(--success); }
+.health-mid   { background: var(--amber); }
+.health-low   { background: var(--danger); }
+.health-checklist { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .health-chip {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.02em;
-  padding: 2px 7px; border-radius: 999px;
-  background: var(--surface-2); color: var(--text-faint);
-  border: 1px solid var(--border); white-space: nowrap;
+  font-size: 9px; font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  padding: 2px 6px; border-radius: 6px;
 }
-.health-chip.done { color: var(--amber-strong); border-color: rgba(209,55,58,0.4); background: var(--amber-soft); }
+.health-chip.done { color: var(--success); border-color: rgba(75,139,114,0.3); background: rgba(75,139,114,0.08); }
 
-/* ============================================================
-   MODO CATÁLOGO
-   ============================================================ */
+/* ---- Kanban ---- */
+.kanban-col {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.kanban-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.kanban-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.temp-caliente { border-left: 3px solid var(--hot) !important; }
+.temp-templado { border-left: 3px solid var(--amber) !important; }
+.temp-frio     { border-left: 3px solid var(--cold) !important; }
+.empty-state-mini { font-size: 11px; color: var(--text-muted); text-align: center; padding: 1rem; font-style: italic; }
+
+/* ---- Drawer CRM ---- */
+.drawer-open { transform: translateX(0) !important; }
+
+/* ---- Stat mono ---- */
+.stat-mono { font-feature-settings: 'tnum'; letter-spacing: -0.02em; }
+
+/* ---- Dropzone ---- */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover, .drag-active {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+}
+
+/* ---- Platform check ---- */
+.platform-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.platform-check input[type="checkbox"] { accent-color: var(--primary); }
+
+/* ---- Catalog switch ---- */
 .catalog-switch {
-  display: inline-flex; align-items: center; gap: 9px;
-  cursor: pointer; user-select: none; background: transparent; border: none; padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
 }
 .catalog-switch-track {
-  position: relative; width: 38px; height: 21px; border-radius: 999px;
-  background: var(--surface-2); border: 1px solid var(--border-strong);
-  transition: background 0.2s ease, border-color 0.2s ease; flex-shrink: 0;
+  width: 36px; height: 20px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  position: relative;
+  transition: background 0.2s;
 }
 .catalog-switch-thumb {
-  position: absolute; top: 2px; left: 2px;
-  width: 15px; height: 15px; border-radius: 50%;
-  background: var(--text-dim);
-  transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), background 0.2s ease;
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
 }
 .catalog-switch.active .catalog-switch-track { background: var(--amber-soft); border-color: var(--amber); }
-.catalog-switch.active .catalog-switch-thumb { transform: translateX(17px); background: var(--amber); }
-.catalog-switch-label { font-size: 11px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.01em; }
-.catalog-switch.active .catalog-switch-label { color: var(--text); }
+.catalog-switch.active .catalog-switch-thumb { transform: translateX(16px); background: var(--amber-strong); }
+.catalog-switch-label { user-select: none; }
 
-body.catalog-mode .privacy-sensitive { filter: blur(5px); user-select: none; pointer-events: none; transition: filter 0.2s ease; }
+/* Modo catálogo */
 body.catalog-mode .internal-only { display: none !important; }
+body.catalog-mode .catalog-only  { display: flex !important; }
 .catalog-only { display: none; }
-body.catalog-mode .catalog-only { display: block; }
-body.catalog-mode .catalog-only.inline { display: inline-flex; }
 
-body.catalog-mode #view-dashboard {
-  background: radial-gradient(120% 60% at 50% 0%, rgba(209,55,58,0.06), transparent 65%), var(--bg);
-}
-body.catalog-mode .car-card.status-vendido { display: none; }
-body.catalog-mode .car-card { border-color: var(--border-strong); }
-body.catalog-mode .car-card-img { filter: saturate(1.05) contrast(1.02); }
-
-/* ============================================================
-   IDENTIDAD VISUAL — VeloDrive Rojo
-   ============================================================ */
-h1, h2, h3,
-.nav-btn,
-.nav-group-label,
-.btn-primary,
-.btn-ghost,
-[class*="tracking-wider"],
-[class*="tracking-tight"] {
-  font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+/* Plan vencido */
+body.plan-vencido .nav-btn:not([data-section="section-configuracion"]) {
+  pointer-events: none;
+  opacity: 0.35;
 }
 
-/* Riel de navegación */
-#sidebar nav.flex-1 { gap: 2px; }
-.nav-btn {
-  border-radius: 4px !important; font-size: 12.5px;
-  font-weight: 600; letter-spacing: 0.01em;
-  border-left: 2px solid transparent;
-  padding-left: calc(0.75rem - 2px) !important;
-}
-.nav-btn svg { width: 15px; height: 15px; opacity: 0.65; }
-.nav-btn.nav-active { border-left-color: var(--amber); background-color: var(--surface-2) !important; }
-.nav-btn.nav-active svg { opacity: 1; color: var(--amber); }
-.nav-group-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; }
-.nav-group-label::before {
-  content: ''; display: inline-block;
-  width: 10px; height: 1px; background: var(--border-strong);
-  margin-right: 6px; vertical-align: middle;
+/* Privacy blur en modo catálogo */
+body.catalog-mode .privacy-sensitive {
+  filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
 }
 
-/* Pantallas de acceso */
-#view-registro.card,
-#view-login.card {
-  border-radius: 8px; border-top: 2px solid var(--amber);
-  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+/* ---- Car thumbs ---- */
+.car-thumb {
   position: relative;
+  width: 64px; height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
 }
-#view-registro.card::before,
-#view-login.card::before {
-  content: 'VELODRIVE';
-  position: absolute; top: 10px; left: 0; right: 0; text-align: center;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px; font-weight: 600; letter-spacing: 0.16em; color: var(--amber);
+.car-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.btn-quitar-thumb,
+.btn-quitar-thumb-marketing {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
-/* Reducción de movimiento */
-@media (prefers-reduced-motion: reduce) {
-  *, .dashboard-section, .health-fill, .catalog-switch-thumb { animation: none !important; transition: none !important; }
+/* ---- Empty states ---- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+  gap: 0.5rem;
 }
+.empty-state-icon {
+  width: 40px; height: 40px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+.empty-state-title { font-size: 14px; font-weight: 600; }
+.empty-state-desc  { font-size: 12px; color: var(--text-muted); max-width: 240px; }
 
 /* ============================================================
-   BADGES — esquema VeloDrive
+   RESPONSIVIDAD MÓVIL
    ============================================================ */
-.badge-hot  { background: rgba(209,55,58,0.15); color: #FF4A4E; border: 1.5px solid rgba(209,55,58,0.4); font-weight: 800; }
-.badge-warm { background: transparent; color: var(--text-dim); border: 1px dashed var(--border-strong); }
-.badge-cold { background: transparent; color: var(--text-faint); border: 1px solid var(--border); }
-.badge-success { background: rgba(209,55,58,0.08); color: var(--text); border: 1px solid rgba(209,55,58,0.2); }
-.badge-danger  { background: transparent; color: var(--text-dim); border: 1.5px solid var(--amber); text-decoration: line-through; }
+@media (max-width: 767px) {
 
-/* Salud inventario: rojo → escala blanco */
-.health-fill.health-low  { background: var(--amber); }
-.health-fill.health-mid  { background: rgba(209,55,58,0.6); }
-.health-fill.health-high { background: var(--text); }
+  /* Bento: 1 columna */
+  .bento-grid { grid-template-columns: 1fr; }
+  .bento-span-3, .bento-span-12 { grid-column: span 1; }
 
-/* Kanban temperatura por grosor */
-.kanban-card.temp-caliente { border-left-width: 4px; border-left-color: var(--amber); }
-.kanban-card.temp-templado { border-left-width: 3px; border-left-color: var(--text-faint); }
-.kanban-card.temp-frio     { border-left-width: 1px; border-left-color: var(--border-strong); }
+  /* Rescue card: vertical */
+  .rescue-card { flex-direction: column !important; gap: 1rem !important; }
 
-/* Rescue y gauge: borde superior rojo */
-.rescue-card { border-top-color: var(--amber) !important; }
-.gauge-card  { border-top-color: var(--amber) !important; }
+  /* Inventario: 1 columna */
+  #carsGridContainer { grid-template-columns: 1fr !important; }
 
-/* Login/registro: borde rojo */
-#view-registro.card,
-#view-login.card { border-top-color: var(--amber) !important; }
+  /* Tabla leads: ocultar columna teléfono en móvil */
+  table thead tr th:nth-child(2),
+  table tbody tr td:nth-child(2) { display: none; }
 
-/* Nav activo: rojo */
-.nav-btn.nav-active { border-left-color: var(--amber) !important; }
-.nav-btn.nav-active svg { color: var(--amber) !important; }
+  /* Drawer full screen */
+  #drawerPro { width: 100vw !important; }
 
-/* ============================================================
-   MOBILE FIRST
-   ============================================================ */
-@media (max-width: 640px) {
-  input, select, textarea { font-size: 16px !important; }
+  /* Kanban: 1 columna */
+  .grid.grid-cols-1.lg\:grid-cols-3 { grid-template-columns: 1fr !important; }
+
+  /* Marketing: 1 columna */
+  .grid.grid-cols-1.lg\:grid-cols-2 { grid-template-columns: 1fr !important; }
+
+  /* Analíticas: 1 columna */
+  .grid.grid-cols-1.md\:grid-cols-3 { grid-template-columns: 1fr !important; }
+  .grid.grid-cols-1.md\:grid-cols-2 { grid-template-columns: 1fr !important; }
+
+  /* Header: padding reducido */
+  #view-dashboard header { padding-left: 1rem; padding-right: 1rem; }
+
+  /* Modal: full screen */
+  #modalCarOverlay > div { border-radius: 0; min-height: 100vh; margin: 0; }
+
+  /* Citas calendario: scroll horizontal suave */
+  #citasCalendarGrid { -webkit-overflow-scrolling: touch; }
 }
-@media (max-width: 480px) {
-  header .lote-nombre-display { font-size: 13px; }
-  .badge { white-space: nowrap; }
+
+/* Tablets: 2 columnas inventario */
+@media (min-width: 640px) and (max-width: 1023px) {
+  #carsGridContainer { grid-template-columns: repeat(2, 1fr) !important; }
+  .bento-grid { grid-template-columns: repeat(6, 1fr); }
+  .bento-span-3  { grid-column: span 3; }
+  .bento-span-12 { grid-column: span 6; }
+}
+
+/* Desktop: 3 columnas inventario */
+@media (min-width: 1024px) {
+  #carsGridContainer { grid-template-columns: repeat(3, 1fr) !important; }
 }

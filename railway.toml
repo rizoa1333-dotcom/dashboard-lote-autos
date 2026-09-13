@@ -1,3 +1,7 @@
+# railway.toml — Headers de seguridad para VeloDrive
+# Coloca este archivo en la RAÍZ del repositorio de GitHub de VeloDrive
+# Railway lo detecta automáticamente en el siguiente deploy
+
 [staticFiles]
 assets = "."
 
@@ -20,3 +24,8 @@ value = "nosniff"
 path = "/*"
 name = "Referrer-Policy"
 value = "strict-origin-when-cross-origin"
+
+[[deploy.headers]]
+path = "/*"
+name = "Permissions-Policy"
+value = "camera=(), microphone=(), geolocation=()"

@@ -171,10 +171,13 @@ function calcularOportunidadesRescatadas() {
 // SECCIÓN CITAS
 // ------------------------------------------------------------
 async function fetchCitasReal() {
+  // FIX: filtrar citas pasadas — solo de hoy en adelante
+  const hoy = claveDiaMx(new Date());
   const { data, error } = await supabaseClient
     .from('citas')
     .select('*')
     .eq('lote_id', currentLote.id)
+    .gte('fecha_cita', hoy)
     .order('fecha_cita', { ascending: true });
 
   if (error) {
@@ -415,13 +418,13 @@ function renderPipelineKanban() {
 function procesarMetricasBI() {
   const tasaConversionEl = document.getElementById('biTasaConversion');
   const sinIngresosEl = document.getElementById('biSinIngresosRate');
-  const topAutosContainer = document.getElementById('biTopAutosList');
-  const engancheContainer = document.getElementById('biEngancheList');
+  const embudoEl = document.getElementById('biEmbudo');
+  const actividadEl = document.getElementById('biActividad');
 
   const totalLeads = leadsCache.length;
   if (totalLeads === 0) {
-    if (topAutosContainer) topAutosContainer.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Esperando recolección de leads...</p>';
-    if (engancheContainer) engancheContainer.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Esperando recolección de leads...</p>';
+    if (embudoEl) embudoEl.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Esperando recolección de leads...</p>';
+    if (actividadEl) actividadEl.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Sin actividad aún.</p>';
     return;
   }
 
@@ -431,55 +434,38 @@ function procesarMetricasBI() {
   const sinIngresosCount = leadsCache.filter(l => String(l.situacion_laboral) === '3' || String(l.situacion_laboral).toLowerCase().includes('no compruebo')).length;
   if (sinIngresosEl) sinIngresosEl.textContent = `${((sinIngresosCount / totalLeads) * 100).toFixed(1)}%`;
 
-  const autoContador = {};
-  leadsCache.forEach(l => {
-    if (!l.auto_interes || l.auto_interes === 'General' || l.auto_interes === 'null') return;
-    autoContador[l.auto_interes] = (autoContador[l.auto_interes] || 0) + 1;
-  });
-
-  const autosOrdenados = Object.keys(autoContador)
-    .map(key => ({ modelo: key, cuenta: autoContador[key] }))
-    .sort((a, b) => b.cuenta - a.cuenta)
-    .slice(0, 3);
-
-  if (topAutosContainer) {
-    if (autosOrdenados.length === 0) {
-      topAutosContainer.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Falta recolectar modelos de interés en el chat.</p>';
-    } else {
-      topAutosContainer.innerHTML = autosOrdenados.map((a, index) => `
+  // Embudo de calificación por estatus
+  if (embudoEl) {
+    const conteo = {};
+    leadsCache.forEach(l => { const s = l.status || 'Sin estatus'; conteo[s] = (conteo[s] || 0) + 1; });
+    embudoEl.innerHTML = Object.entries(conteo)
+      .sort((a, b) => b[1] - a[1])
+      .map(([estatus, count]) => `
         <div class="flex items-center justify-between text-xs bg-[var(--surface-2)] p-2.5 rounded-lg">
-          <p class="font-medium truncate max-w-[200px]"><span class="font-bold mr-1.5 text-[#6B7280]">#${index+1}</span> ${escapeHtml(a.modelo)}</p>
-          <span class="text-[11px] text-[#6B7280] font-semibold">${a.cuenta} ${a.cuenta === 1 ? 'búsqueda' : 'búsquedas'}</span>
+          <span class="badge ${statusBadgeClass(estatus)}">${escapeHtml(estatus)}</span>
+          <span class="font-bold text-[#F5F5F4]">${count} lead${count !== 1 ? 's' : ''}</span>
         </div>
       `).join('');
-    }
   }
 
-  let rango1 = 0, rango2 = 0, rango3 = 0;
-  leadsCache.forEach(l => {
-    const e = String(l.enganche);
-    if (e === '1' || l.enganche === '$50,000 a $100,000') rango1++;
-    else if (e === '2' || l.enganche === '$100,000 a $200,000') rango2++;
-    else if (e === '3' || l.enganche === 'Más de $200,000') rango3++;
-  });
-
-  if (engancheContainer) {
-    engancheContainer.innerHTML = `
-      <div class="space-y-2 text-xs">
-        <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg">
-          <p class="font-medium text-[#6B7280]">$50,000 a $100,000</p>
-          <span class="font-semibold text-[#F5F5F4]">${rango1} prospectos</span>
-        </div>
-        <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg">
-          <p class="font-medium text-[#6B7280]">$100,000 a $200,000</p>
-          <span class="font-semibold text-[#F5F5F4]">${rango2} prospectos</span>
-        </div>
-        <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg">
-          <p class="font-medium text-[#6B7280]">Más de $200,000</p>
-          <span class="font-semibold text-[#F5F5F4]">${rango3} prospectos</span>
-        </div>
+  // Actividad reciente
+  if (actividadEl) {
+    const hace24h   = new Date(Date.now() - 86400000);
+    const recientes = leadsCache.filter(l => l.created_at && parseFechaMx(l.created_at) > hace24h).length;
+    const citasHoy  = citasCache.filter(c => c.fecha_cita === claveDiaMx(new Date())).length;
+    const completos = leadsCache.filter(l => l.url_ine && l.url_comprobante_domicilio && l.url_comprobante_ingresos).length;
+    const sinCita   = leadsCache.filter(l => !l.fecha_cita && l.status !== 'Descartado').length;
+    actividadEl.innerHTML = [
+      ['Leads últimas 24h', recientes],
+      ['Citas agendadas hoy', citasHoy],
+      ['Expedientes completos', completos],
+      ['Leads sin cita aún', sinCita]
+    ].map(([label, val]) => `
+      <div class="flex justify-between items-center bg-[var(--surface-2)] p-2.5 rounded-lg text-xs">
+        <span class="text-[#9CA3AF]">${label}</span>
+        <span class="font-bold text-[#F5F5F4]">${val}</span>
       </div>
-    `;
+    `).join('');
   }
 }
 
@@ -1782,7 +1768,8 @@ async function handleRegistroSubmit(e) {
   const btnRegistro = document.getElementById('btnSubmitRegistro');
   if (btnRegistro) btnRegistro.disabled = true;
 
-  const datosLote = {
+  // FIX: si el wizard está activo, usar sus datos completos (incluye horario, financiamiento, etc.)
+  const datosLote = window._wizardGetDatosLote ? window._wizardGetDatosLote() : {
     nombre: nombreLote,
     whatsapp_number: phoneLote,
     rfc,
@@ -2124,11 +2111,11 @@ function handleDocPreviewError(imgEl) {
 // FIX #10: parseFechaMx robusto — maneja offsets explícitos y asume UTC solo si no hay info de zona
 function parseFechaMx(str) {
   if (!str) return new Date();
-  // Ya tiene offset explícito (Z, +HH:MM, -HH:MM) → Date lo parsea correctamente
-  if (/[Z]$/.test(str) || /[+-]\d{2}:\d{2}$/.test(str)) return new Date(str);
-  // Sin offset: Supabase guarda en UTC → agregar Z
-  const normalizado = str.includes('.') ? str + 'Z' : str + '.000Z';
-  return new Date(normalizado);
+  const s = String(str).trim();
+  // Ya tiene offset explícito (Z, +HH:MM, -HH:MM)
+  if (/Z$/.test(s) || /[+-]\d{2}:\d{2}$/.test(s)) return new Date(s);
+  // Sin offset: Supabase guarda UTC — reemplazar espacio por T y agregar Z
+  return new Date(s.replace(' ', 'T') + 'Z');
 }
 
 function formatCurrency(v) {
