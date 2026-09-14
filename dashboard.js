@@ -79,16 +79,23 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 });
 
 function showView(viewId) {
+  const displayMap = {
+    'view-registro':  'flex',
+    'view-login':     'flex',
+    'view-dashboard': 'flex'
+  };
   ['view-registro', 'view-login', 'view-dashboard'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.classList.add('hidden');
+    if (el) {
+      el.style.display = 'none';
+      el.classList.add('hidden');
+    }
   });
   const target = document.getElementById(viewId);
-  if (target) target.classList.remove('hidden');
-  // FIX: login y registro usan flex para centrado vertical
-  // el CSS :not(.hidden) ya lo maneja, pero por si acaso:
-  if (target && (viewId === 'view-login' || viewId === 'view-registro')) {
-    target.style.display = 'flex';
+  if (target) {
+    target.classList.remove('hidden');
+    target.style.display = displayMap[viewId] || 'block';
+    console.log('[Router] Mostrando vista:', viewId);
   }
 }
 
@@ -1541,12 +1548,17 @@ function handleSocialReturn() {
 }
 
 async function checarEstatusWhatsApp() {
-  if (!currentLote) return;
+  if (!currentLote || !currentLote.id) return;
   try {
-    const { data } = await supabaseClient.from('whatsapp_channels').select('*').eq('lote_id', currentLote.id).maybeSingle();
-    if (data) console.log(`[Multi-Tenant Node] Instancia vinculada: ${data.instance_name}`);
+    const { data, error } = await supabaseClient
+      .from('whatsapp_channels')
+      .select('instance_name, phone_number')
+      .eq('lote_id', currentLote.id)
+      .maybeSingle();
+    if (error) { console.warn('[WhatsApp] Error consultando canal:', error.message); return; }
+    if (data) console.log('[Multi-Tenant Node] Instancia vinculada:', data.instance_name);
   } catch (err) {
-    console.error(err);
+    console.error('[WhatsApp]', err);
   }
 }
 
@@ -1697,10 +1709,22 @@ async function checkSessionAndLote() {
     }
 
     currentUser = sessionData.session.user;
-    const { data: loteData } = await supabaseClient.from('lotes').select('*').eq('profile_id', currentUser.id);
+    console.log('[Route Guard] Usuario autenticado:', currentUser.email, '| ID:', currentUser.id);
+
+    const { data: loteData, error: loteError } = await supabaseClient
+      .from('lotes')
+      .select('*')
+      .eq('profile_id', currentUser.id);
+
+    if (loteError) {
+      console.error('[Route Guard] Error consultando lote:', loteError);
+    }
+
+    console.log('[Route Guard] Lotes encontrados:', loteData?.length || 0, loteData);
 
     if (loteData && loteData.length > 0) {
       currentLote = loteData[0];
+      console.log('[Route Guard] Lote activo:', currentLote.nombre, '| ID:', currentLote.id);
       renderConfigLote();
       renderSubscriptionStatus();
       showView('view-dashboard');
@@ -1743,15 +1767,29 @@ async function handleLoginSubmit(e) {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
   const errorEl = document.getElementById('loginError');
+  const btnLogin = e.target.querySelector('button[type="submit"]');
   if (errorEl) errorEl.textContent = '';
+  if (btnLogin) { btnLogin.disabled = true; btnLogin.textContent = 'Iniciando sesión...'; }
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) {
-    if (errorEl) errorEl.textContent = 'Credenciales no válidas.';
-    return;
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      console.error('[Login] Error Supabase:', error);
+      if (errorEl) errorEl.textContent = error.message || 'Credenciales no válidas.';
+      return;
+    }
+    if (!data || !data.user) {
+      if (errorEl) errorEl.textContent = 'No se pudo autenticar. Intenta de nuevo.';
+      return;
+    }
+    currentUser = data.user;
+    await checkSessionAndLote();
+  } catch (err) {
+    console.error('[Login] Excepción:', err);
+    if (errorEl) errorEl.textContent = 'Error de conexión. Verifica tu internet.';
+  } finally {
+    if (btnLogin) { btnLogin.disabled = false; btnLogin.textContent = 'Iniciar Sesión'; }
   }
-  currentUser = data.user;
-  await checkSessionAndLote();
 }
 
 async function handleRegistroSubmit(e) {
