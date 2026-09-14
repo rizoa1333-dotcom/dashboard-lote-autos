@@ -1807,13 +1807,16 @@ async function handleRegistroSubmit(e) {
   const errorEl = document.getElementById('registroError');
   if (errorEl) errorEl.textContent = '';
 
-  if (!/^\d{5}$/.test(cpFiscal)) {
-    if (errorEl) errorEl.textContent = 'El código postal debe tener exactamente 5 dígitos.';
-    return;
-  }
-  if (!estado) {
-    if (errorEl) errorEl.textContent = 'Selecciona tu estado.';
-    return;
+  // Si el wizard está activo, las validaciones ya se hicieron paso a paso
+  if (!window._wizardGetDatosLote) {
+    if (!/^\d{5}$/.test(cpFiscal)) {
+      if (errorEl) errorEl.textContent = 'El código postal debe tener exactamente 5 dígitos.';
+      return;
+    }
+    if (!estado) {
+      if (errorEl) errorEl.textContent = 'Selecciona tu estado.';
+      return;
+    }
   }
 
   const btnRegistro = document.getElementById('btnSubmitRegistro');
@@ -1894,90 +1897,98 @@ async function crearLoteParaUsuarioActual(datosLote) {
 // DOMContentLoaded
 // ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  if (document.getElementById('loginForm')) document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
-  if (document.getElementById('registroForm')) document.getElementById('registroForm').addEventListener('submit', handleRegistroSubmit);
-  if (document.getElementById('registroEstado')) {
-    document.getElementById('registroEstado').addEventListener('change', (e) => {
-      const box = document.getElementById('registroPrecioBox');
-      const texto = document.getElementById('registroPrecioTexto');
-      if (!e.target.value) { box.classList.add('hidden'); return; }
-      texto.textContent = `${formatCurrency(PRECIO_PLAN_MXN)} + IVA`;
-      box.classList.remove('hidden');
-    });
+  // Helper: listener seguro que no revienta si el elemento no existe
+  function on(id, event, fn) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(event, fn);
   }
-  document.getElementById('to-login-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-login'); });
-  document.getElementById('to-registro-btn').addEventListener('click', (e) => { e.preventDefault(); showView('view-registro'); });
-  document.getElementById('subscriptionPayBtn').addEventListener('click', () => {
-    if (!currentLote) return;
-    redirigirAStripeCheckout(currentLote);
-  });
-  document.getElementById('btnRefrescarQr').addEventListener('click', cargarEstadoWhatsappQr);
-  document.getElementById('btnConectarRedes').addEventListener('click', conectarRedesSociales);
-  document.getElementById('btnVerificarRedes').addEventListener('click', verificarRedesSociales);
 
+  // ── PRIMERO: login y registro — estos SIEMPRE deben funcionar ──────────
+  on('loginForm',    'submit', handleLoginSubmit);
+  on('registroForm', 'submit', handleRegistroSubmit);
+
+  on('to-login-btn',    'click', (e) => { e.preventDefault(); showView('view-login'); });
+  on('to-registro-btn', 'click', (e) => { e.preventDefault(); showView('view-registro'); });
+
+  on('registroEstado', 'change', (e) => {
+    const box   = document.getElementById('registroPrecioBox');
+    const texto = document.getElementById('registroPrecioTexto');
+    if (!box || !texto) return;
+    if (!e.target.value) { box.classList.add('hidden'); return; }
+    texto.textContent = `${formatCurrency(PRECIO_PLAN_MXN)} + IVA`;
+    box.classList.remove('hidden');
+  });
+
+  // ── SEGUNDO: detectar sesión y mostrar la vista correcta ───────────────
   await checkSessionAndLote();
   handleStripeReturn();
   handleSocialReturn();
 
-  if (document.getElementById('configForm')) {
-    document.getElementById('configForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const { data, error } = await supabaseClient.from('lotes').update({
-        nombre: document.getElementById('configNombreLote').value.trim(),
-        whatsapp_number: document.getElementById('configPhoneLote').value.trim()
-      }).eq('id', currentLote.id).select().single();
-      if (!error) { currentLote = data; renderConfigLote(); alert('Lote guardado.'); }
-    });
-  }
+  // ── TERCERO: listeners del dashboard (solo si los elementos existen) ───
+  on('subscriptionPayBtn', 'click', () => { if (currentLote) redirigirAStripeCheckout(currentLote); });
+  on('btnRefrescarQr',    'click', cargarEstadoWhatsappQr);
+  on('btnConectarRedes',  'click', conectarRedesSociales);
+  on('btnVerificarRedes', 'click', verificarRedesSociales);
+  on('logoutBtn', 'click', async () => {
+    stopSync();
+    await supabaseClient.auth.signOut();
+    currentUser = null;
+    currentLote = null;
+    showView('view-login');
+  });
+  on('closeDrawerBtn',  'click', closeDrawer);
+  on('drawerOverlay',   'click', closeDrawer);
 
-  if (document.getElementById('logoutBtn')) {
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      stopSync(); await supabaseClient.auth.signOut(); currentUser = null; currentLote = null; showView('view-login');
-    });
-  }
-
-  document.getElementById('closeDrawerBtn').addEventListener('click', closeDrawer);
-  document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+  on('configForm', 'submit', async (e) => {
+    e.preventDefault();
+    const { data, error } = await supabaseClient.from('lotes').update({
+      nombre:           document.getElementById('configNombreLote').value.trim(),
+      whatsapp_number:  document.getElementById('configPhoneLote').value.trim()
+    }).eq('id', currentLote.id).select().single();
+    if (!error) { currentLote = data; renderConfigLote(); alert('Lote guardado.'); }
+  });
 
   const modalCar = document.getElementById('modalCarOverlay');
 
-  document.getElementById('btnAbrirModalCar').addEventListener('click', () => {
+  on('btnAbrirModalCar', 'click', () => {
     editingCarId = null;
     carImageUrls = [];
-    document.getElementById('formNuevoCar').reset();
-    document.getElementById('carImageUrl').value = '';
-    document.getElementById('uploadStatusText').textContent = '';
+    const form = document.getElementById('formNuevoCar');
+    if (form) form.reset();
+    const urlEl = document.getElementById('carImageUrl');
+    if (urlEl) urlEl.value = '';
+    const statusEl = document.getElementById('uploadStatusText');
+    if (statusEl) statusEl.textContent = '';
     renderCarThumbs();
-    document.getElementById('modalCarTitle').textContent = 'Registrar Nuevo Vehículo';
-    document.getElementById('btnSubmitCarForm').textContent = 'Guardar Unidad en Sistema';
-    modalCar.classList.remove('hidden');
+    const title = document.getElementById('modalCarTitle');
+    if (title) title.textContent = 'Registrar Nuevo Vehículo';
+    const btnSubmit = document.getElementById('btnSubmitCarForm');
+    if (btnSubmit) btnSubmit.textContent = 'Guardar Unidad en Sistema';
+    if (modalCar) modalCar.classList.remove('hidden');
   });
 
-  document.getElementById('btnCerrarModalCar').addEventListener('click', () => modalCar.classList.add('hidden'));
+  on('btnCerrarModalCar', 'click', () => {
+    if (modalCar) modalCar.classList.add('hidden');
+  });
 
+  // Import CSV
   const btnImportar = document.getElementById('btnImportarExcel');
-  const fileInput = document.getElementById('excelFileInput');
-
-  if (btnImportar && fileInput) {
-    btnImportar.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', function(e) {
+  const fileInputExcel = document.getElementById('excelFileInput');
+  if (btnImportar && fileInputExcel) {
+    btnImportar.addEventListener('click', () => fileInputExcel.click());
+    fileInputExcel.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
-
       const reader = new FileReader();
       reader.onload = async function(event) {
         const text = event.target.result;
         const lineas = text.split('\n');
         if (lineas.length <= 1) return;
-
         const headers = lineas[0].split(',').map(h => h.trim().toLowerCase());
         const autosParaInsertar = [];
-
         for (let i = 1; i < lineas.length; i++) {
           if (!lineas[i].trim()) continue;
           const celdas = lineas[i].split(',').map(c => c.trim());
-
           if (celdas.length >= 4) {
             autosParaInsertar.push({
               lote_id: currentLote.id,
@@ -1993,117 +2004,108 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
           }
         }
-
         if (autosParaInsertar.length > 0) {
           const { error } = await supabaseClient.from('cars').insert(autosParaInsertar);
-          if (error) {
-            alert('Error en formato del CSV. Valida tus columnas.');
-            console.error(error);
-          } else {
-            alert(`¡Éxito! Se cargaron ${autosParaInsertar.length} autos.`);
-            await fetchCars();
-          }
+          if (error) { alert('Error en formato del CSV. Valida tus columnas.'); console.error(error); }
+          else { alert(`¡Éxito! Se cargaron ${autosParaInsertar.length} autos.`); await fetchCars(); }
         }
-        fileInput.value = '';
+        fileInputExcel.value = '';
       };
       reader.readAsText(file);
     });
   }
 
+  // Upload de fotos de autos
   const imageInput = document.getElementById('carImageFile');
   if (imageInput) {
     imageInput.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       if (!files.length) return;
-
       const statusText = document.getElementById('uploadStatusText');
-      statusText.textContent = `Subiendo ${files.length} foto(s) a la nube... ⏳`;
-      statusText.style.color = 'var(--amber-strong)';
-
+      if (statusText) { statusText.textContent = `Subiendo ${files.length} foto(s) a la nube... ⏳`; statusText.style.color = 'var(--amber-strong)'; }
       for (const file of files) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
         const filePath = `${currentLote.id}/${fileName}`;
-
         const { error } = await supabaseClient.storage.from('car-images').upload(filePath, file);
         if (error) {
-          statusText.textContent = 'Fallo de Storage. Valida permisos del Bucket.';
-          statusText.style.color = 'var(--danger)';
+          if (statusText) { statusText.textContent = 'Fallo de Storage. Valida permisos del Bucket.'; statusText.style.color = 'var(--danger)'; }
           continue;
         }
-
         const { data: publicUrlData } = supabaseClient.storage.from('car-images').getPublicUrl(filePath);
         carImageUrls.push(publicUrlData.publicUrl);
       }
-
-      document.getElementById('carImageUrl').value = carImageUrls[0] || '';
+      const urlEl = document.getElementById('carImageUrl');
+      if (urlEl) urlEl.value = carImageUrls[0] || '';
       renderCarThumbs();
-      statusText.textContent = `${carImageUrls.length} foto(s) lista(s). 🖼️`;
-      statusText.style.color = 'var(--success)';
+      if (statusText) { statusText.textContent = `${carImageUrls.length} foto(s) lista(s). 🖼️`; statusText.style.color = 'var(--success)'; }
       imageInput.value = '';
     });
   }
 
-  document.getElementById('formNuevoCar').addEventListener('submit', async (e) => {
+  // Submit form nuevo auto
+  on('formNuevoCar', 'submit', async (e) => {
     e.preventDefault();
     if (!currentLote) return;
     if (isNaN(parseInt(document.getElementById('carYear').value)) || isNaN(parseFloat(document.getElementById('carPrice').value))) {
       alert('Revisa el año y el precio: deben ser números válidos.');
       return;
     }
-
     const btnSubmit = document.getElementById('btnSubmitCarForm');
-    btnSubmit.disabled = true;
-
+    if (btnSubmit) btnSubmit.disabled = true;
     const carData = {
-      lote_id: currentLote.id,
-      brand: document.getElementById('carBrand').value.trim(),
-      model: document.getElementById('carModel').value.trim(),
-      year: parseInt(document.getElementById('carYear').value),
-      price: parseFloat(document.getElementById('carPrice').value),
-      image_url: document.getElementById('carImageUrl').value.trim() || PLACEHOLDER_IMG,
-      image_urls: carImageUrls,
-      status: document.getElementById('carStatus').value,
-      transmision: document.getElementById('carTransmision').value,
-      kilometraje: parseFloat(document.getElementById('carKilometraje').value) || 0,
+      lote_id:         currentLote.id,
+      brand:           document.getElementById('carBrand').value.trim(),
+      model:           document.getElementById('carModel').value.trim(),
+      year:            parseInt(document.getElementById('carYear').value),
+      price:           parseFloat(document.getElementById('carPrice').value),
+      image_url:       document.getElementById('carImageUrl').value.trim() || PLACEHOLDER_IMG,
+      image_urls:      carImageUrls,
+      status:          document.getElementById('carStatus').value,
+      transmision:     document.getElementById('carTransmision').value,
+      kilometraje:     parseFloat(document.getElementById('carKilometraje').value) || 0,
       enganche_minimo: parseFloat(document.getElementById('carEnganche').value) || 0,
-      caracteristicas: document.getElementById('carCaracteristicas').value.trim() || null
+      caracteristicas: document.getElementById('carCaracteristicas')?.value.trim() || null
     };
-
     let response;
     if (editingCarId) {
       response = await supabaseClient.from('cars').update(carData).eq('id', editingCarId).eq('lote_id', currentLote.id);
     } else {
       response = await supabaseClient.from('cars').insert(carData);
     }
-
     if (response.error) {
       console.error('[Inventario] Error al guardar carro:', response.error);
       alert(`Error al guardar: ${response.error.message}`);
-      btnSubmit.disabled = false;
+      if (btnSubmit) btnSubmit.disabled = false;
       return;
     }
-
-    btnSubmit.disabled = false;
+    if (btnSubmit) btnSubmit.disabled = false;
     e.target.reset();
     editingCarId = null;
     carImageUrls = [];
     renderCarThumbs();
-    modalCar.classList.add('hidden');
+    if (modalCar) modalCar.classList.add('hidden');
     await fetchCars();
   });
 
-  document.getElementById('openSidebar').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.remove('-translate-x-full');
-    document.getElementById('overlay').classList.remove('hidden');
+  // Sidebar móvil
+  on('openSidebar', 'click', () => {
+    const sb = document.getElementById('sidebar');
+    const ov = document.getElementById('overlay');
+    if (sb) sb.classList.remove('-translate-x-full');
+    if (ov) ov.classList.remove('hidden');
   });
-  document.getElementById('closeSidebar').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.add('-translate-x-full');
-    document.getElementById('overlay').classList.add('hidden');
+  on('closeSidebar', 'click', () => {
+    const sb = document.getElementById('sidebar');
+    const ov = document.getElementById('overlay');
+    if (sb) sb.classList.add('-translate-x-full');
+    if (ov) ov.classList.add('hidden');
   });
-  document.getElementById('overlay').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.add('-translate-x-full');
-    document.getElementById('overlay').classList.add('hidden');
+  on('overlay', 'click', () => {
+    const sb = document.getElementById('sidebar');
+    const ov = document.getElementById('overlay');
+    if (sb) sb.classList.add('-translate-x-full');
+    if (ov) ov.classList.add('hidden');
   });
 
   initSidebarNav();
