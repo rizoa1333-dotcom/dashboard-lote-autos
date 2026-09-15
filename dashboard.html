@@ -47,6 +47,26 @@
 
     /* Vistas login/registro/dashboard: visibilidad controlada por JS via style.display */
 
+    /* ── DRAWER TABS MÓVIL ── */
+    .drawer-tab-btn {
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      border-bottom: 2px solid transparent;
+    }
+    .drawer-tab-btn.active {
+      color: var(--text);
+      border-bottom-color: var(--primary);
+    }
+    /* En desktop las 3 columnas siempre visibles */
+    @media (min-width: 1024px) {
+      .drawer-tab-content { display: flex !important; }
+      #tab-datos { display: block !important; }
+      #tab-docs  { display: block !important; }
+    }
+
     /* Plan vencido: bloquea navegación operativa, deja pasar solo Configuración y Cerrar Sesión */
     body.plan-vencido .nav-btn:not([data-section="section-configuracion"]) { pointer-events: none; opacity: 0.35; }
   </style>
@@ -804,99 +824,101 @@
   <!-- ============ DRAWER CRM (FICHA DE LEAD) ============ -->
   <div id="drawerOverlay" class="fixed inset-0 bg-black/60 z-40 hidden backdrop-blur-xs transition-opacity"></div>
   <aside id="drawerPro" class="fixed top-0 right-0 h-full w-full lg:w-[85vw] bg-[#0F1219] border-l border-[#272A30] z-50 transform translate-x-full flex flex-col shadow-2xl transition-transform duration-300">
-    <div class="px-6 h-16 bg-[#12151C] border-b border-[#272A30] flex items-center justify-between flex-shrink-0 z-10">
-      <div>
-        <p class="font-bold text-base tracking-tight flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full" style="background: var(--success);"></span>
-          Expediente Comercial Unificado (SaaS CRM)
+
+    <!-- Header -->
+    <div class="px-4 md:px-6 h-14 md:h-16 bg-[#12151C] border-b border-[#272A30] flex items-center justify-between flex-shrink-0 z-10 gap-3">
+      <div class="min-w-0">
+        <p class="font-bold text-sm md:text-base tracking-tight flex items-center gap-2">
+          <span class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full flex-shrink-0" style="background: var(--success);"></span>
+          <span class="truncate">Expediente del Prospecto</span>
         </p>
-        <p class="text-xs text-[#9CA3AF] font-mono tracking-wide">ID Lead Enlazado: <span id="crmLeadIdDisplay" class="font-bold">---</span></p>
+        <p class="text-[10px] text-[#9CA3AF] font-mono">ID: <span id="crmLeadIdDisplay" class="font-bold">---</span></p>
       </div>
-      <button id="closeDrawerBtn" class="w-9 h-9 rounded-xl border border-[#272A30] bg-[#161922] flex items-center justify-center text-[#9CA3AF] hover:text-[#F5F5F4] transition cursor-pointer">
+      <button id="closeDrawerBtn" class="w-9 h-9 flex-shrink-0 rounded-xl border border-[#272A30] bg-[#161922] flex items-center justify-center text-[#9CA3AF] hover:text-[#F5F5F4] transition cursor-pointer">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
-    <div class="flex-1 overflow-hidden flex flex-col lg:flex-row items-stretch justify-start min-h-0">
+    <!-- Tabs móvil (ocultos en desktop) -->
+    <div class="flex lg:hidden border-b border-[#272A30] bg-[#12151C] flex-shrink-0">
+      <button data-drawer-tab="tab-datos" class="drawer-tab-btn active flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">👤 Datos</button>
+      <button data-drawer-tab="tab-chat" class="drawer-tab-btn flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">💬 Chat</button>
+      <button data-drawer-tab="tab-docs" class="drawer-tab-btn flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">📎 Docs</button>
+    </div>
 
-      <!-- COLUMNA 1 -->
-      <div class="w-full lg:w-80 bg-[#12151C] border-b lg:border-b-0 lg:border-r border-[#272A30] p-6 overflow-y-auto space-y-5 flex-shrink-0">
+    <!-- Contenido: 3 columnas en desktop, tabs en móvil -->
+    <div class="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
+
+      <!-- COLUMNA 1 — Datos del Lead -->
+      <div id="tab-datos" class="drawer-tab-content w-full lg:w-80 bg-[#12151C] lg:border-r border-[#272A30] p-5 overflow-y-auto space-y-4 flex-shrink-0 lg:flex hidden lg:block">
         <div class="text-center pb-4 border-b border-[#272A30]">
-          <div class="w-16 h-16 mx-auto rounded-2xl bg-[#F5F5F4] text-[#0F1219] flex items-center justify-center font-bold text-xl mb-3 font-mono" id="crmAvatarInitials">--</div>
-          <h4 id="drawerNombre" class="font-bold text-lg truncate">---</h4>
+          <div class="w-14 h-14 mx-auto rounded-2xl bg-[#F5F5F4] text-[#0F1219] flex items-center justify-center font-bold text-xl mb-2 font-mono" id="crmAvatarInitials">--</div>
+          <h4 id="drawerNombre" class="font-bold text-base truncate">---</h4>
           <span id="drawerStatus" class="badge badge-neutral mt-1">---</span>
         </div>
-
-        <div class="space-y-4 text-sm">
+        <div class="space-y-3 text-sm">
           <div>
-            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Contacto Directo</label>
-            <p id="drawerTelefono" class="font-semibold font-mono mt-0.5 privacy-sensitive">---</p>
+            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Teléfono</label>
+            <p id="drawerTelefono" class="font-semibold font-mono mt-0.5 privacy-sensitive text-sm">---</p>
           </div>
           <div>
-            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Unidad de Interés</label>
+            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Auto de Interés</label>
             <p id="drawerInteres" class="font-bold text-sm mt-0.5" style="color: var(--cold);">---</p>
           </div>
           <div>
-            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Cita en Patio Programada</label>
-            <p id="drawerFechaCita" class="font-semibold mt-0.5">---</p>
+            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Cita Agendada</label>
+            <p id="drawerFechaCita" class="font-semibold mt-0.5 text-sm">---</p>
           </div>
           <hr class="border-[#272A30]">
           <div>
-            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Capacidad de Enganche</label>
+            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Enganche Disponible</label>
             <p id="drawerEnganche" class="font-bold mt-0.5">---</p>
           </div>
           <div>
-            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Estatus Laboral</label>
+            <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Situación Laboral</label>
             <p id="drawerSituacion" class="font-medium mt-0.5">---</p>
           </div>
         </div>
-
-        <div class="rounded-xl p-3.5 space-y-1.5" style="background: var(--surface-2);">
-          <label class="text-[10px] font-bold uppercase tracking-wider block text-[#6B7280]">🧠 Calificación del Asesor IA</label>
+        <div class="rounded-xl p-3 space-y-1" style="background: var(--surface-2);">
+          <label class="text-[10px] font-bold uppercase tracking-wider block text-[#6B7280]">🧠 Notas del Asesor IA</label>
           <p id="drawerNotas" class="text-xs text-[#6B7280] leading-relaxed italic">---</p>
         </div>
       </div>
 
-      <!-- COLUMNA 2 -->
-      <div class="flex-1 bg-[#0F1219] flex flex-col min-w-0 border-b lg:border-b-0 lg:border-r border-[#272A30]">
-        <div class="px-5 h-11 bg-[#12151C] border-b border-[#272A30] flex items-center justify-between flex-shrink-0">
-          <p class="text-xs font-bold text-[#9CA3AF] uppercase tracking-wider flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            Historial de Conversación Directa (WhatsApp API)
+      <!-- COLUMNA 2 — Chat -->
+      <div id="tab-chat" class="drawer-tab-content flex-1 bg-[#0F1219] flex flex-col min-w-0 lg:border-r border-[#272A30] hidden lg:flex">
+        <div class="px-4 h-10 bg-[#12151C] border-b border-[#272A30] flex items-center flex-shrink-0">
+          <p class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Conversación WhatsApp en Tiempo Real
           </p>
         </div>
-        <div id="crmChatHistoryContainer" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs flex flex-col"></div>
-        <div class="p-3 bg-[#12151C] border-t border-[#272A30] text-center text-[11px] text-[#9CA3AF] font-medium tracking-wide flex items-center justify-center gap-1">
+        <div id="crmChatHistoryContainer" class="flex-1 p-3 overflow-y-auto space-y-3 text-xs flex flex-col" style="-webkit-overflow-scrolling: touch;"></div>
+        <div class="px-4 py-2 bg-[#12151C] border-t border-[#272A30] text-center text-[10px] text-[#9CA3AF] flex items-center justify-center gap-1.5 flex-shrink-0">
           <span class="w-1.5 h-1.5 rounded-full animate-ping" style="background: var(--success);"></span>
-          Monitoreo protegido bajo RLS multi-tenant y encriptación de extremo a extremo
+          Multi-tenant · RLS activo
         </div>
       </div>
 
-      <!-- COLUMNA 3 -->
-      <div class="w-full lg:w-72 bg-[#12151C] p-6 overflow-y-auto space-y-5 flex-shrink-0">
+      <!-- COLUMNA 3 — Expediente -->
+      <div id="tab-docs" class="drawer-tab-content w-full lg:w-72 bg-[#12151C] p-5 overflow-y-auto space-y-4 flex-shrink-0 hidden lg:block" style="-webkit-overflow-scrolling: touch;">
         <div>
-          <h5 class="text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            Expediente Digital
-          </h5>
-          <p class="text-[11px] text-[#9CA3AF] leading-normal">Layout documental indexado de forma automatizada por el motor multimedia de n8n</p>
+          <h5 class="text-xs font-bold uppercase tracking-wider mb-1">📎 Expediente Digital</h5>
+          <p class="text-[11px] text-[#9CA3AF]">Documentos indexados automáticamente por n8n</p>
         </div>
-
-        <div id="drawerExpedienteDocs" class="space-y-2.5"></div>
-
+        <div id="drawerExpedienteDocs" class="space-y-2"></div>
         <hr class="border-[#272A30]">
-
         <div class="space-y-2">
-          <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Último Mensaje Analizado</label>
+          <label class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Último Mensaje</label>
           <div id="drawerUltimoMensaje" class="text-xs text-[#6B7280] bg-[#161922] border border-[#272A30] p-3 rounded-xl italic leading-relaxed">---</div>
         </div>
       </div>
 
     </div>
 
-    <div class="px-6 h-12 bg-[#12151C] border-t border-[#272A30] flex items-center justify-between flex-shrink-0 text-[10px] font-mono text-[#9CA3AF] uppercase tracking-wider">
-      <span>Módulo CRM Integrado</span>
-      <span>Enterprise Pro 360 v2.5</span>
+    <!-- Footer -->
+    <div class="px-4 h-10 bg-[#12151C] border-t border-[#272A30] flex items-center justify-between flex-shrink-0 text-[10px] font-mono text-[#9CA3AF] uppercase tracking-wider">
+      <span>VeloDrive CRM</span><span>v3.0</span>
     </div>
   </aside>
 

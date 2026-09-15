@@ -1368,6 +1368,7 @@ async function openDrawer(leadId) {
 
   document.getElementById('drawerPro').classList.add('drawer-open');
   document.getElementById('drawerOverlay').classList.remove('hidden');
+  if (window._activarDrawerTabDatos) window._activarDrawerTabDatos();
 }
 
 async function refreshChatLive(leadId) {
@@ -1440,6 +1441,49 @@ function closeDrawer() {
 // MODO CATÁLOGO
 // FIX #8: limpiar leadsCache al activar para evitar lectura por consola
 // ------------------------------------------------------------
+
+// ============================================================
+// DRAWER TABS — navegación móvil entre Datos / Chat / Docs
+// ============================================================
+function initDrawerTabs() {
+  const tabs = document.querySelectorAll('.drawer-tab-btn');
+  if (!tabs.length) return;
+
+  function activarTab(tabId) {
+    // Ocultar todos los paneles
+    document.querySelectorAll('.drawer-tab-content').forEach(el => {
+      el.style.display = 'none';
+    });
+    // Desactivar todos los botones
+    tabs.forEach(btn => btn.classList.remove('active'));
+
+    // Mostrar panel seleccionado
+    const panel = document.getElementById(tabId);
+    if (panel) panel.style.display = 'flex';
+
+    // Activar botón correspondiente
+    const btn = document.querySelector(`[data-drawer-tab="${tabId}"]`);
+    if (btn) btn.classList.add('active');
+
+    // Si es el chat, hacer scroll al fondo
+    if (tabId === 'tab-chat') {
+      const chat = document.getElementById('crmChatHistoryContainer');
+      if (chat) setTimeout(() => { chat.scrollTop = chat.scrollHeight; }, 50);
+    }
+  }
+
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      activarTab(btn.getAttribute('data-drawer-tab'));
+    });
+  });
+
+  // Al abrir el drawer, activar tab de datos por defecto (solo en móvil)
+  window._activarDrawerTabDatos = () => {
+    if (window.innerWidth < 1024) activarTab('tab-datos');
+  };
+}
+
 function initCatalogMode() {
   const toggle = document.getElementById('catalogModeToggle');
   if (!toggle) return;
@@ -2112,6 +2156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMarketingModule();
   initCatalogMode();
   initCitasCalendario();
+  initDrawerTabs();
 });
 
 // ------------------------------------------------------------
