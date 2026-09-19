@@ -273,7 +273,10 @@ function renderLeadsTable() {
 
     const filaHTML = lead => {
       const fechaReg = lead.created_at ? parseFechaMx(lead.created_at) : new Date();
-      const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' });
+      const horaVisual = new Intl.DateTimeFormat('es-MX', {
+        hour: '2-digit', minute: '2-digit', hour12: true,
+        timeZone: 'America/Mexico_City'
+      }).format(fechaReg);
       const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
       const badgeDocs = tieneDocumentos ? `<span class="badge badge-success ml-1">📎 Docs</span>` : '';
       return `
@@ -296,7 +299,10 @@ function renderLeadsTable() {
 
     const tarjetaHTML = lead => {
       const fechaReg = lead.created_at ? parseFechaMx(lead.created_at) : new Date();
-      const horaVisual = fechaReg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' });
+      const horaVisual = new Intl.DateTimeFormat('es-MX', {
+        hour: '2-digit', minute: '2-digit', hour12: true,
+        timeZone: 'America/Mexico_City'
+      }).format(fechaReg);
       const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
       return `
         <div class="card p-4 space-y-2">
@@ -1406,7 +1412,7 @@ async function refreshChatLive(leadId) {
     const isBot = String(msg.role).toLowerCase() === 'assistant' || String(msg.role).toLowerCase() === 'bot' || String(msg.role).toLowerCase() === 'model' || !!msg.response;
     const textContent = msg.message || msg.content || msg.response || '---';
     const hora = msg.created_at
-      ? parseFechaMx(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' })
+      ? new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' }).format(parseFechaMx(msg.created_at))
       : '';
 
     if (isBot) {
