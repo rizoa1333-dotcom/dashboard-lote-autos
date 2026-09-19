@@ -2209,11 +2209,15 @@ function handleDocPreviewError(imgEl) {
 // FIX #10: parseFechaMx robusto — maneja offsets explícitos y asume UTC solo si no hay info de zona
 function parseFechaMx(str) {
   if (!str) return new Date();
-  const s = String(str).trim();
-  // Ya tiene offset explícito (Z, +HH:MM, -HH:MM)
-  if (/Z$/.test(s) || /[+-]\d{2}:\d{2}$/.test(s)) return new Date(s);
-  // Sin offset: Supabase guarda UTC — reemplazar espacio por T y agregar Z
-  return new Date(s.replace(' ', 'T') + 'Z');
+  let s = String(str).trim();
+  // Normalizar espacio entre fecha y hora/offset
+  s = s.replace(' ', 'T');
+  // Supabase a veces manda +00 sin minutos (ej: 2026-09-19T07:38:00+00)
+  // Convertir a +00:00 para que Date() lo parsee correctamente
+  s = s.replace(/([+-]\d{2})$/, '$1:00');
+  // Si no tiene offset ni Z, agregar Z (UTC)
+  if (!/Z$/.test(s) && !/[+-]\d{2}:\d{2}$/.test(s)) s = s + 'Z';
+  return new Date(s);
 }
 
 function formatCurrency(v) {
