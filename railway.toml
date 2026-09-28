@@ -1,31 +1,11 @@
-# railway.toml — Headers de seguridad para VeloDrive
-# Coloca este archivo en la RAÍZ del repositorio de GitHub de VeloDrive
-# Railway lo detecta automáticamente en el siguiente deploy
+# Configuración mínima de Railway para el servidor Express.
+# Railway mantiene railway.toml por compatibilidad con servicios existentes.
 
-[staticFiles]
-assets = "."
+[build]
+builder = "RAILPACK"
 
-[[deploy.headers]]
-path = "/*"
-name = "Content-Security-Policy"
-value = "frame-ancestors 'none'"
-
-[[deploy.headers]]
-path = "/*"
-name = "X-Frame-Options"
-value = "DENY"
-
-[[deploy.headers]]
-path = "/*"
-name = "X-Content-Type-Options"
-value = "nosniff"
-
-[[deploy.headers]]
-path = "/*"
-name = "Referrer-Policy"
-value = "strict-origin-when-cross-origin"
-
-[[deploy.headers]]
-path = "/*"
-name = "Permissions-Policy"
-value = "camera=(), microphone=(), geolocation=()"
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

@@ -30,8 +30,8 @@ const N8N_REDES_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhoo
 const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.app/webhook/verificar-publicacion';
 // FIX #4 eliminado: N8N_VERIFY_PUBLISH_WEBHOOK_URL era código muerto — removido.
 
-const STRIPE_LINK = 'https://buy.stripe.com/8x27sN80F9JLa3Y7Zz3oA05';
-const PRECIO_PLAN_MXN = 15000;
+const STRIPE_LINK = 'https://buy.stripe.com/9B614p0ydcVXa3Y1Bb3oA06';
+const PRECIO_PLAN_MXN = 10000;
 function redirigirAStripeCheckout(lote) {
   const url = new URL(STRIPE_LINK);
   url.searchParams.set('client_reference_id', lote.id);
@@ -44,6 +44,8 @@ const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.
 let currentUser = null;
 let currentLote = null;
 let syncIntervalId = null;
+let passwordRecoveryActive = false;
+let directPasswordChange = false;
 
 let leadsCache = [];
 let carsCache = [];
@@ -70,6 +72,13 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 });
 
 supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    passwordRecoveryActive = true;
+    directPasswordChange = false;
+    prepararCambioPassword();
+    showView('view-password-recovery');
+    return;
+  }
   if (event === 'SIGNED_OUT' || (!session && currentUser)) {
     stopSync();
     currentUser = null;
@@ -82,9 +91,10 @@ function showView(viewId) {
   const displayMap = {
     'view-registro':  'flex',
     'view-login':     'flex',
-    'view-dashboard': 'flex'
+    'view-dashboard': 'flex',
+    'view-password-recovery': 'flex'
   };
-  ['view-registro', 'view-login', 'view-dashboard'].forEach(id => {
+  ['view-registro', 'view-login', 'view-dashboard', 'view-password-recovery'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.style.display = 'none';
@@ -1749,6 +1759,7 @@ async function verificarRedesSociales() {
 // ROUTE GUARD
 // ------------------------------------------------------------
 async function checkSessionAndLote() {
+  if (passwordRecoveryActive) return false;
   try {
     const { data: sessionData, error: sessionErr } = await supabaseClient.auth.getSession();
     if (sessionErr || !sessionData || !sessionData.session) {
@@ -1856,6 +1867,17 @@ async function handleRegistroSubmit(e) {
   const estado = document.getElementById('registroEstado').value;
   const errorEl = document.getElementById('registroError');
   if (errorEl) errorEl.textContent = '';
+  if (!documentosLegalesListos()) {
+    if (errorEl) {
+      errorEl.textContent = 'El registro estará disponible cuando se completen y publiquen los documentos legales de VeloDrive.';
+      errorEl.classList.remove('hidden');
+    }
+    return;
+  }
+  if (!document.getElementById('aceptaDocumentosLegales')?.checked) {
+    if (errorEl) { errorEl.textContent = 'Debes aceptar los Términos del servicio y el Aviso de privacidad.'; errorEl.classList.remove('hidden'); }
+    return;
+  }
 
   // Si el wizard está activo, las validaciones ya se hicieron paso a paso
   if (!window._wizardGetDatosLote) {
@@ -1883,11 +1905,15 @@ async function handleRegistroSubmit(e) {
     uso_cfdi: usoCFDI,
     estado
   };
+  datosLote.email_admin = email;
 
   const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: window.location.origin }
+    options: {
+      emailRedirectTo: window.location.origin,
+      data: { legal_consent: { version: '2026-09-28-draft-1', accepted_at: new Date().toISOString(), terms: true, privacy: true } }
+    }
   });
 
   if (signUpError) {
@@ -1943,6 +1969,117 @@ async function crearLoteParaUsuarioActual(datosLote) {
   return data;
 }
 
+const LEGAL_TEXTS = {
+  privacidad: {
+    title: 'Aviso de privacidad de VeloDrive (borrador)',
+    paragraphs: [
+      'Responsable: [PENDIENTE: razón social o nombre], con domicilio en [PENDIENTE] y contacto de privacidad [PENDIENTE].',
+      'Datos tratados: datos de cuenta y del lote (correo, nombre comercial, teléfono/WhatsApp, ubicación y, si se proporcionan, RFC y datos fiscales); información del inventario; y datos de prospectos, citas y conversaciones que el lote registra o recibe mediante WhatsApp.',
+      'Usos: operar el panel, administrar inventario y prospectos, habilitar el agente vendedor y herramientas de marketing, gestionar la suscripción, emitir facturas cuando se solicite y brindar soporte. Las publicaciones en redes requieren la conexión autorizada por el usuario.',
+      'Proveedores: Supabase (autenticación y almacenamiento), Stripe (pagos), n8n y proveedores conectados para WhatsApp, IA, redes sociales y facturación. Completar [PENDIENTE: países/regiones, encargados, transferencias y plazos de conservación].',
+      'Derechos y solicitudes: contactar a [PENDIENTE: correo de privacidad]. Añadir el procedimiento y plazos aplicables según las jurisdicciones atendidas.',
+      'Datos de prospectos: el lote que los carga debe contar con la base legal y los avisos necesarios para compartirlos y procesarlos mediante VeloDrive y sus proveedores.'
+    ]
+  },
+  terminos: {
+    title: 'Términos del servicio de VeloDrive (borrador)',
+    paragraphs: [
+      'Proveedor: [PENDIENTE: razón social, domicilio y contacto]. VeloDrive ofrece un panel para lotes de autos con herramientas de inventario, atención automatizada de prospectos y apoyo para crear o publicar contenido.',
+      'Cuenta y uso: el usuario debe mantener sus credenciales seguras, tener autorización para conectar sus cuentas y revisar la información generada o publicada. El contenido generado por IA puede contener errores y debe verificarse antes de utilizarse.',
+      'Plan y cobro: $10,000 MXN mensuales más IVA, con cobro recurrente mensual procesado por Stripe. Confirma en la pantalla de pago el total con impuestos y completa [PENDIENTE: límites del plan y condiciones de renovación/cobro].',
+      'Disponibilidad y terceros: WhatsApp, redes sociales, IA y otros proveedores pueden tener reglas o interrupciones propias. Completar [PENDIENTE: niveles de servicio, soporte, suspensión, responsabilidad y jurisdicción].',
+      'Estos términos aplican desde su aceptación. Informar cómo se notificarán cambios y registrar la versión aceptada.'
+    ]
+  },
+  cancelacion: {
+    title: 'Cancelación y reembolsos (borrador)',
+    paragraphs: [
+      'Puedes solicitar la cancelación desde el portal de facturación de Stripe cuando esté habilitado para tu cuenta. La cancelación detendrá renovaciones futuras conforme a las condiciones que muestre Stripe.',
+      'Fecha efectiva, acceso al servicio, cobros pendientes y reembolsos: [PENDIENTE: definir las reglas comerciales aplicables y sus excepciones legales].',
+      'La cancelación no elimina automáticamente la cuenta ni los datos. Para solicitar su eliminación o ejercer derechos de privacidad, usa [PENDIENTE: correo y procedimiento].'
+    ]
+  }
+};
+
+function documentosLegalesListos() {
+  return Object.values(LEGAL_TEXTS).every(doc =>
+    !/borrador/i.test(doc.title) &&
+    doc.paragraphs.every(paragraph => !/\[PENDIENTE:/i.test(paragraph))
+  );
+}
+
+function prepararCambioPassword() {
+  const email = document.getElementById('recoveryEmail');
+  const emailWrap = document.getElementById('recoveryEmailWrap');
+  const passwordWrap = document.getElementById('newPasswordWrap');
+  const button = document.getElementById('recoverySubmitBtn');
+  const message = document.getElementById('recoveryMessage');
+  const recoveryLink = passwordRecoveryActive || directPasswordChange || new URLSearchParams(window.location.search).get('type') === 'recovery';
+  if (email && currentUser?.email) email.value = currentUser.email;
+  if (emailWrap) emailWrap.classList.toggle('hidden', recoveryLink);
+  if (passwordWrap) passwordWrap.classList.toggle('hidden', !recoveryLink);
+  if (button) button.textContent = recoveryLink ? 'Guardar nueva contraseña' : 'Enviar enlace de recuperación';
+  if (message) message.textContent = recoveryLink ? 'Elige una contraseña de al menos 8 caracteres.' : '';
+  const passwordInput = document.getElementById('newPassword');
+  if (passwordInput) passwordInput.required = recoveryLink;
+}
+
+async function handlePasswordRecoverySubmit(event) {
+  event.preventDefault();
+  const recoveryLink = passwordRecoveryActive || directPasswordChange || new URLSearchParams(window.location.search).get('type') === 'recovery';
+  const message = document.getElementById('recoveryMessage');
+  const button = document.getElementById('recoverySubmitBtn');
+  if (message) { message.textContent = ''; message.className = 'text-xs text-center'; }
+  if (button) button.disabled = true;
+  try {
+    if (recoveryLink) {
+      const password = document.getElementById('newPassword').value;
+      if (password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
+      const { error } = await supabaseClient.auth.updateUser({ password });
+      if (error) throw error;
+      if (message) { message.textContent = 'Contraseña actualizada. Ya puedes iniciar sesión.'; message.classList.add('text-[#4B8B72]'); }
+      passwordRecoveryActive = false;
+      directPasswordChange = false;
+      await supabaseClient.auth.signOut();
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => showView('view-login'), 1200);
+    } else {
+      const email = document.getElementById('recoveryEmail').value.trim();
+      const redirectTo = `${window.location.origin}${window.location.pathname}?type=recovery`;
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) throw error;
+      if (message) { message.textContent = 'Si existe una cuenta con ese correo, recibirás un enlace para cambiar la contraseña.'; message.classList.add('text-[#4B8B72]'); }
+    }
+  } catch (error) {
+    if (message) { message.textContent = error.message || 'No se pudo completar la solicitud.'; message.classList.add('text-[#A9584A]'); }
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function handleManageSubscription() {
+  const status = document.getElementById('subscriptionManageMessage');
+  const button = document.getElementById('manageSubscriptionBtn');
+  if (button) button.disabled = true;
+  if (status) status.textContent = '';
+  try {
+    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError || !sessionData?.session?.access_token) throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
+    const response = await fetch('/api/stripe-portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionData.session.access_token}` },
+      body: JSON.stringify({ lote_id: currentLote?.id })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.url) throw new Error(result.message || 'No se pudo abrir el portal de Stripe.');
+    window.location.assign(result.url);
+  } catch (error) {
+    if (status) status.textContent = error.message || 'No se pudo abrir el portal de Stripe.';
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 // ------------------------------------------------------------
 // DOMContentLoaded
 // ------------------------------------------------------------
@@ -1956,6 +2093,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── PRIMERO: login y registro — estos SIEMPRE deben funcionar ──────────
   on('loginForm',    'submit', handleLoginSubmit);
   on('registroForm', 'submit', handleRegistroSubmit);
+  on('passwordRecoveryForm', 'submit', handlePasswordRecoverySubmit);
+  on('forgotPasswordBtn', 'click', () => { directPasswordChange = false; passwordRecoveryActive = false; prepararCambioPassword(); showView('view-password-recovery'); });
+  on('recoveryBackBtn', 'click', async () => {
+    const volverAlDashboard = directPasswordChange && currentUser && currentLote;
+    directPasswordChange = false;
+    passwordRecoveryActive = false;
+    window.history.replaceState({}, '', window.location.pathname);
+    if (volverAlDashboard) showView('view-dashboard');
+    else {
+      if (currentUser) await supabaseClient.auth.signOut();
+      showView('view-login');
+    }
+  });
+  on('changePasswordBtn', 'click', () => { directPasswordChange = true; prepararCambioPassword(); showView('view-password-recovery'); });
+  on('manageSubscriptionBtn', 'click', handleManageSubscription);
+  on('legalDialogClose', 'click', () => {
+    const dialog = document.getElementById('legalDialog');
+    dialog.classList.add('hidden');
+    dialog.classList.remove('flex');
+  });
+  document.querySelectorAll('[data-legal-open]').forEach(button => button.addEventListener('click', () => {
+    const doc = LEGAL_TEXTS[button.dataset.legalOpen];
+    if (!doc) return;
+    document.getElementById('legalDialogTitle').textContent = doc.title;
+    const content = document.getElementById('legalContent');
+    content.replaceChildren(...doc.paragraphs.map(paragraph => {
+      const p = document.createElement('p');
+      p.textContent = paragraph;
+      return p;
+    }));
+    const dialog = document.getElementById('legalDialog');
+    const notice = dialog.querySelector('[data-legal-draft-notice]');
+    if (notice) notice.textContent = documentosLegalesListos()
+      ? 'Consulta la versión y fecha de vigencia indicadas en el documento.'
+      : 'Documento en preparación: completa los campos pendientes y revisa su contenido antes de publicarlo.';
+    dialog.classList.remove('hidden');
+    dialog.classList.add('flex');
+  }));
 
   on('to-login-btn',    'click', (e) => { e.preventDefault(); showView('view-login'); });
   on('to-registro-btn', 'click', (e) => { e.preventDefault(); showView('view-registro'); });
