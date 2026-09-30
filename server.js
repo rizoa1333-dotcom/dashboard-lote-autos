@@ -91,6 +91,17 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 // server.js, package.json, archivos de configuración ni flujos de n8n.
 app.get('/styles.css', (req, res) => res.sendFile(path.join(__dirname, 'styles.css')));
 app.get('/dashboard.js', (req, res) => res.sendFile(path.join(__dirname, 'dashboard.js')));
+app.get('/manifest.webmanifest', (req, res) => {
+  res.type('application/manifest+json').sendFile(path.join(__dirname, 'manifest.webmanifest'));
+});
+app.get('/icons/icon-192.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icon-192.png')));
+app.get('/icons/icon-512.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icon-512.png')));
+app.get('/sw.js', (req, res) => {
+  // El SW solo hace peticiones de red; no almacena páginas ni datos privados.
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.type('application/javascript').sendFile(path.join(__dirname, 'sw.js'));
+});
 
 // Fallback de SPA: cualquier otra ruta recibe el mismo dashboard.html,
 // para que tu JS decida qué vista mostrar (login/registro/dashboard).

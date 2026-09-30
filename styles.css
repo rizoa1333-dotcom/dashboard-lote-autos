@@ -9,6 +9,7 @@
 html, body {
   height: 100%;
   overflow: hidden;
+  overflow-x: clip;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: #0F1219;
   color: #F5F5F4;
@@ -43,11 +44,14 @@ html, body {
 #view-login {
   overflow-y: auto;
   height: 100vh;
+  min-height: 100vh;
+  overscroll-behavior-y: contain;
 }
 
 /* ---- Dashboard: layout fijo ---- */
 #view-dashboard {
   height: 100vh;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -64,7 +68,8 @@ html, body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -79,6 +84,8 @@ html, body {
 /* FIX CRÍTICO: SOLO el main scrollea */
 #view-dashboard main {
   flex: 1;
+  min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -451,4 +458,109 @@ body.catalog-mode .privacy-sensitive {
 /* Desktop: 3 columnas inventario */
 @media (min-width: 1024px) {
   #carsGridContainer { grid-template-columns: repeat(3, 1fr) !important; }
+}
+
+/* ============================================================
+   AJUSTES DE ADAPTACIÓN PARA MÓVIL, TABLETA Y VIEWPORT DINÁMICO
+   ============================================================ */
+@supports (height: 100dvh) {
+  #view-registro,
+  #view-login,
+  #view-dashboard,
+  #view-dashboard > .flex-1,
+  #drawerPro {
+    height: 100dvh;
+  }
+}
+
+img, video, canvas { max-width: 100%; }
+button, input, select, textarea { min-width: 0; }
+input, select, textarea { max-width: 100%; }
+.card, .gauge-card, .kanban-col, .rescue-card,
+.bento-grid > *, .grid > *, #view-dashboard main > section > * {
+  min-width: 0;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--amber-strong);
+  outline-offset: 2px;
+}
+
+#drawerPro { max-width: 100vw; max-height: 100dvh; }
+#modalCarOverlay { overscroll-behavior: contain; }
+#modalCarOverlay > div { max-width: 100%; }
+
+@media (max-width: 767px) {
+  #view-dashboard > .flex-1 { height: 100%; }
+
+  #view-dashboard header {
+    height: auto;
+    min-height: 64px;
+    padding: 0.6rem 0.75rem;
+    gap: 0.5rem;
+  }
+  #view-dashboard header > .min-w-0 { flex: 1 1 auto; }
+  #view-dashboard header #subscriptionStatus {
+    flex: 0 1 auto;
+    max-width: 38vw;
+  }
+  #view-dashboard header #subscriptionPayBtn {
+    max-width: 38vw;
+    white-space: normal;
+    line-height: 1.2;
+    padding: 0.45rem 0.55rem;
+  }
+  #view-dashboard header .catalog-switch { flex: 0 0 auto; }
+  #view-dashboard main { padding: 1rem; }
+  #view-dashboard main .card,
+  #view-dashboard main .gauge-card { padding: 1rem; }
+
+  .bento-grid { grid-template-columns: minmax(0, 1fr); }
+  .bento-span-3, .bento-span-12 { grid-column: 1 / -1; }
+  .rescue-card { padding: 1rem; }
+  .rescue-card > .flex.items-center { flex-wrap: wrap; gap: 1rem; }
+  .rescue-divider { display: none; }
+
+  #section-inventario .flex.items-center.gap-2 { flex-wrap: wrap; }
+  #section-inventario .flex.items-center.gap-2 > button { flex: 1 1 auto; }
+
+  #view-registro, #view-login { padding: 0.75rem; }
+  #view-registro > .card, #view-login > .card {
+    padding: 1.25rem;
+    margin-block: 0.5rem;
+  }
+
+  #drawerPro { width: 100%; }
+  #modalCarOverlay > div { width: 100%; min-height: 100dvh; }
+  .legalDialog, #legalDialog > div { width: 100%; max-height: 90dvh; }
+
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    font-size: 16px;
+  }
+  button, .drawer-tab-btn { min-height: 44px; }
+
+  /* Los formularios de dos columnas pasan a una para evitar campos estrechos. */
+  .grid.grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 380px) {
+  #view-dashboard header { gap: 0.35rem; padding-inline: 0.5rem; }
+  #view-dashboard header #subscriptionStatus { max-width: 34vw; }
+  #view-dashboard header #subscriptionPayBtn { font-size: 0.65rem; }
+  #view-dashboard main { padding: 0.75rem; }
+  #drawerPro .drawer-tab-btn { font-size: 0.65rem; }
+  .wizard-step-label { font-size: 8px; letter-spacing: 0; }
+  .wizard-step-dot { width: 25px; height: 25px; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  #view-dashboard header { gap: 1rem; padding-inline: 1.25rem; }
+  #view-dashboard main { padding: 1.5rem; }
+  .bento-grid { gap: 0.75rem; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  #view-registro, #view-login { align-items: flex-start; }
+  #view-registro > .card, #view-login > .card { margin-block: 0.5rem; }
 }

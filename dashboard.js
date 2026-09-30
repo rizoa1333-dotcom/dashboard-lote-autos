@@ -49,6 +49,8 @@ let directPasswordChange = false;
 
 let leadsCache = [];
 let carsCache = [];
+let carExpensesCache = [];
+let activeCostCarId = null;
 let citasCache = [];
 let citasCalendarioMes = new Date();
 let citasDiaSeleccionado = null;
@@ -83,6 +85,8 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     stopSync();
     currentUser = null;
     currentLote = null;
+    carExpensesCache = [];
+    activeCostCarId = null;
     showView('view-login');
   }
 });
@@ -728,9 +732,21 @@ async function fetchCars() {
     return;
   }
   carsCache = data || [];
+  const expensesResult = await supabaseClient
+    .from('car_expenses')
+    .select('*')
+    .eq('lote_id', currentLote.id)
+    .order('created_at', { ascending: false });
+  if (expensesResult.error) {
+    carExpensesCache = [];
+    console.warn('[Utilidad] No se pudieron cargar los gastos. Revisa la migración SQL y RLS:', expensesResult.error.message);
+  } else {
+    carExpensesCache = expensesResult.data || [];
+  }
   renderCars();
   renderCarsCounter();
   calcularMetricasInventario();
+  renderControlUtilidad();
   populateMarketingCarSelect();
   calcularOportunidadesRescatadas();
 }
@@ -748,14 +764,29 @@ function renderCarsCounter() {
   }
 }
 
+function fechaActualLocalISO() {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+}
+
 function calcularMetricasInventario() {
   const invValorTotalEl = document.getElementById('invValorTotal');
   const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
   const mensualesContainer = document.getElementById('ventasMensualesContainer');
   const kpiPublicadosEl = document.getElementById('kpiAutosPublicados');
+  const utilidadMesEl = document.getElementById('invUtilidadMes');
+  const autosAntiguosEl = document.getElementById('invAutosAntiguos');
 
   let valorTotal = 0;
   let gananciasTotales = 0;
+  let utilidadMes = 0;
+  let autosAntiguos = 0;
+  const ahora = new Date();
+  const gastosPorAuto = carExpensesCache.reduce((totales, gasto) => {
+    const id = String(gasto.car_id);
+    totales[id] = (totales[id] || 0) + (Number(gasto.amount) || 0);
+    return totales;
+  }, {});
 
   const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const reporteMensual = mesesNombres.map(mes => ({ name: mes, unidades: 0, dinero: 0 }));
@@ -763,9 +794,16 @@ function calcularMetricasInventario() {
   const anioActual = new Date().getFullYear();
 
   carsCache.forEach(car => {
-    const precio = Number(car.price) || 0;
+    const precio = car.status === 'Vendido' ? (Number(car.sold_price) || 0) : (Number(car.price) || 0);
+    const fechaAlta = car.created_at ? new Date(car.created_at) : null;
+    if (car.status !== 'Vendido' && fechaAlta && !Number.isNaN(fechaAlta.getTime()) && (ahora - fechaAlta) >= 30 * 24 * 60 * 60 * 1000) autosAntiguos += 1;
     if (car.status === 'Vendido') {
       gananciasTotales += precio;
+
+      const mesActualKey = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
+      if (String(car.fecha_venta || '').slice(0, 7) === mesActualKey && Number(car.sold_price) > 0) {
+        utilidadMes += Number(car.sold_price) - (Number(car.purchase_cost) || 0) - (gastosPorAuto[String(car.id)] || 0);
+      }
 
       try {
         const fechaTarget = car.fecha_venta || car.created_at;
@@ -798,12 +836,14 @@ function calcularMetricasInventario() {
         reporteMensual[mesActual].dinero += precio;
       }
     } else {
-      valorTotal += precio;
+      valorTotal += Number(car.purchase_cost) || 0;
     }
   });
 
   if (invValorTotalEl) invValorTotalEl.textContent = catalogModeActive ? CATALOG_REDACTED : formatCurrency(valorTotal);
   if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = catalogModeActive ? CATALOG_REDACTED : formatCurrency(gananciasTotales);
+  if (utilidadMesEl) utilidadMesEl.textContent = catalogModeActive ? CATALOG_REDACTED : formatCurrency(utilidadMes);
+  if (autosAntiguosEl) autosAntiguosEl.textContent = catalogModeActive ? CATALOG_REDACTED : String(autosAntiguos);
 
   if (mensualesContainer) {
     const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
@@ -1010,7 +1050,7 @@ function renderCars() {
 
   grid.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const hoyParaBD = new Date().toISOString().split('T')[0];
+      const hoyParaBD = fechaActualLocalISO();
       const { error } = await supabaseClient
         .from('cars')
         .update({ status: 'Vendido', fecha_venta: hoyParaBD })
@@ -1020,6 +1060,8 @@ function renderCars() {
       if (error) {
         alert('Error al actualizar estatus');
         console.error(error);
+      } else {
+        alert('Unidad marcada como vendida. Captura el precio real en Control de utilidad para calcular la ganancia.');
       }
       await fetchCars();
     });
@@ -1095,6 +1137,84 @@ function renderCars() {
   });
 }
 
+function abrirControlCostos(carId) {
+  const car = carsCache.find(c => String(c.id) === String(carId));
+  if (!car) return;
+  activeCostCarId = car.id;
+  document.getElementById('costosCarNombre').textContent = `${car.brand || ''} ${car.model || ''} ${car.year || ''}`.trim();
+  document.getElementById('controlCostoCompra').value = Number(car.purchase_cost) || 0;
+  document.getElementById('controlPrecioVenta').value = Number(car.sold_price) > 0 ? car.sold_price : '';
+  document.getElementById('costosCompraResumen').textContent = formatCurrency(car.purchase_cost || 0);
+  renderDetalleCostos(car);
+  const modal = document.getElementById('modalCostosOverlay');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function renderControlUtilidad() {
+  const container = document.getElementById('utilidadVehiculosContainer');
+  if (!container) return;
+  if (catalogModeActive) {
+    container.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Los datos financieros están ocultos en Modo Catálogo.</p>';
+    return;
+  }
+  if (!carsCache.length) {
+    container.innerHTML = '<p class="text-xs text-[#9CA3AF]">Aún no hay vehículos en el inventario.</p>';
+    return;
+  }
+  container.innerHTML = carsCache.map(car => {
+    const gastos = carExpensesCache.filter(g => String(g.car_id) === String(car.id)).reduce((total, g) => total + (Number(g.amount) || 0), 0);
+    const compra = Number(car.purchase_cost) || 0;
+    const venta = Number(car.sold_price) || 0;
+    const utilidad = car.status === 'Vendido' && venta > 0 ? venta - compra - gastos : null;
+    const estatus = car.status === 'Vendido' ? 'Vendido' : (car.status || 'Disponible');
+    return `<article class="rounded-xl border border-[#272A30] bg-[#12151C] p-4">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div class="min-w-0"><h4 class="font-semibold text-sm truncate">${escapeHtml(`${car.brand || ''} ${car.model || ''}`.trim())} <span class="text-[#9CA3AF]">${escapeHtml(String(car.year || ''))}</span></h4><p class="text-[10px] uppercase text-[#9CA3AF] mt-1">${escapeHtml(estatus)} · Inventario #${escapeHtml(String(car.id).slice(-6))}</p></div>
+        <div class="flex flex-wrap gap-2"><button type="button" data-finance-car="${escapeHtml(car.id)}" class="btn-abrir-control btn-ghost px-3 py-1.5 rounded-lg text-[11px]">Editar compra / venta</button><button type="button" data-expense-car="${escapeHtml(car.id)}" class="btn-abrir-control btn-primary px-3 py-1.5 rounded-lg text-[11px]">Registrar gastos</button></div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+        <div><p class="text-[9px] uppercase text-[#6B7280]">Compra</p><p class="text-xs font-bold mt-1">${formatCurrency(compra)}</p></div>
+        <div><p class="text-[9px] uppercase text-[#6B7280]">Gastos</p><p class="text-xs font-bold mt-1">${formatCurrency(gastos)}</p></div>
+        <div><p class="text-[9px] uppercase text-[#6B7280]">Venta real</p><p class="text-xs font-bold mt-1">${venta > 0 ? formatCurrency(venta) : 'Pendiente'}</p></div>
+        <div><p class="text-[9px] uppercase text-[#6B7280]">Utilidad</p><p class="text-xs font-bold mt-1" style="color:${utilidad === null ? 'var(--text-muted)' : (utilidad >= 0 ? 'var(--success)' : 'var(--danger)')}">${utilidad === null ? 'Pendiente de venta' : formatCurrency(utilidad)}</p></div>
+      </div>
+    </article>`;
+  }).join('');
+  container.querySelectorAll('.btn-abrir-control').forEach(btn => btn.addEventListener('click', () => abrirControlCostos(btn.dataset.financeCar || btn.dataset.expenseCar)));
+}
+
+function renderDetalleCostos(car) {
+  const gastos = carExpensesCache.filter(g => String(g.car_id) === String(car.id));
+  const sumaGastos = gastos.reduce((suma, g) => suma + (Number(g.amount) || 0), 0);
+  const utilidadEl = document.getElementById('costosUtilidadResumen');
+  document.getElementById('costosCompraResumen').textContent = formatCurrency(car.purchase_cost || 0);
+  document.getElementById('costosGastosResumen').textContent = formatCurrency(sumaGastos);
+  if (car.status === 'Vendido' && Number(car.sold_price) > 0) {
+    const utilidad = Number(car.sold_price) - (Number(car.purchase_cost) || 0) - sumaGastos;
+    utilidadEl.textContent = formatCurrency(utilidad);
+    utilidadEl.style.color = utilidad >= 0 ? 'var(--success)' : 'var(--danger)';
+  } else {
+    utilidadEl.textContent = 'Pendiente de venta';
+    utilidadEl.style.color = '';
+  }
+  const nombres = { reparacion: 'Reparación', estetica: 'Estética / detallado', tramites: 'Trámites', otro: 'Otro' };
+  const lista = document.getElementById('listaGastosVehiculo');
+  lista.innerHTML = gastos.length ? gastos.map(g => `
+    <div class="flex items-start justify-between gap-3 rounded-lg border border-[#272A30] p-3">
+      <div class="min-w-0"><p class="text-xs font-semibold">${escapeHtml(nombres[g.category] || g.category)}</p><p class="text-[11px] text-[#9CA3AF] break-words">${escapeHtml(g.description || 'Sin descripción')}</p><p class="text-[10px] text-[#6B7280]">${g.created_at ? new Date(g.created_at).toLocaleDateString('es-MX') : ''}</p></div>
+      <div class="flex items-center gap-2"><span class="text-xs font-bold whitespace-nowrap">${formatCurrency(g.amount)}</span><button type="button" data-delete-expense="${escapeHtml(g.id)}" class="btn-eliminar-gasto text-xs text-red-400" aria-label="Eliminar gasto">🗑</button></div>
+    </div>`).join('') : '<p class="text-xs text-[#9CA3AF]">Sin gastos registrados.</p>';
+  lista.querySelectorAll('.btn-eliminar-gasto').forEach(btn => btn.addEventListener('click', async () => {
+    if (!confirm('¿Eliminar este gasto?')) return;
+    const { error } = await supabaseClient.from('car_expenses').delete().eq('id', btn.dataset.deleteExpense).eq('lote_id', currentLote.id);
+    if (error) { alert(`No se pudo eliminar el gasto: ${error.message}`); return; }
+    await fetchCars();
+    const carActual = carsCache.find(c => String(c.id) === String(activeCostCarId));
+    if (carActual) renderDetalleCostos(carActual);
+  }));
+}
+
 // ------------------------------------------------------------
 // AGENTE PUBLICITARIO IA
 // ------------------------------------------------------------
@@ -1121,6 +1241,12 @@ function populateMarketingCarSelect() {
   marketingSelectedCarId = select.value;
 }
 
+function crearPayloadPublicoAuto(car) {
+  if (!car) return null;
+  const camposPublicos = ['id', 'lote_id', 'brand', 'model', 'year', 'price', 'image_url', 'image_urls', 'status', 'transmision', 'kilometraje', 'enganche_minimo', 'caracteristicas'];
+  return Object.fromEntries(camposPublicos.filter(campo => car[campo] !== undefined).map(campo => [campo, car[campo]]));
+}
+
 function generarCopyLocal(car) {
   if (!car) return '';
   const nombre = `${car.brand || ''} ${car.model || ''}`.trim();
@@ -1144,7 +1270,7 @@ async function generarCopyIA(car) {
     const resp = await fetch(N8N_MARKETING_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
-      body: JSON.stringify({ car, lote_id: currentLote.id, image_url: marketingImageUrls[0], image_urls: marketingImageUrls })
+      body: JSON.stringify({ car: crearPayloadPublicoAuto(car), lote_id: currentLote.id, image_url: marketingImageUrls[0], image_urls: marketingImageUrls })
     });
     const data = await resp.json();
     return (data && data.copy) ? data.copy : generarCopyLocal(car);
@@ -1275,7 +1401,7 @@ function initMarketingModule() {
       const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
-        body: JSON.stringify({ car, copy: copyText.value.trim(), image_url: marketingImageUrls[0] || car.image_url, image_urls: marketingImageUrls.length ? marketingImageUrls : car.image_urls })
+        body: JSON.stringify({ car: crearPayloadPublicoAuto(car), copy: copyText.value.trim(), image_url: marketingImageUrls[0] || car.image_url, image_urls: marketingImageUrls.length ? marketingImageUrls : car.image_urls })
       });
       if (!resp.ok) throw new Error(`Webhook respondió ${resp.status}`);
     } catch (err) {
@@ -1374,10 +1500,15 @@ async function openDrawer(leadId) {
 
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
   if (expedienteContainer) {
+    const [urlIne, urlDomicilio, urlIngresos] = await Promise.all([
+      crearUrlDocumentoPrivado(lead.url_ine),
+      crearUrlDocumentoPrivado(lead.url_comprobante_domicilio),
+      crearUrlDocumentoPrivado(lead.url_comprobante_ingresos)
+    ]);
     expedienteContainer.innerHTML =
-      renderDocPreview(lead.url_ine, '🪪', 'Clave Elector (INE)') +
-      renderDocPreview(lead.url_comprobante_domicilio, '🏡', 'Dirección de Residencia') +
-      renderDocPreview(lead.url_comprobante_ingresos, '📊', 'Estados de Cuenta');
+      renderDocPreview(urlIne, '🪪', 'Clave Elector (INE)', !!lead.url_ine && !urlIne) +
+      renderDocPreview(urlDomicilio, '🏡', 'Dirección de Residencia', !!lead.url_comprobante_domicilio && !urlDomicilio) +
+      renderDocPreview(urlIngresos, '📊', 'Estados de Cuenta', !!lead.url_comprobante_ingresos && !urlIngresos);
   }
 
   await refreshChatLive(lead.id);
@@ -1387,14 +1518,79 @@ async function openDrawer(leadId) {
   if (window._activarDrawerTabDatos) window._activarDrawerTabDatos();
 }
 
+function normalizarTelefonoChat(value) {
+  return String(value || '').split('@')[0].replace(/:\d+$/, '').replace(/[^0-9]/g, '').replace(/^521|^52/, '');
+}
+
+async function refreshAiHandoffControls(lead) {
+  const status = document.getElementById('crmAiHandoffStatus');
+  const pauseButton = document.getElementById('btnPauseAiChat');
+  const resumeButton = document.getElementById('btnResumeAiChat');
+  if (!status || !currentLote || !lead) return;
+  const phone = normalizarTelefonoChat(lead.phone_number || lead.telefono);
+  const { data, error } = await supabaseClient.from('chat_handoffs')
+    .select('manual_until')
+    .eq('lote_id', currentLote.id)
+    .eq('phone_number', phone)
+    .maybeSingle();
+  if (error) {
+    status.textContent = 'Aplica la configuración SQL';
+    status.className = 'text-[10px] font-bold text-amber-400';
+    if (pauseButton) pauseButton.disabled = true;
+    if (resumeButton) resumeButton.disabled = true;
+    return;
+  }
+  const expiry = data?.manual_until ? Date.parse(data.manual_until) : 0;
+  const paused = Number.isFinite(expiry) && expiry > Date.now();
+  if (paused) {
+    const minutes = Math.max(1, Math.ceil((expiry - Date.now()) / 60000));
+    status.textContent = 'IA pausada · ' + minutes + ' min';
+    status.className = 'text-[10px] font-bold text-amber-400';
+  } else {
+    status.textContent = 'IA activa';
+    status.className = 'text-[10px] font-bold text-emerald-400';
+  }
+  if (pauseButton) { pauseButton.disabled = paused; pauseButton.classList.toggle('opacity-50', paused); }
+  if (resumeButton) { resumeButton.classList.toggle('hidden', !paused); resumeButton.disabled = !paused; }
+}
+
+async function pauseAiForActiveChat() {
+  const lead = leadsCache.find(item => String(item.id) === String(activeLeadId));
+  if (!lead || !currentLote) return;
+  const phone = normalizarTelefonoChat(lead.phone_number || lead.telefono);
+  const now = new Date();
+  const { error } = await supabaseClient.from('chat_handoffs').upsert({
+    lote_id: currentLote.id,
+    phone_number: phone,
+    manual_until: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
+    last_activity: now.toISOString(),
+    updated_at: now.toISOString(),
+    pause_reason: 'manual_dashboard'
+  }, { onConflict: 'lote_id,phone_number' });
+  if (error) { alert('No se pudo pausar la IA. Confirma que aplicaste el SQL de intervención.'); return; }
+  await refreshAiHandoffControls(lead);
+}
+
+async function resumeAiForActiveChat() {
+  const lead = leadsCache.find(item => String(item.id) === String(activeLeadId));
+  if (!lead || !currentLote) return;
+  const phone = normalizarTelefonoChat(lead.phone_number || lead.telefono);
+  const { error } = await supabaseClient.from('chat_handoffs').update({
+    manual_until: new Date().toISOString(), updated_at: new Date().toISOString()
+  }).eq('lote_id', currentLote.id).eq('phone_number', phone);
+  if (error) { alert('No se pudo reactivar la IA para esta conversación.'); return; }
+  await refreshAiHandoffControls(lead);
+}
+
 async function refreshChatLive(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
   const chatContainer = document.getElementById('crmChatHistoryContainer');
   if (!chatContainer) return;
+  await refreshAiHandoffControls(lead);
 
-  const phoneFilter = lead.phone_number || lead.telefono;
+  const phoneFilter = normalizarTelefonoChat(lead.phone_number || lead.telefono);
   const { data: messages, error: chatErr } = await supabaseClient
     .from('chat_history')
     .select('*')
@@ -1419,7 +1615,9 @@ async function refreshChatLive(leadId) {
   const despegadoDelFondo = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight > 100;
 
   chatContainer.innerHTML = messages.map(msg => {
-    const isBot = String(msg.role).toLowerCase() === 'assistant' || String(msg.role).toLowerCase() === 'bot' || String(msg.role).toLowerCase() === 'model' || !!msg.response;
+    const role = String(msg.role || '').toLowerCase();
+    const isBot = role === 'assistant' || role === 'bot' || role === 'model' || !!msg.response;
+    const isHuman = role === 'human' || role === 'owner' || role === 'agent';
     const textContent = msg.message || msg.content || msg.response || '---';
     const hora = msg.created_at
       ? new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' }).format(parseFechaMx(msg.created_at))
@@ -1435,7 +1633,7 @@ async function refreshChatLive(leadId) {
     } else {
       return `
         <div class="self-end max-w-[85%] p-3 rounded-2xl rounded-tr-none space-y-1 text-right" style="background: var(--text); color: var(--bg);">
-          <p class="font-bold text-[10px] uppercase tracking-wide opacity-70">👤 Prospecto ${hora ? '· ' + hora : ''}</p>
+          <p class="font-bold text-[10px] uppercase tracking-wide opacity-70">${isHuman ? '🧑‍💼 Encargado' : '👤 Prospecto'} ${hora ? '· ' + hora : ''}</p>
           <p class="leading-relaxed text-left select-text">${escapeHtml(textContent)}</p>
         </div>
       `;
@@ -1512,11 +1710,20 @@ function initCatalogMode() {
 
     if (catalogModeActive) {
       closeDrawer();
+      const modalCostos = document.getElementById('modalCostosOverlay');
+      modalCostos?.classList.add('hidden');
+      modalCostos?.classList.remove('flex');
+      activeCostCarId = null;
       activeLeadId = null;
 
       // FIX #8: vaciar caché sensible en memoria para que F12 no exponga datos
       leadsCache = [];
       citasCache = [];
+      carExpensesCache = [];
+      carsCache = carsCache.map(car => {
+        const { purchase_cost, sold_price, ...catalogCar } = car;
+        return catalogCar;
+      });
 
       const inventarioBtn = document.querySelector('[data-section="section-inventario"]');
       if (inventarioBtn) inventarioBtn.click();
@@ -1530,6 +1737,7 @@ function initCatalogMode() {
     renderCitasCronologicas();
     renderCars();
     calcularMetricasInventario();
+    renderControlUtilidad();
   });
 }
 
@@ -1616,7 +1824,7 @@ async function checarEstatusWhatsApp() {
       .eq('lote_id', currentLote.id)
       .maybeSingle();
     if (error) { console.warn('[WhatsApp] Error consultando canal:', error.message); return; }
-    if (data) console.log('[Multi-Tenant Node] Instancia vinculada:', data.instance_name);
+    if (data) console.log('[Multi-Tenant Node] Instancia vinculada.');
   } catch (err) {
     console.error('[WhatsApp]', err);
   }
@@ -1770,7 +1978,7 @@ async function checkSessionAndLote() {
     }
 
     currentUser = sessionData.session.user;
-    console.log('[Route Guard] Usuario autenticado:', currentUser.email, '| ID:', currentUser.id);
+    console.log('[Route Guard] Usuario autenticado.');
 
     const { data: loteData, error: loteError } = await supabaseClient
       .from('lotes')
@@ -1781,11 +1989,11 @@ async function checkSessionAndLote() {
       console.error('[Route Guard] Error consultando lote:', loteError);
     }
 
-    console.log('[Route Guard] Lotes encontrados:', loteData?.length || 0, loteData);
+    console.log('[Route Guard] Lotes encontrados:', loteData?.length || 0);
 
     if (loteData && loteData.length > 0) {
       currentLote = loteData[0];
-      console.log('[Route Guard] Lote activo:', currentLote.nombre, '| ID:', currentLote.id);
+      console.log('[Route Guard] Lote activo validado.');
       renderConfigLote();
       renderSubscriptionStatus();
       showView('view-dashboard');
@@ -1818,6 +2026,8 @@ async function checkSessionAndLote() {
     console.error('[Route Guard] Excepción validando sesión:', err);
     currentUser = null;
     currentLote = null;
+    carExpensesCache = [];
+    activeCostCarId = null;
     showView('view-login');
     return false;
   }
@@ -1912,7 +2122,7 @@ async function handleRegistroSubmit(e) {
     password,
     options: {
       emailRedirectTo: window.location.origin,
-      data: { legal_consent: { version: '2026-09-28-draft-1', accepted_at: new Date().toISOString(), terms: true, privacy: true } }
+      data: { legal_consent: { version: '2026-09-28-v1', accepted_at: new Date().toISOString(), terms: true, privacy: true } }
     }
   });
 
@@ -1971,32 +2181,36 @@ async function crearLoteParaUsuarioActual(datosLote) {
 
 const LEGAL_TEXTS = {
   privacidad: {
-    title: 'Aviso de privacidad de VeloDrive (borrador)',
+    title: 'Aviso de privacidad de VeloDrive',
     paragraphs: [
-      'Responsable: [PENDIENTE: razón social o nombre], con domicilio en [PENDIENTE] y contacto de privacidad [PENDIENTE].',
-      'Datos tratados: datos de cuenta y del lote (correo, nombre comercial, teléfono/WhatsApp, ubicación y, si se proporcionan, RFC y datos fiscales); información del inventario; y datos de prospectos, citas y conversaciones que el lote registra o recibe mediante WhatsApp.',
-      'Usos: operar el panel, administrar inventario y prospectos, habilitar el agente vendedor y herramientas de marketing, gestionar la suscripción, emitir facturas cuando se solicite y brindar soporte. Las publicaciones en redes requieren la conexión autorizada por el usuario.',
-      'Proveedores: Supabase (autenticación y almacenamiento), Stripe (pagos), n8n y proveedores conectados para WhatsApp, IA, redes sociales y facturación. Completar [PENDIENTE: países/regiones, encargados, transferencias y plazos de conservación].',
-      'Derechos y solicitudes: contactar a [PENDIENTE: correo de privacidad]. Añadir el procedimiento y plazos aplicables según las jurisdicciones atendidas.',
-      'Datos de prospectos: el lote que los carga debe contar con la base legal y los avisos necesarios para compartirlos y procesarlos mediante VeloDrive y sus proveedores.'
+      'Responsable: Ángel Enrique Hernández Rizo, persona física que ofrece el servicio bajo el nombre comercial VeloDrive. Domicilio de contacto: Mar Caribe 442, Vista Bugambilias, Villa de Álvarez, Colima, C.P. 28979, México. Contacto de privacidad y solicitudes: RIZOA1333@gmail.com. Soporte técnico: rizovsolutions@gmail.com.',
+      'Datos tratados: datos de cuenta y del lote (correo, nombre comercial, teléfono/WhatsApp, ubicación y datos fiscales como RFC, razón social, código postal, régimen y uso CFDI); inventario y fotografías de vehículos; datos de prospectos, citas y conversaciones de WhatsApp; e información necesaria para administrar pagos, suscripciones, conexiones de redes y soporte.',
+      'Finalidades: crear y administrar cuentas; operar el panel, inventario y CRM; habilitar la atención automatizada de prospectos y herramientas de marketing; generar o publicar contenido cuando el usuario lo solicita; gestionar pagos y suscripciones; emitir y enviar CFDI por los pagos recibidos; y atender soporte y solicitudes de privacidad.',
+      'Proveedores que pueden tratar datos únicamente para prestar las funciones solicitadas: Supabase (cuentas y base de datos), Railway (alojamiento de la aplicación), Stripe (pagos y suscripciones), n8n (automatizaciones), Facturapi (emisión de CFDI), Evolution API (conexión de WhatsApp), Upload-Post (publicaciones en redes) y Google Gemini (funciones de inteligencia artificial). Según la configuración e infraestructura de cada proveedor, los datos podrían procesarse o alojarse en México o en otros países. Cada proveedor aplica sus propios términos, medidas y subencargados. No se autoriza a VeloDrive a vender los datos personales. Antes de conectar una cuenta de terceros, el usuario debe revisar sus permisos y avisos de privacidad.',
+      'Conservación: al terminar la suscripción, los datos operativos y respaldos se eliminarán en un plazo de una semana. Los comprobantes fiscales y demás registros que deban conservarse por obligaciones legales se mantendrán durante el periodo aplicable.',
+      'Derechos y solicitudes: para ejercer derechos de acceso, rectificación, cancelación u oposición (ARCO), revocar el consentimiento o limitar el uso de datos, escribe a RIZOA1333@gmail.com e incluye tu nombre, un medio para recibir respuesta, el correo asociado a tu cuenta, el derecho que deseas ejercer y una descripción que ayude a localizar los datos. Para rectificación, indica los cambios y, si aplica, adjunta sustento. Podremos pedir una verificación razonable de identidad o representación. Informaremos la determinación en un máximo de 20 días y, si procede, la haremos efectiva dentro de los 15 días siguientes; esos plazos pueden ampliarse una vez por un periodo igual cuando la ley lo permita y se justifique.',
+      'Datos de prospectos: el lote que carga o conecta esos datos determina para qué los usa y debe contar con la base legal y los avisos necesarios. VeloDrive los procesa para prestar las funciones que el lote solicita y no para venderlos ni para fines propios ajenos al servicio.',
+      'Cambios al aviso: la versión vigente se mostrará en el panel de VeloDrive. Si el cambio afecta materialmente el tratamiento de datos, se avisará al correo registrado y mediante un aviso dentro del panel antes de aplicarlo cuando sea posible. Se indicará la fecha de actualización.'
     ]
   },
   terminos: {
-    title: 'Términos del servicio de VeloDrive (borrador)',
+    title: 'Términos del servicio de VeloDrive',
     paragraphs: [
-      'Proveedor: [PENDIENTE: razón social, domicilio y contacto]. VeloDrive ofrece un panel para lotes de autos con herramientas de inventario, atención automatizada de prospectos y apoyo para crear o publicar contenido.',
+      'Proveedor: Ángel Enrique Hernández Rizo, persona física que ofrece el servicio bajo el nombre comercial VeloDrive; Mar Caribe 442, Vista Bugambilias, Villa de Álvarez, Colima, C.P. 28979, México; privacidad: RIZOA1333@gmail.com; soporte: rizovsolutions@gmail.com. VeloDrive ofrece un panel para lotes de autos con herramientas de inventario, atención de prospectos y apoyo para crear o publicar contenido.',
       'Cuenta y uso: el usuario debe mantener sus credenciales seguras, tener autorización para conectar sus cuentas y revisar la información generada o publicada. El contenido generado por IA puede contener errores y debe verificarse antes de utilizarse.',
-      'Plan y cobro: $10,000 MXN mensuales más IVA, con cobro recurrente mensual procesado por Stripe. Confirma en la pantalla de pago el total con impuestos y completa [PENDIENTE: límites del plan y condiciones de renovación/cobro].',
-      'Disponibilidad y terceros: WhatsApp, redes sociales, IA y otros proveedores pueden tener reglas o interrupciones propias. Completar [PENDIENTE: niveles de servicio, soporte, suspensión, responsabilidad y jurisdicción].',
-      'Estos términos aplican desde su aceptación. Informar cómo se notificarán cambios y registrar la versión aceptada.'
+      'Plan, cupo y cobro: $10,000 MXN mensuales más IVA, con cobro recurrente mensual procesado por Stripe. El total con impuestos debe mostrarse en la pantalla de pago. VeloDrive ofrecerá el servicio a un máximo de 15 lotes de autos ubicados en el estado de Colima; las nuevas instalaciones dependerán de que haya cupo disponible. Este máximo se refiere al número de clientes de VeloDrive, no a los autos, usuarios, conversaciones ni publicaciones de cada cuenta. El cupo limitado no concede a un cliente exclusividad territorial, municipal, por marca ni por segmento. El uso está sujeto a la disponibilidad, cuotas y reglas de proveedores externos.',
+      'Disponibilidad y soporte: soporte por correo en rizovsolutions@gmail.com, de lunes a viernes, de 7:00 a 21:00, hora local de Colima. El objetivo es enviar una primera respuesta dentro de una hora durante ese horario; ese plazo es para responder y no garantiza que el problema quede resuelto en una hora. Los mensajes fuera del horario se atenderán en el siguiente horario hábil. VeloDrive realizará esfuerzos razonables para mantener el servicio, pero puede haber interrupciones por mantenimiento, fallas de internet, plataformas externas o causas fuera de su control; no se promete disponibilidad ininterrumpida. Podrá limitar o suspender temporalmente el acceso ante falta de pago, riesgos de seguridad, uso ilegal, incumplimiento de estos términos o de reglas de proveedores, o para cumplir una obligación legal. Cuando sea posible, se avisará al usuario y se explicará cómo corregir el incumplimiento. Cada cliente es responsable de contar con derechos y base legal para los datos y contenidos que cargue, y de revisar las publicaciones antes de autorizarlas.',
+      'Resultados y responsabilidad: VeloDrive prestará el servicio con cuidado razonable, pero no garantiza resultados comerciales, ventas, respuestas de prospectos ni exactitud de contenido generado por inteligencia artificial o servicios externos. El usuario debe revisar y aprobar el contenido antes de publicarlo y mantener copias de la información importante. La responsabilidad de cada parte se determinará conforme a la ley aplicable; estos términos no eliminan derechos irrenunciables ni responsabilidades que legalmente no puedan excluirse.',
+      'Ley y jurisdicción: estos términos se interpretan conforme a las leyes de México. Para las controversias que legalmente puedan someterse a elección de foro, las partes se someten a los tribunales competentes de Colima, sin limitar derechos irrenunciables que correspondan al usuario.',
+      'Estos términos aplican desde su aceptación. La versión vigente y su fecha se mostrarán en el panel. Los cambios materiales se comunicarán al correo registrado y mediante un aviso dentro del panel; cuando el cambio requiera consentimiento, se solicitará antes de aplicarlo. La aceptación se registra con la versión y fecha correspondientes.'
     ]
   },
   cancelacion: {
-    title: 'Cancelación y reembolsos (borrador)',
+    title: 'Cancelación y reembolsos',
     paragraphs: [
-      'Puedes solicitar la cancelación desde el portal de facturación de Stripe cuando esté habilitado para tu cuenta. La cancelación detendrá renovaciones futuras conforme a las condiciones que muestre Stripe.',
-      'Fecha efectiva, acceso al servicio, cobros pendientes y reembolsos: [PENDIENTE: definir las reglas comerciales aplicables y sus excepciones legales].',
-      'La cancelación no elimina automáticamente la cuenta ni los datos. Para solicitar su eliminación o ejercer derechos de privacidad, usa [PENDIENTE: correo y procedimiento].'
+      'Puedes solicitar la cancelación desde el portal de facturación de Stripe. La cancelación evita futuras renovaciones y el acceso continúa hasta el final del periodo ya pagado.',
+      'No se ofrecen reembolsos por periodos iniciados ni por tiempo no utilizado, salvo cuando la ley aplicable disponga lo contrario.',
+      'La cancelación no elimina inmediatamente la cuenta. Los datos operativos y respaldos se eliminarán en un plazo de una semana después de que termine el periodo pagado. Los comprobantes fiscales se conservarán durante el plazo exigido por las obligaciones aplicables. Para ejercer derechos de privacidad, escribe a RIZOA1333@gmail.com.'
     ]
   }
 };
@@ -2084,6 +2298,43 @@ async function handleManageSubscription() {
 // DOMContentLoaded
 // ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
+  // Instalable como app; el service worker es solo de red y nunca guarda
+  // respuestas autenticadas, fichas de autos ni información de clientes.
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((error) => {
+      console.warn('[VeloDrive] No se pudo preparar la instalación de la app:', error);
+    });
+  }
+
+  let installPromptEvent = null;
+  const installButton = document.getElementById('pwaInstallBtn');
+  const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (isInstalled && installButton) installButton.hidden = true;
+
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    installPromptEvent = event;
+  });
+  window.addEventListener('appinstalled', () => {
+    installPromptEvent = null;
+    if (installButton) installButton.hidden = true;
+  });
+  if (installButton) installButton.addEventListener('click', async () => {
+    if (installPromptEvent) {
+      installPromptEvent.prompt();
+      const choice = await installPromptEvent.userChoice;
+      installPromptEvent = null;
+      if (choice?.outcome === 'accepted') installButton.hidden = true;
+      return;
+    }
+
+    const isAppleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const instructions = isAppleMobile
+      ? 'En Safari, toca Compartir y luego “Agregar a pantalla de inicio”.'
+      : 'Abre el menú del navegador y elige “Instalar aplicación” o “Agregar a pantalla de inicio”.';
+    window.alert(`Para instalar VeloDrive: ${instructions}`);
+  });
+
   // Helper: listener seguro que no revienta si el elemento no existe
   function on(id, event, fn) {
     const el = document.getElementById(id);
@@ -2163,6 +2414,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   on('closeDrawerBtn',  'click', closeDrawer);
   on('drawerOverlay',   'click', closeDrawer);
+  on('btnPauseAiChat', 'click', pauseAiForActiveChat);
+  on('btnResumeAiChat', 'click', resumeAiForActiveChat);
 
   on('configForm', 'submit', async (e) => {
     e.preventDefault();
@@ -2194,6 +2447,60 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   on('btnCerrarModalCar', 'click', () => {
     if (modalCar) modalCar.classList.add('hidden');
+  });
+
+  const modalCostos = document.getElementById('modalCostosOverlay');
+  on('btnCerrarCostos', 'click', () => {
+    modalCostos?.classList.add('hidden');
+    modalCostos?.classList.remove('flex');
+    activeCostCarId = null;
+  });
+  on('formDatosFinancieros', 'submit', async (e) => {
+    e.preventDefault();
+    if (!currentLote || !activeCostCarId) return;
+    const car = carsCache.find(c => String(c.id) === String(activeCostCarId));
+    if (!car) return;
+    const compra = Number(document.getElementById('controlCostoCompra').value);
+    const ventaRaw = document.getElementById('controlPrecioVenta').value.trim();
+    const venta = ventaRaw === '' ? null : Number(ventaRaw);
+    if (!Number.isFinite(compra) || compra < 0 || (venta !== null && (!Number.isFinite(venta) || venta < 0))) {
+      alert('Revisa los importes: deben ser números iguales o mayores que cero.');
+      return;
+    }
+    const update = { purchase_cost: compra, sold_price: venta };
+    if (venta !== null && venta > 0) {
+      update.status = 'Vendido';
+      update.fecha_venta = car.fecha_venta || fechaActualLocalISO();
+    }
+    const button = document.getElementById('btnGuardarDatosFinancieros');
+    button.disabled = true;
+    const { error } = await supabaseClient.from('cars').update(update).eq('id', activeCostCarId).eq('lote_id', currentLote.id);
+    button.disabled = false;
+    if (error) { alert(`No se pudieron guardar los datos financieros: ${error.message}`); return; }
+    await fetchCars();
+    const actualizado = carsCache.find(c => String(c.id) === String(activeCostCarId));
+    if (actualizado) renderDetalleCostos(actualizado);
+  });
+  on('formGastoVehiculo', 'submit', async (e) => {
+    e.preventDefault();
+    if (!currentLote || !activeCostCarId) return;
+    const amount = Number(document.getElementById('gastoMonto').value);
+    if (!Number.isFinite(amount) || amount <= 0) { alert('Escribe un importe mayor que cero.'); return; }
+    const button = document.getElementById('btnGuardarGasto');
+    button.disabled = true;
+    const { error } = await supabaseClient.from('car_expenses').insert({
+      lote_id: currentLote.id,
+      car_id: activeCostCarId,
+      category: document.getElementById('gastoCategoria').value,
+      description: document.getElementById('gastoDescripcion').value.trim() || null,
+      amount
+    });
+    button.disabled = false;
+    if (error) { alert(`No se pudo guardar. Verifica que aplicaste el SQL de control de utilidad. ${error.message}`); return; }
+    e.target.reset();
+    await fetchCars();
+    const carActual = carsCache.find(c => String(c.id) === String(activeCostCarId));
+    if (carActual) renderDetalleCostos(carActual);
   });
 
   // Import CSV
@@ -2366,10 +2673,37 @@ function sanitizeUrl(rawUrl, fallback = '') {
 
 const CATALOG_REDACTED = '•••• Protegido';
 
-function renderDocPreview(rawUrl, emoji, label) {
+async function crearUrlDocumentoPrivado(valor) {
+  if (!valor || !currentLote?.id) return '';
+  let objectPath = String(valor).trim();
+  try {
+    if (/^https?:\/\//i.test(objectPath)) {
+      const parsed = new URL(objectPath);
+      if (parsed.origin !== new URL(SUPABASE_URL).origin) return '';
+      const prefix = '/storage/v1/object/public/documentos-leads/';
+      if (!parsed.pathname.startsWith(prefix)) return '';
+      objectPath = parsed.pathname.slice(prefix.length);
+    }
+    objectPath = objectPath.split('/').map(segment => decodeURIComponent(segment)).join('/');
+  } catch (_) {
+    return '';
+  }
+  if (!objectPath.startsWith(`${currentLote.id}/`)) return '';
+  const { data, error } = await supabaseClient.storage
+    .from('documentos-leads')
+    .createSignedUrl(objectPath, 300);
+  if (error) {
+    console.warn('[Documentos] No fue posible abrir el documento privado.');
+    return '';
+  }
+  return sanitizeUrl(data?.signedUrl || '', '');
+}
+
+function renderDocPreview(rawUrl, emoji, label, noDisponible = false) {
   const url = sanitizeUrl(rawUrl, '');
   if (!url) {
-    return `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>${emoji} ${escapeHtml(label)}</span> <span class="text-[10px] italic">Pendiente</span></div>`;
+    const estado = noDisponible ? 'Requiere migración o permiso' : 'Pendiente';
+    return `<div class="w-full flex items-center justify-between bg-[#161922] text-[#9CA3AF] text-xs px-3 py-2 rounded-lg border border-[#272A30] mt-2"><span>${emoji} ${escapeHtml(label)}</span> <span class="text-[10px] italic">${estado}</span></div>`;
   }
   return `<div class="w-full p-2.5 rounded-lg text-xs mt-2" style="background: var(--surface-2);">
     <span class="font-bold flex items-center gap-1.5 text-[#F5F5F4] mb-2"><span class="status-dot"></span>${emoji} ${escapeHtml(label)}</span>
