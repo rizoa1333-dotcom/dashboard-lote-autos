@@ -1103,20 +1103,22 @@ function renderCars() {
       const carId = btn.getAttribute('data-delete-id');
       const nombre = btn.getAttribute('data-nombre') || 'esta unidad';
       if (!confirm(`¿Eliminar permanentemente "${nombre}" del inventario?\n\nEsta acción no se puede deshacer.`)) return;
-      btn.textContent = '⏳';
+      btn.textContent = 'Eliminando…';
       btn.disabled = true;
-      const { error } = await supabaseClient.from('cars').delete().eq('id', carId).eq('lote_id', currentLote.id);
-      if (error) {
-        alert('Error al eliminar la unidad. Intenta de nuevo.');
+      btn.setAttribute('aria-busy', 'true');
+      try {
+        const { error } = await supabaseClient.from('cars').delete().eq('id', carId).eq('lote_id', currentLote.id);
+        if (error) throw error;
+        await fetchCars();
+      } catch (error) {
+        console.error('[Inventario] Error al eliminar unidad:', error);
+        alert('No se pudo eliminar la unidad. Intenta de nuevo.');
         btn.textContent = '🗑️';
         btn.disabled = false;
-        return;
+        btn.removeAttribute('aria-busy');
       }
-      // FIX #2: corregido fetchInventario → fetchCars (la función original no existía)
-      await fetchCars();
     });
   });
-
   grid.querySelectorAll('.btn-promocionar').forEach(btn => {
     btn.addEventListener('click', () => {
       const carId = btn.getAttribute('data-market-id');
@@ -2577,7 +2579,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Submit form nuevo auto
+  // Submit form de unidad: muestra el progreso y bloquea envíos repetidos.
   on('formNuevoCar', 'submit', async (e) => {
     e.preventDefault();
     if (!currentLote) return;
@@ -2586,42 +2588,58 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     const btnSubmit = document.getElementById('btnSubmitCarForm');
-    if (btnSubmit) btnSubmit.disabled = true;
+    const statusText = document.getElementById('uploadStatusText');
+    const esEdicion = Boolean(editingCarId);
+    const textoOriginal = btnSubmit?.textContent.trim() || 'Guardar Unidad en Sistema';
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = esEdicion ? 'Actualizando vehículo…' : 'Guardando vehículo…';
+      btnSubmit.setAttribute('aria-busy', 'true');
+    }
+    if (statusText) {
+      statusText.textContent = esEdicion ? 'Actualizando la información del vehículo…' : 'Guardando el vehículo…';
+      statusText.style.color = 'var(--amber-strong)';
+    }
     const carData = {
-      lote_id:         currentLote.id,
-      brand:           document.getElementById('carBrand').value.trim(),
-      model:           document.getElementById('carModel').value.trim(),
-      year:            parseInt(document.getElementById('carYear').value),
-      price:           parseFloat(document.getElementById('carPrice').value),
-      image_url:       document.getElementById('carImageUrl').value.trim() || PLACEHOLDER_IMG,
-      image_urls:      carImageUrls,
-      status:          document.getElementById('carStatus').value,
-      transmision:     document.getElementById('carTransmision').value,
-      kilometraje:     parseFloat(document.getElementById('carKilometraje').value) || 0,
+      lote_id: currentLote.id,
+      brand: document.getElementById('carBrand').value.trim(),
+      model: document.getElementById('carModel').value.trim(),
+      year: parseInt(document.getElementById('carYear').value),
+      price: parseFloat(document.getElementById('carPrice').value),
+      image_url: document.getElementById('carImageUrl').value.trim() || PLACEHOLDER_IMG,
+      image_urls: carImageUrls,
+      status: document.getElementById('carStatus').value,
+      transmision: document.getElementById('carTransmision').value,
+      kilometraje: parseFloat(document.getElementById('carKilometraje').value) || 0,
       enganche_minimo: parseFloat(document.getElementById('carEnganche').value) || 0,
       caracteristicas: document.getElementById('carCaracteristicas')?.value.trim() || null
     };
-    let response;
-    if (editingCarId) {
-      response = await supabaseClient.from('cars').update(carData).eq('id', editingCarId).eq('lote_id', currentLote.id);
-    } else {
-      response = await supabaseClient.from('cars').insert(carData);
+    try {
+      const response = esEdicion
+        ? await supabaseClient.from('cars').update(carData).eq('id', editingCarId).eq('lote_id', currentLote.id)
+        : await supabaseClient.from('cars').insert(carData);
+      if (response.error) throw response.error;
+      e.target.reset();
+      editingCarId = null;
+      carImageUrls = [];
+      renderCarThumbs();
+      await fetchCars();
+      if (modalCar) modalCar.classList.add('hidden');
+    } catch (error) {
+      console.error('[Inventario] Error al guardar carro:', error);
+      if (statusText) {
+        statusText.textContent = 'No se pudo guardar el vehículo. Revisa tu conexión e inténtalo de nuevo.';
+        statusText.style.color = 'var(--danger)';
+      }
+      alert(`No se pudo guardar el vehículo: ${error.message || 'Error de conexión.'}`);
+    } finally {
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = textoOriginal;
+        btnSubmit.removeAttribute('aria-busy');
+      }
     }
-    if (response.error) {
-      console.error('[Inventario] Error al guardar carro:', response.error);
-      alert(`Error al guardar: ${response.error.message}`);
-      if (btnSubmit) btnSubmit.disabled = false;
-      return;
-    }
-    if (btnSubmit) btnSubmit.disabled = false;
-    e.target.reset();
-    editingCarId = null;
-    carImageUrls = [];
-    renderCarThumbs();
-    if (modalCar) modalCar.classList.add('hidden');
-    await fetchCars();
   });
-
   // Sidebar móvil
   on('openSidebar', 'click', () => {
     const sb = document.getElementById('sidebar');
