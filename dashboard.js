@@ -31,7 +31,9 @@ const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.ap
 // FIX #4 eliminado: N8N_VERIFY_PUBLISH_WEBHOOK_URL era código muerto — removido.
 
 const STRIPE_LINK = 'https://buy.stripe.com/9B614p0ydcVXa3Y1Bb3oA06';
-const PRECIO_PLAN_MXN = 10000;
+const PRECIO_PLAN_MXN = Number(window.VELODRIVE_PLAN_PRICE_MXN) || 10000;
+const LEGAL_VERSION = '2026-10-03-v2';
+const LEGAL_EFFECTIVE_DATE = '3 de octubre de 2026';
 function redirigirAStripeCheckout(lote) {
   const url = new URL(STRIPE_LINK);
   url.searchParams.set('client_reference_id', lote.id);
@@ -2122,7 +2124,7 @@ async function handleRegistroSubmit(e) {
     password,
     options: {
       emailRedirectTo: window.location.origin,
-      data: { legal_consent: { version: '2026-09-28-v1', accepted_at: new Date().toISOString(), terms: true, privacy: true } }
+      data: { legal_consent: { version: LEGAL_VERSION, accepted_at: new Date().toISOString(), terms: true, privacy: true } }
     }
   });
 
@@ -2185,9 +2187,9 @@ const LEGAL_TEXTS = {
     paragraphs: [
       'Responsable: Ángel Enrique Hernández Rizo, persona física que ofrece el servicio bajo el nombre comercial VeloDrive. Domicilio de contacto: Mar Caribe 442, Vista Bugambilias, Villa de Álvarez, Colima, C.P. 28979, México. Contacto de privacidad y solicitudes: RIZOA1333@gmail.com. Soporte técnico: rizovsolutions@gmail.com.',
       'Datos tratados: datos de cuenta y del lote (correo, nombre comercial, teléfono/WhatsApp, ubicación y datos fiscales como RFC, razón social, código postal, régimen y uso CFDI); inventario y fotografías de vehículos; datos de prospectos, citas y conversaciones de WhatsApp; e información necesaria para administrar pagos, suscripciones, conexiones de redes y soporte.',
-      'Finalidades: crear y administrar cuentas; operar el panel, inventario y CRM; habilitar la atención automatizada de prospectos y herramientas de marketing; generar o publicar contenido cuando el usuario lo solicita; gestionar pagos y suscripciones; emitir y enviar CFDI por los pagos recibidos; y atender soporte y solicitudes de privacidad.',
-      'Proveedores que pueden tratar datos únicamente para prestar las funciones solicitadas: Supabase (cuentas y base de datos), Railway (alojamiento de la aplicación), Stripe (pagos y suscripciones), n8n (automatizaciones), Facturapi (emisión de CFDI), Evolution API (conexión de WhatsApp), Upload-Post (publicaciones en redes) y Google Gemini (funciones de inteligencia artificial). Según la configuración e infraestructura de cada proveedor, los datos podrían procesarse o alojarse en México o en otros países. Cada proveedor aplica sus propios términos, medidas y subencargados. No se autoriza a VeloDrive a vender los datos personales. Antes de conectar una cuenta de terceros, el usuario debe revisar sus permisos y avisos de privacidad.',
-      'Conservación: al terminar la suscripción, los datos operativos y respaldos se eliminarán en un plazo de una semana. Los comprobantes fiscales y demás registros que deban conservarse por obligaciones legales se mantendrán durante el periodo aplicable.',
+      'Finalidades: crear y administrar cuentas; operar el panel, inventario y CRM; habilitar la atención automatizada de prospectos y herramientas de marketing; generar o publicar contenido cuando el usuario lo solicita; gestionar pagos y suscripciones; preparar manualmente los CFDI que solicite el cliente con los datos fiscales proporcionados; y atender soporte y solicitudes de privacidad.',
+      'Proveedores que pueden tratar datos para prestar las funciones solicitadas: Supabase (cuentas y base de datos), Railway (alojamiento de la aplicación), Stripe (pagos y suscripciones), n8n (automatizaciones), Facturapi (gestión de CFDI cuando se solicita una factura), Evolution API (conexión de WhatsApp), Upload-Post (publicaciones en redes) y Google Gemini (funciones de inteligencia artificial). Los CFDI no se generan automáticamente por cada cargo; su preparación se gestiona manualmente. Según la configuración e infraestructura de cada proveedor, los datos podrían procesarse o alojarse en México o en otros países. Cada proveedor aplica sus propios términos, medidas y subencargados. No se autoriza a VeloDrive a vender los datos personales. Antes de conectar una cuenta de terceros, el usuario debe revisar sus permisos y avisos de privacidad.',
+      'Conservación: al terminar la suscripción, VeloDrive gestionará manualmente la eliminación de los datos operativos y respaldos dentro de un plazo máximo de una semana. Los comprobantes fiscales y demás registros que deban conservarse por obligaciones legales se mantendrán durante el periodo aplicable.',
       'Derechos y solicitudes: para ejercer derechos de acceso, rectificación, cancelación u oposición (ARCO), revocar el consentimiento o limitar el uso de datos, escribe a RIZOA1333@gmail.com e incluye tu nombre, un medio para recibir respuesta, el correo asociado a tu cuenta, el derecho que deseas ejercer y una descripción que ayude a localizar los datos. Para rectificación, indica los cambios y, si aplica, adjunta sustento. Podremos pedir una verificación razonable de identidad o representación. Informaremos la determinación en un máximo de 20 días y, si procede, la haremos efectiva dentro de los 15 días siguientes; esos plazos pueden ampliarse una vez por un periodo igual cuando la ley lo permita y se justifique.',
       'Datos de prospectos: el lote que carga o conecta esos datos determina para qué los usa y debe contar con la base legal y los avisos necesarios. VeloDrive los procesa para prestar las funciones que el lote solicita y no para venderlos ni para fines propios ajenos al servicio.',
       'Cambios al aviso: la versión vigente se mostrará en el panel de VeloDrive. Si el cambio afecta materialmente el tratamiento de datos, se avisará al correo registrado y mediante un aviso dentro del panel antes de aplicarlo cuando sea posible. Se indicará la fecha de actualización.'
@@ -2198,7 +2200,7 @@ const LEGAL_TEXTS = {
     paragraphs: [
       'Proveedor: Ángel Enrique Hernández Rizo, persona física que ofrece el servicio bajo el nombre comercial VeloDrive; Mar Caribe 442, Vista Bugambilias, Villa de Álvarez, Colima, C.P. 28979, México; privacidad: RIZOA1333@gmail.com; soporte: rizovsolutions@gmail.com. VeloDrive ofrece un panel para lotes de autos con herramientas de inventario, atención de prospectos y apoyo para crear o publicar contenido.',
       'Cuenta y uso: el usuario debe mantener sus credenciales seguras, tener autorización para conectar sus cuentas y revisar la información generada o publicada. El contenido generado por IA puede contener errores y debe verificarse antes de utilizarse.',
-      'Plan, cupo y cobro: $10,000 MXN mensuales más IVA, con cobro recurrente mensual procesado por Stripe. El total con impuestos debe mostrarse en la pantalla de pago. VeloDrive ofrecerá el servicio a un máximo de 15 lotes de autos ubicados en el estado de Colima; las nuevas instalaciones dependerán de que haya cupo disponible. Este máximo se refiere al número de clientes de VeloDrive, no a los autos, usuarios, conversaciones ni publicaciones de cada cuenta. El cupo limitado no concede a un cliente exclusividad territorial, municipal, por marca ni por segmento. El uso está sujeto a la disponibilidad, cuotas y reglas de proveedores externos.',
+      'Plan, cupo y cobro: $10,000 MXN mensuales más IVA, con cobro recurrente mensual procesado por Stripe. El total con impuestos debe mostrarse en la pantalla de pago. Los CFDI no se emiten automáticamente con cada cargo; el cliente puede solicitarlos a soporte y VeloDrive los tramitará manualmente con los datos fiscales requeridos. VeloDrive ofrecerá el servicio a un máximo de 15 lotes de autos ubicados en el estado de Colima; las nuevas instalaciones dependerán de que haya cupo disponible. Este máximo se refiere al número de clientes de VeloDrive, no a los autos, usuarios, conversaciones ni publicaciones de cada cuenta. El cupo limitado no concede a un cliente exclusividad territorial, municipal, por marca ni por segmento. El uso está sujeto a la disponibilidad, cuotas y reglas de proveedores externos.',
       'Disponibilidad y soporte: soporte por correo en rizovsolutions@gmail.com, de lunes a viernes, de 7:00 a 21:00, hora local de Colima. El objetivo es enviar una primera respuesta dentro de una hora durante ese horario; ese plazo es para responder y no garantiza que el problema quede resuelto en una hora. Los mensajes fuera del horario se atenderán en el siguiente horario hábil. VeloDrive realizará esfuerzos razonables para mantener el servicio, pero puede haber interrupciones por mantenimiento, fallas de internet, plataformas externas o causas fuera de su control; no se promete disponibilidad ininterrumpida. Podrá limitar o suspender temporalmente el acceso ante falta de pago, riesgos de seguridad, uso ilegal, incumplimiento de estos términos o de reglas de proveedores, o para cumplir una obligación legal. Cuando sea posible, se avisará al usuario y se explicará cómo corregir el incumplimiento. Cada cliente es responsable de contar con derechos y base legal para los datos y contenidos que cargue, y de revisar las publicaciones antes de autorizarlas.',
       'Resultados y responsabilidad: VeloDrive prestará el servicio con cuidado razonable, pero no garantiza resultados comerciales, ventas, respuestas de prospectos ni exactitud de contenido generado por inteligencia artificial o servicios externos. El usuario debe revisar y aprobar el contenido antes de publicarlo y mantener copias de la información importante. La responsabilidad de cada parte se determinará conforme a la ley aplicable; estos términos no eliminan derechos irrenunciables ni responsabilidades que legalmente no puedan excluirse.',
       'Ley y jurisdicción: estos términos se interpretan conforme a las leyes de México. Para las controversias que legalmente puedan someterse a elección de foro, las partes se someten a los tribunales competentes de Colima, sin limitar derechos irrenunciables que correspondan al usuario.',
@@ -2210,7 +2212,7 @@ const LEGAL_TEXTS = {
     paragraphs: [
       'Puedes solicitar la cancelación desde el portal de facturación de Stripe. La cancelación evita futuras renovaciones y el acceso continúa hasta el final del periodo ya pagado.',
       'No se ofrecen reembolsos por periodos iniciados ni por tiempo no utilizado, salvo cuando la ley aplicable disponga lo contrario.',
-      'La cancelación no elimina inmediatamente la cuenta. Los datos operativos y respaldos se eliminarán en un plazo de una semana después de que termine el periodo pagado. Los comprobantes fiscales se conservarán durante el plazo exigido por las obligaciones aplicables. Para ejercer derechos de privacidad, escribe a RIZOA1333@gmail.com.'
+      'La cancelación no elimina inmediatamente la cuenta. VeloDrive gestionará manualmente la eliminación de los datos operativos y respaldos dentro de un plazo máximo de una semana después de que termine el periodo pagado. Los comprobantes fiscales se conservarán durante el plazo exigido por las obligaciones aplicables. Para ejercer derechos de privacidad, escribe a RIZOA1333@gmail.com.'
     ]
   }
 };
@@ -2377,7 +2379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dialog = document.getElementById('legalDialog');
     const notice = dialog.querySelector('[data-legal-draft-notice]');
     if (notice) notice.textContent = documentosLegalesListos()
-      ? 'Consulta la versión y fecha de vigencia indicadas en el documento.'
+      ? `Versión ${LEGAL_VERSION} · Vigente desde ${LEGAL_EFFECTIVE_DATE}.`
       : 'Documento en preparación: completa los campos pendientes y revisa su contenido antes de publicarlo.';
     dialog.classList.remove('hidden');
     dialog.classList.add('flex');

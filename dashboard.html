@@ -77,6 +77,7 @@
     /* Plan vencido: bloquea navegación operativa, deja pasar solo Configuración y Cerrar Sesión */
     body.plan-vencido .nav-btn:not([data-section="section-configuracion"]) { pointer-events: none; opacity: 0.35; }
   </style>
+  <script>window.VELODRIVE_PLAN_PRICE_MXN = 10000;</script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="dashboard.js" defer></script>
 </head>
@@ -1129,7 +1130,7 @@
       const box = document.getElementById('registroPrecioBox');
       const txt = document.getElementById('registroPrecioTexto');
       if (estado && box && txt) {
-        txt.textContent = new Intl.NumberFormat('es-MX', {style:'currency',currency:'MXN'}).format(10000) + ' + IVA';
+        txt.textContent = new Intl.NumberFormat('es-MX', {style:'currency',currency:'MXN'}).format(window.VELODRIVE_PLAN_PRICE_MXN) + ' + IVA';
         box.classList.remove('hidden');
       }
     }
