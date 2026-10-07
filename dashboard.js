@@ -30,10 +30,25 @@ const N8N_REDES_WEBHOOK_URL = 'https://n8n-production-97a4.up.railway.app/webhoo
 const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.app/webhook/verificar-publicacion';
 // FIX #4 eliminado: N8N_VERIFY_PUBLISH_WEBHOOK_URL era código muerto — removido.
 
-const STRIPE_LINK = 'https://buy.stripe.com/9B614p0ydcVXa3Y1Bb3oA06';
-const PRECIO_PLAN_MXN = Number(window.VELODRIVE_PLAN_PRICE_MXN) || 10000;
+const STRIPE_TEST_MODE = window.VELODRIVE_STRIPE_TEST_MODE === true;
+const STRIPE_LIVE_LINK = 'https://buy.stripe.com/9B614p0ydcVXa3Y1Bb3oA06';
+const STRIPE_TEST_LINK = 'https://buy.stripe.com/test_6oU5kFft7f452Bw0x73oA00';
+const STRIPE_LINK = STRIPE_TEST_MODE ? STRIPE_TEST_LINK : STRIPE_LIVE_LINK;
+const PRECIO_PLAN_MXN = STRIPE_TEST_MODE ? 10 : (Number(window.VELODRIVE_PLAN_PRICE_MXN) || 10000);
 const LEGAL_VERSION = '2026-10-03-v2';
 const LEGAL_EFFECTIVE_DATE = '3 de octubre de 2026';
+if (STRIPE_TEST_MODE) document.getElementById('stripeTestBanner')?.classList.remove('hidden');
+let actionToastTimer = null;
+function showActionToast(message, state = 'success') {
+  const toast = document.getElementById('actionToast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.dataset.state = state;
+  toast.style.borderColor = state === 'error' ? 'var(--danger)' : 'var(--success)';
+  toast.classList.remove('hidden');
+  if (actionToastTimer) clearTimeout(actionToastTimer);
+  actionToastTimer = setTimeout(() => toast.classList.add('hidden'), 4500);
+}
 function redirigirAStripeCheckout(lote) {
   const url = new URL(STRIPE_LINK);
   url.searchParams.set('client_reference_id', lote.id);
@@ -1022,8 +1037,8 @@ function renderCars() {
                 <span class="text-[11px] text-[#9CA3AF]">${textoCatalog}</span>
               </div>
             </div>
-            <button data-edit-id="${escapeHtml(car.id)}" class="btn-editar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad">✏️</button>
-            <button data-delete-id="${escapeHtml(car.id)}" data-nombre="${escapeHtml(unidadNombre)}" class="btn-eliminar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Eliminar Unidad">🗑️</button>
+            <button data-edit-id="${escapeHtml(car.id)}" class="btn-editar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Editar Unidad" aria-label="Editar ${escapeHtml(unidadNombre)}">✏️</button>
+            <button data-delete-id="${escapeHtml(car.id)}" data-nombre="${escapeHtml(unidadNombre)}" class="btn-eliminar-car internal-only text-xs opacity-60 hover:opacity-100 transition flex-shrink-0" title="Eliminar Unidad" aria-label="Eliminar ${escapeHtml(unidadNombre)}">🗑️</button>
           </div>
 
           <p class="text-[11px] text-[#9CA3AF] font-mono">#${shortId} • ${escapeHtml(String(car.year || ''))}</p>
@@ -1095,6 +1110,7 @@ function renderCars() {
       document.getElementById('uploadStatusText').textContent = carImageUrls.length ? `${carImageUrls.length} foto(s) activa(s).` : '';
 
       document.getElementById('modalCarOverlay').classList.remove('hidden');
+      document.getElementById('carBrand')?.focus();
     });
   });
 
@@ -1110,9 +1126,10 @@ function renderCars() {
         const { error } = await supabaseClient.from('cars').delete().eq('id', carId).eq('lote_id', currentLote.id);
         if (error) throw error;
         await fetchCars();
+        showActionToast('Vehículo eliminado del inventario.');
       } catch (error) {
         console.error('[Inventario] Error al eliminar unidad:', error);
-        alert('No se pudo eliminar la unidad. Intenta de nuevo.');
+        showActionToast('No se pudo eliminar la unidad. Revisa tu conexión e inténtalo de nuevo.', 'error');
         btn.textContent = '🗑️';
         btn.disabled = false;
         btn.removeAttribute('aria-busy');
@@ -2005,24 +2022,6 @@ async function checkSessionAndLote() {
       return true;
     }
 
-    let pendienteRaw = null;
-    try { pendienteRaw = sessionStorage.getItem('p360-pending-lote'); } catch (_) {}
-
-    if (pendienteRaw) {
-      try {
-        const datosLote = JSON.parse(pendienteRaw);
-        const loteCreado = await crearLoteParaUsuarioActual(datosLote);
-        if (loteCreado) {
-          sessionStorage.removeItem('p360-pending-lote');
-          currentLote = loteCreado;
-          redirigirAStripeCheckout(currentLote);
-          return true;
-        }
-      } catch (err) {
-        console.error('[Route Guard] No se pudo completar el lote pendiente:', err);
-      }
-    }
-
     currentLote = null;
     showView('view-registro');
     return true;
@@ -2121,66 +2120,64 @@ async function handleRegistroSubmit(e) {
   };
   datosLote.email_admin = email;
 
-  const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: window.location.origin,
-      data: { legal_consent: { version: LEGAL_VERSION, accepted_at: new Date().toISOString(), terms: true, privacy: true } }
+  if (btnRegistro) {
+    btnRegistro.disabled = true;
+    btnRegistro.setAttribute('aria-busy', 'true');
+    btnRegistro.textContent = 'Creando cuenta y lote…';
+  }
+
+  try {
+    const legalConsent = {
+      version: LEGAL_VERSION,
+      accepted_at: new Date().toISOString(),
+      terms: true,
+      privacy: true
+    };
+    const response = await fetch('/api/register-lote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, datosLote, legalConsent })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(result.message || 'No se pudo completar el registro. Inténtalo de nuevo.');
+      error.code = result.code;
+      throw error;
     }
-  });
 
-  if (signUpError) {
-    if (errorEl) errorEl.textContent = signUpError.message;
-    if (btnRegistro) btnRegistro.disabled = false;
-    return;
-  }
+    if (result.session?.access_token && result.session?.refresh_token) {
+      const { error: sessionError } = await supabaseClient.auth.setSession({
+        access_token: result.session.access_token,
+        refresh_token: result.session.refresh_token
+      });
+      if (sessionError) throw new Error('La cuenta y el lote se crearon, pero no se pudo iniciar sesión. Inicia sesión para continuar al pago.');
+      currentUser = result.user;
+      currentLote = result.lote;
+      redirigirAStripeCheckout(currentLote);
+      return;
+    }
 
-  const esCorreoDuplicado = signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0;
-  if (esCorreoDuplicado) {
-    if (errorEl) errorEl.textContent = 'Ese correo ya tiene una cuenta. Inicia sesión en vez de registrarte de nuevo.';
-    if (btnRegistro) btnRegistro.disabled = false;
-    return;
-  }
-
-  if (!signUpData.session) {
-    try {
-      sessionStorage.setItem('p360-pending-lote', JSON.stringify(datosLote));
-    } catch (_) {}
     if (errorEl) {
-      errorEl.classList.remove('text-[#A9584A]');
+      errorEl.classList.remove('hidden', 'text-[#A9584A]');
       errorEl.classList.add('text-[#4B8B72]');
-      errorEl.textContent = 'Cuenta creada. Revisa tu correo para confirmarla.';
+      errorEl.setAttribute('role', 'status');
+      errorEl.textContent = 'Cuenta y lote creados. Revisa tu correo para confirmar la cuenta; después inicia sesión y continúa con el pago.';
     }
-    if (btnRegistro) btnRegistro.disabled = false;
-    return;
+  } catch (error) {
+    console.error('[Registro] No se pudo completar el registro:', error.code || error.message);
+    if (errorEl) {
+      errorEl.classList.remove('hidden', 'text-[#4B8B72]');
+      errorEl.classList.add('text-[#A9584A]');
+      errorEl.setAttribute('role', 'alert');
+      errorEl.textContent = error.message || 'Error de conexión. Verifica tu internet e inténtalo de nuevo.';
+    }
+  } finally {
+    if (btnRegistro) {
+      btnRegistro.disabled = false;
+      btnRegistro.removeAttribute('aria-busy');
+      btnRegistro.textContent = 'Crear Cuenta y Continuar';
+    }
   }
-
-  currentUser = signUpData.user;
-  const loteCreado = await crearLoteParaUsuarioActual(datosLote);
-  if (!loteCreado) {
-    if (errorEl) errorEl.textContent = 'Tu cuenta se creó, pero el lote no se pudo registrar. Contacta soporte.';
-    if (btnRegistro) btnRegistro.disabled = false;
-    return;
-  }
-
-  currentLote = loteCreado;
-  redirigirAStripeCheckout(currentLote);
-}
-
-async function crearLoteParaUsuarioActual(datosLote) {
-  if (!currentUser) return null;
-  const { data, error } = await supabaseClient
-    .from('lotes')
-    .insert({ profile_id: currentUser.id, ...datosLote })
-    .select()
-    .single();
-
-  if (error) {
-    console.error('[Registro] No se pudo crear el lote:', error);
-    return null;
-  }
-  return data;
 }
 
 const LEGAL_TEXTS = {
@@ -2395,7 +2392,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const texto = document.getElementById('registroPrecioTexto');
     if (!box || !texto) return;
     if (!e.target.value) { box.classList.add('hidden'); return; }
-    texto.textContent = `${formatCurrency(PRECIO_PLAN_MXN)} + IVA`;
+    texto.textContent = STRIPE_TEST_MODE
+      ? `Prueba: ${formatCurrency(PRECIO_PLAN_MXN)} al mes · sin cobro real`
+      : `${formatCurrency(PRECIO_PLAN_MXN)} + IVA`;
     box.classList.remove('hidden');
   });
 
@@ -2446,11 +2445,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (title) title.textContent = 'Registrar Nuevo Vehículo';
     const btnSubmit = document.getElementById('btnSubmitCarForm');
     if (btnSubmit) btnSubmit.textContent = 'Guardar Unidad en Sistema';
-    if (modalCar) modalCar.classList.remove('hidden');
+    if (modalCar) {
+      modalCar.classList.remove('hidden');
+      document.getElementById('carBrand')?.focus();
+    }
   });
 
   on('btnCerrarModalCar', 'click', () => {
     if (modalCar) modalCar.classList.add('hidden');
+    document.getElementById('btnAbrirModalCar')?.focus();
+  });
+
+  if (modalCar) modalCar.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      modalCar.classList.add('hidden');
+      document.getElementById('btnAbrirModalCar')?.focus();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(modalCar.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      .filter((element) => element.getClientRects().length > 0);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
 
   const modalCostos = document.getElementById('modalCostosOverlay');
@@ -2461,6 +2485,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   on('formDatosFinancieros', 'submit', async (e) => {
     e.preventDefault();
+    const button = document.getElementById('btnGuardarDatosFinancieros');
+    if (button?.disabled) return;
     if (!currentLote || !activeCostCarId) return;
     const car = carsCache.find(c => String(c.id) === String(activeCostCarId));
     if (!car) return;
@@ -2476,35 +2502,49 @@ document.addEventListener('DOMContentLoaded', async () => {
       update.status = 'Vendido';
       update.fecha_venta = car.fecha_venta || fechaActualLocalISO();
     }
-    const button = document.getElementById('btnGuardarDatosFinancieros');
-    button.disabled = true;
-    const { error } = await supabaseClient.from('cars').update(update).eq('id', activeCostCarId).eq('lote_id', currentLote.id);
-    button.disabled = false;
-    if (error) { alert(`No se pudieron guardar los datos financieros: ${error.message}`); return; }
-    await fetchCars();
-    const actualizado = carsCache.find(c => String(c.id) === String(activeCostCarId));
-    if (actualizado) renderDetalleCostos(actualizado);
+    const finish = window.VeloDriveUI?.beginSubmit(button, document.getElementById('finanzasStatus'), 'Guardando…', 'Guardando los datos de compra y venta…');
+    if (!finish) return;
+    try {
+      const { error } = await supabaseClient.from('cars').update(update).eq('id', activeCostCarId).eq('lote_id', currentLote.id);
+      if (error) throw error;
+      await fetchCars();
+      const actualizado = carsCache.find(c => String(c.id) === String(activeCostCarId));
+      if (actualizado) renderDetalleCostos(actualizado);
+      finish('Compra y venta guardadas.', 'success');
+      showActionToast('Datos de compra y venta guardados.');
+    } catch (error) {
+      finish('No se pudieron guardar los datos. Revisa tu conexión e inténtalo de nuevo.', 'error');
+      showActionToast('No se pudieron guardar los datos financieros.', 'error');
+    }
   });
   on('formGastoVehiculo', 'submit', async (e) => {
     e.preventDefault();
+    const button = document.getElementById('btnGuardarGasto');
+    if (button?.disabled) return;
     if (!currentLote || !activeCostCarId) return;
     const amount = Number(document.getElementById('gastoMonto').value);
     if (!Number.isFinite(amount) || amount <= 0) { alert('Escribe un importe mayor que cero.'); return; }
-    const button = document.getElementById('btnGuardarGasto');
-    button.disabled = true;
-    const { error } = await supabaseClient.from('car_expenses').insert({
-      lote_id: currentLote.id,
-      car_id: activeCostCarId,
-      category: document.getElementById('gastoCategoria').value,
-      description: document.getElementById('gastoDescripcion').value.trim() || null,
-      amount
-    });
-    button.disabled = false;
-    if (error) { alert(`No se pudo guardar. Verifica que aplicaste el SQL de control de utilidad. ${error.message}`); return; }
-    e.target.reset();
-    await fetchCars();
-    const carActual = carsCache.find(c => String(c.id) === String(activeCostCarId));
-    if (carActual) renderDetalleCostos(carActual);
+    const finish = window.VeloDriveUI?.beginSubmit(button, document.getElementById('gastoStatus'), 'Guardando…', 'Guardando el gasto…');
+    if (!finish) return;
+    try {
+      const { error } = await supabaseClient.from('car_expenses').insert({
+        lote_id: currentLote.id,
+        car_id: activeCostCarId,
+        category: document.getElementById('gastoCategoria').value,
+        description: document.getElementById('gastoDescripcion').value.trim() || null,
+        amount
+      });
+      if (error) throw error;
+      e.target.reset();
+      await fetchCars();
+      const carActual = carsCache.find(c => String(c.id) === String(activeCostCarId));
+      if (carActual) renderDetalleCostos(carActual);
+      finish('Gasto guardado.', 'success');
+      showActionToast('Gasto registrado.');
+    } catch (error) {
+      finish('No se pudo guardar el gasto. Revisa tu conexión e inténtalo de nuevo.', 'error');
+      showActionToast('No se pudo registrar el gasto.', 'error');
+    }
   });
 
   // Import CSV
@@ -2582,24 +2622,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Submit form de unidad: muestra el progreso y bloquea envíos repetidos.
   on('formNuevoCar', 'submit', async (e) => {
     e.preventDefault();
+    const btnSubmit = document.getElementById('btnSubmitCarForm');
+    if (btnSubmit?.disabled) return;
     if (!currentLote) return;
     if (isNaN(parseInt(document.getElementById('carYear').value)) || isNaN(parseFloat(document.getElementById('carPrice').value))) {
       alert('Revisa el año y el precio: deben ser números válidos.');
       return;
     }
-    const btnSubmit = document.getElementById('btnSubmitCarForm');
     const statusText = document.getElementById('uploadStatusText');
     const esEdicion = Boolean(editingCarId);
     const textoOriginal = btnSubmit?.textContent.trim() || 'Guardar Unidad en Sistema';
-    if (btnSubmit) {
-      btnSubmit.disabled = true;
-      btnSubmit.textContent = esEdicion ? 'Actualizando vehículo…' : 'Guardando vehículo…';
-      btnSubmit.setAttribute('aria-busy', 'true');
-    }
-    if (statusText) {
-      statusText.textContent = esEdicion ? 'Actualizando la información del vehículo…' : 'Guardando el vehículo…';
-      statusText.style.color = 'var(--amber-strong)';
-    }
+    const finishSubmit = window.VeloDriveUI?.beginSubmit(
+      btnSubmit,
+      statusText,
+      esEdicion ? 'Actualizando vehículo…' : 'Guardando vehículo…',
+      esEdicion ? 'Actualizando la información del vehículo…' : 'Guardando el vehículo…'
+    );
+    if (!finishSubmit) return;
     const carData = {
       lote_id: currentLote.id,
       brand: document.getElementById('carBrand').value.trim(),
@@ -2624,20 +2663,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       carImageUrls = [];
       renderCarThumbs();
       await fetchCars();
+      finishSubmit(esEdicion ? 'Vehículo actualizado.' : 'Vehículo agregado.', 'success');
+      showActionToast(esEdicion ? 'Vehículo actualizado.' : 'Vehículo agregado al inventario.');
       if (modalCar) modalCar.classList.add('hidden');
     } catch (error) {
       console.error('[Inventario] Error al guardar carro:', error);
-      if (statusText) {
-        statusText.textContent = 'No se pudo guardar el vehículo. Revisa tu conexión e inténtalo de nuevo.';
-        statusText.style.color = 'var(--danger)';
-      }
-      alert(`No se pudo guardar el vehículo: ${error.message || 'Error de conexión.'}`);
+      finishSubmit('No se pudo guardar el vehículo. Revisa tu conexión e inténtalo de nuevo.', 'error');
+      showActionToast('No se pudo guardar el vehículo. Revisa tu conexión.', 'error');
     } finally {
-      if (btnSubmit) {
-        btnSubmit.disabled = false;
-        btnSubmit.textContent = textoOriginal;
-        btnSubmit.removeAttribute('aria-busy');
-      }
+      if (btnSubmit?.disabled || btnSubmit?.getAttribute('aria-busy') === 'true') finishSubmit(textoOriginal, 'error');
     }
   });
   // Sidebar móvil

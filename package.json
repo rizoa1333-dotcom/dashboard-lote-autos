@@ -4,14 +4,19 @@
   "description": "Dashboard Multinquilino para VeloDrive",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test tests/unit/*.test.js",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "express": "^4.22.2",
-    "helmet": "^8.0.0",
-    "express-rate-limit": "^7.4.1"
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }
