@@ -246,6 +246,10 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 // Publica solo los recursos que necesita el navegador. No expongas por error
 // server.js, package.json, archivos de configuración ni flujos de n8n.
 app.get('/styles.css', (req, res) => res.sendFile(path.join(__dirname, 'styles.css')));
+app.get('/ui-feedback.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.type('application/javascript').sendFile(path.join(__dirname, 'ui-feedback.js'));
+});
 app.get('/dashboard.js', (req, res) => res.sendFile(path.join(__dirname, 'dashboard.js')));
 app.get('/manifest.webmanifest', (req, res) => {
   res.type('application/manifest+json').sendFile(path.join(__dirname, 'manifest.webmanifest'));
