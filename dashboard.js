@@ -31,13 +31,16 @@ const N8N_VERIFICAR_PUBLICACION_URL = 'https://n8n-production-97a4.up.railway.ap
 // FIX #4 eliminado: N8N_VERIFY_PUBLISH_WEBHOOK_URL era código muerto — removido.
 
 const STRIPE_TEST_MODE = window.VELODRIVE_STRIPE_TEST_MODE === true;
+const STRIPE_LIVE_QA_MODE = window.VELODRIVE_STRIPE_LIVE_QA_MODE === true;
 const STRIPE_LIVE_LINK = 'https://buy.stripe.com/9B614p0ydcVXa3Y1Bb3oA06';
 const STRIPE_TEST_LINK = 'https://buy.stripe.com/test_6oU5kFft7f452Bw0x73oA00';
-const STRIPE_LINK = STRIPE_TEST_MODE ? STRIPE_TEST_LINK : STRIPE_LIVE_LINK;
-const PRECIO_PLAN_MXN = STRIPE_TEST_MODE ? 10 : (Number(window.VELODRIVE_PLAN_PRICE_MXN) || 10000);
+const STRIPE_LIVE_QA_LINK = 'https://buy.stripe.com/fZu8wRbcR09b0to93D3oA07';
+const STRIPE_LINK = STRIPE_TEST_MODE ? STRIPE_TEST_LINK : STRIPE_LIVE_QA_MODE ? STRIPE_LIVE_QA_LINK : STRIPE_LIVE_LINK;
+const PRECIO_PLAN_MXN = STRIPE_TEST_MODE || STRIPE_LIVE_QA_MODE ? 10 : (Number(window.VELODRIVE_PLAN_PRICE_MXN) || 10000);
 const LEGAL_VERSION = '2026-10-03-v2';
 const LEGAL_EFFECTIVE_DATE = '3 de octubre de 2026';
 if (STRIPE_TEST_MODE) document.getElementById('stripeTestBanner')?.classList.remove('hidden');
+if (STRIPE_LIVE_QA_MODE) document.getElementById('stripeLiveQABanner')?.classList.remove('hidden');
 let actionToastTimer = null;
 function showActionToast(message, state = 'success') {
   const toast = document.getElementById('actionToast');
@@ -51,6 +54,8 @@ function showActionToast(message, state = 'success') {
 }
 function redirigirAStripeCheckout(lote) {
   const url = new URL(STRIPE_LINK);
+  // Payment Links aceptan esta referencia en Checkout; el webhook firmado la
+  // usa para asociar el pago al lote y valida además el correo del administrador.
   url.searchParams.set('client_reference_id', lote.id);
   window.location.href = url.toString();
 }
@@ -1815,12 +1820,28 @@ function renderSubscriptionStatus() {
 function handleStripeReturn() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('payment') === 'success') {
-    alert('¡Pago recibido! Tu plan se activará en unos segundos.');
     window.history.replaceState({}, '', window.location.pathname);
-    setTimeout(async () => {
-      const { data } = await supabaseClient.from('lotes').select('*').eq('id', currentLote.id).single();
-      if (data) { currentLote = data; renderSubscriptionStatus(); }
-    }, 2000);
+    if (!currentLote?.id) {
+      showActionToast('Regresaste de Stripe. Inicia sesión para comprobar el estado del plan.', 'error');
+      return;
+    }
+    showActionToast('Regresaste de Stripe. Estamos confirmando el pago…', 'info');
+    void (async () => {
+      for (let attempt = 0; attempt < 15; attempt += 1) {
+        if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 2000));
+        const { data, error } = await supabaseClient.from('lotes').select('*').eq('id', currentLote.id).single();
+        if (data) {
+          currentLote = data;
+          renderSubscriptionStatus();
+          if (data.plan_status === 'active' || data.es_cuenta_interna === true) {
+            showActionToast('Pago confirmado. Tu plan ya está activo.', 'success');
+            return;
+          }
+        }
+        if (error) console.warn('[Stripe] Aún no se pudo consultar el estado del plan.');
+      }
+      showActionToast('El pago aún está en verificación. Actualiza el panel en un momento; si continúa igual, contacta soporte.', 'error');
+    })();
   }
 }
 
@@ -2394,7 +2415,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!e.target.value) { box.classList.add('hidden'); return; }
     texto.textContent = STRIPE_TEST_MODE
       ? `Prueba: ${formatCurrency(PRECIO_PLAN_MXN)} al mes · sin cobro real`
-      : `${formatCurrency(PRECIO_PLAN_MXN)} + IVA`;
+      : STRIPE_LIVE_QA_MODE
+        ? `Prueba con cobro real: ${formatCurrency(PRECIO_PLAN_MXN)} al mes · recurrente`
+        : `${formatCurrency(PRECIO_PLAN_MXN)} + IVA`;
     box.classList.remove('hidden');
   });
 

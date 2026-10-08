@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { createStripeWebhookHandler } = require('./stripe-webhook');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,10 @@ const registerRateLimit = rateLimit({
   legacyHeaders: false,
   message: { code: 'RATE_LIMITED', message: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.' }
 });
+
+// Stripe requiere el cuerpo HTTP sin parsear para comprobar la firma.
+// Esta ruta debe conservar express.raw y colocarse antes de cualquier JSON global.
+app.post('/api/stripe-webhook', express.raw({ type: 'application/json', limit: '1mb' }), createStripeWebhookHandler());
 
 // Crea Auth y el lote desde el servidor. Auth y PostgREST no comparten una
 // transacción SQL; si el INSERT falla se compensa eliminando al usuario Auth

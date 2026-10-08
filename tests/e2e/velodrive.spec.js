@@ -171,6 +171,28 @@ test('registro de prueba: muestra el aviso, cobra $10 MXN/mes en Stripe Test y c
   await expect.poll(() => stripeRequest).toContain('client_reference_id=lote-qa-001');
 });
 
+test('registro QA con cobro real: muestra aviso de recurrencia y usa el Payment Link de $10 MXN', async ({ page }) => {
+  await setupPage(page, null, {
+    status: 201,
+    body: {
+      user: { id: 'user-qa-001', email: 'qa@example.com' },
+      lote: { id: 'lote-qa-001', profile_id: 'user-qa-001' },
+      session: { access_token: 'mock-access', refresh_token: 'mock-refresh' },
+      requiresEmailConfirmation: false
+    }
+  }, '?stripe_live_qa=1');
+  let stripeRequest;
+  page.on('request', (request) => { if (request.url().startsWith('https://buy.stripe.com/')) stripeRequest = request.url(); });
+  await page.route('https://buy.stripe.com/**', (route) => route.abort());
+  await completeRegistrationWizard(page);
+  await expect(page.locator('#stripeLiveQABanner')).toBeVisible();
+  await expect(page.locator('#stripeLiveQABanner')).toContainText('recurrentes');
+  await expect(page.locator('#registroPrecioTexto')).toContainText('cobro real');
+  await page.locator('#btnSubmitRegistro').click();
+  await expect.poll(() => stripeRequest).toContain('https://buy.stripe.com/fZu8wRbcR09b0to93D3oA07');
+  await expect.poll(() => stripeRequest).toContain('client_reference_id=lote-qa-001');
+});
+
 test.describe('inventario y utilidad', () => {
   const session = { user: { id: 'user-qa-001', email: 'qa@example.com' }, access_token: 'mock', refresh_token: 'mock', seedCars: [] };
 

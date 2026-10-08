@@ -78,8 +78,10 @@
     body.plan-vencido .nav-btn:not([data-section="section-configuracion"]) { pointer-events: none; opacity: 0.35; }
   </style>
   <script>
-    window.VELODRIVE_STRIPE_TEST_MODE = new URLSearchParams(window.location.search).get('stripe_test') === '1';
-    window.VELODRIVE_PLAN_PRICE_MXN = window.VELODRIVE_STRIPE_TEST_MODE ? 10 : 10000;
+    const stripeParams = new URLSearchParams(window.location.search);
+    window.VELODRIVE_STRIPE_TEST_MODE = stripeParams.get('stripe_test') === '1';
+    window.VELODRIVE_STRIPE_LIVE_QA_MODE = !window.VELODRIVE_STRIPE_TEST_MODE && stripeParams.get('stripe_live_qa') === '1';
+    window.VELODRIVE_PLAN_PRICE_MXN = window.VELODRIVE_STRIPE_TEST_MODE || window.VELODRIVE_STRIPE_LIVE_QA_MODE ? 10 : 10000;
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="ui-feedback.js" defer></script>
@@ -100,6 +102,9 @@
 
     <div id="stripeTestBanner" class="hidden rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-200" role="status" aria-live="polite">
       Modo de prueba: Stripe no cobrará dinero real. El registro del usuario y del lote sí se guardará en VeloDrive.
+    </div>
+    <div id="stripeLiveQABanner" class="hidden rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert" aria-live="assertive">
+      Prueba con cobro real: $10 MXN al mes, recurrentes. Cancela la suscripción después de validar para evitar el siguiente cargo.
     </div>
 
     <!-- Indicador de pasos -->
@@ -1144,7 +1149,9 @@
         const precio = new Intl.NumberFormat('es-MX', {style:'currency',currency:'MXN'}).format(window.VELODRIVE_PLAN_PRICE_MXN);
         txt.textContent = window.VELODRIVE_STRIPE_TEST_MODE
           ? `Prueba: ${precio} al mes · sin cobro real`
-          : `${precio} + IVA`;
+          : window.VELODRIVE_STRIPE_LIVE_QA_MODE
+            ? `Prueba con cobro real: ${precio} al mes · recurrente`
+            : `${precio} + IVA`;
         box.classList.remove('hidden');
       }
     }
