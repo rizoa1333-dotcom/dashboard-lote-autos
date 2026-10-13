@@ -262,7 +262,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([A-Za-z0-9_-]{32,128})$/i.exec(String($json.headers?.authorization || \"\")); return m ? encodeURIComponent(m[1]) : \"__invalid__\"; })() }}&select=id",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -452,7 +452,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([A-Za-z0-9_-]{32,128})$/i.exec(String($json.headers?.authorization || \"\")); return m ? encodeURIComponent(m[1]) : \"__invalid__\"; })() }}&select=id",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -673,7 +673,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([A-Za-z0-9_-]{32,128})$/i.exec(String($json.headers?.authorization || \"\")); return m ? encodeURIComponent(m[1]) : \"__invalid__\"; })() }}&select=id",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

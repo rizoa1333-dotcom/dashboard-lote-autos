@@ -16,6 +16,18 @@ test('el flujo se puede importar sin identificadores de nodos duplicados', () =>
   assert.equal(new Set(workflow.nodes.map(node => node.id)).size, workflow.nodes.length);
 });
 
+test('tokens inválidos nunca llegan a PostgreSQL como valores UUID mal formados', () => {
+  for (const name of ['Verificar Token de Tenant7', 'Verificar Token de Tenant8', 'Verificar Token de Tenant9']) {
+    const node = workflow.nodes.find(n => n.name === name);
+    for (const authorization of ['', 'Bearer ' + 'x'.repeat(64), 'Bearer 00000000-0000-0000-0000-000000000000']) {
+      const url = node.parameters.url.slice(1).replace(/{{([\s\S]*?)}}/g, (_, expression) =>
+        vm.runInNewContext(expression, { $json: { headers: { authorization } } }));
+      const filters = new URL(url).searchParams.getAll('webhook_token');
+      assert.deepEqual(filters, ['eq.00000000-0000-0000-0000-000000000000', 'neq.00000000-0000-0000-0000-000000000000']);
+    }
+  }
+});
+
 test('solo TikTok o cuentas vacías no habilitan Facebook e Instagram', () => {
   const result = runNode('Evaluar Conexión2', {
     profiles: [{ username: 'tenant-a', social_accounts: { tiktok: { username: 'old' }, facebook: {}, instagram: '' } }],
