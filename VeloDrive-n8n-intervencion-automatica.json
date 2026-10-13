@@ -351,10 +351,7 @@
           ]
         },
         "sendBody": true,
-        "contentType": "multipart-form-data",
-        "bodyParameters": {
-          "parameters": "={{ (() => { const p = $('Validar Datos de Publicación').item.json; return [{name:'user',value:$('Normalizar Verificación Token2').item.json.loteId},{name:'title',value:p.copy},{name:'async_upload',value:'true'},{name:'request_id',value:p.requestId}, ...p.platforms.map(value=>({name:'platform[]',value})), ...p.urls.map(value=>({name:'photos[]',value}))]; })() }}"
-        },
+        "contentType": "raw",
         "options": {
           "timeout": 30000,
           "response": {
@@ -364,7 +361,9 @@
               "responseFormat": "json"
             }
           }
-        }
+        },
+        "rawContentType": "={{ 'multipart/form-data; boundary=' + $('Validar Datos de Publicación').item.json.boundary }}",
+        "body": "={{ $('Validar Datos de Publicación').item.json.multipartBody }}"
       },
       "id": "8cdd09dd-6ec3-4b8c-af11-78c86051a9b5",
       "name": "Publicar Upload-Post (Fotos)1",
@@ -3985,7 +3984,7 @@
         19280
       ],
       "parameters": {
-        "jsCode": "const body = $('Webhook Publicar Redes1').item.json.body || {};\nconst platforms = Array.isArray(body.platforms) ? [...new Set(body.platforms)] : [];\nconst urls = Array.isArray(body.image_urls) && body.image_urls.length ? body.image_urls : [body.image_url];\nconst carId = String(body.car?.id || '');\nconst requestId = String(body.request_id || '');\nconst valid = /^\\d{1,19}$/.test(carId) && /^[a-zA-Z0-9_-]{16,128}$/.test(requestId) &&\n platforms.length > 0 && platforms.every(p=>['facebook','instagram'].includes(p)) &&\n typeof body.copy === 'string' && body.copy.trim().length > 0 && body.copy.length <= 2200 &&\n urls.length > 0 && urls.length <= 10 && urls.every(url=>typeof url==='string' && /^https:\\/\\/[^\\s]+$/.test(url));\nreturn [{json:{valid,carId,requestId,platforms,urls,copy:valid?body.copy.trim():'',httpStatus:400,error:'Selecciona Facebook o Instagram, una unidad, de 1 a 10 fotos y un texto de hasta 2200 caracteres.'}}];"
+        "jsCode": "const body = $('Webhook Publicar Redes1').item.json.body || {};\nconst platforms = Array.isArray(body.platforms) ? [...new Set(body.platforms)] : [];\nconst urls = Array.isArray(body.image_urls) && body.image_urls.length ? body.image_urls : [body.image_url];\nconst carId = String(body.car?.id || '');\nconst requestId = String(body.request_id || '');\nconst valid = /^\\d{1,19}$/.test(carId) && /^[a-zA-Z0-9_-]{16,128}$/.test(requestId) &&\n platforms.length > 0 && platforms.every(p=>['facebook','instagram'].includes(p)) &&\n typeof body.copy === 'string' && body.copy.trim().length > 0 && body.copy.length <= 2200 &&\n urls.length > 0 && urls.length <= 10 && urls.every(url=>typeof url==='string' && /^https:\\/\\/[^\\s]+$/.test(url));\nconst copy = valid ? body.copy.trim() : '';\nconst fields = valid ? [\n  ['user', $('Normalizar Verificación Token2').item.json.loteId],\n  ['title', copy], ['async_upload', 'true'], ['request_id', requestId],\n  ...platforms.map(value=>['platform[]',value]), ...urls.map(value=>['photos[]',value])\n] : [];\nlet boundary = 'velodrive_' + requestId;\nwhile (fields.some(([,value])=>String(value).includes(boundary))) boundary += '_';\nconst multipartBody = fields.map(([name,value])=>'--'+boundary+'\\r\\nContent-Disposition: form-data; name=\"'+name+'\"\\r\\n\\r\\n'+value+'\\r\\n').join('')+'--'+boundary+'--\\r\\n';\nreturn [{json:{valid,carId,requestId,platforms,urls,copy,boundary,multipartBody,httpStatus:400,error:'Selecciona Facebook o Instagram, una unidad, de 1 a 10 fotos y un texto de hasta 2200 caracteres.'}}];"
       }
     },
     {

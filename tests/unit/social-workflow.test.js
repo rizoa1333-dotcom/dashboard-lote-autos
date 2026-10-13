@@ -108,14 +108,25 @@ test('el enlace de conexión rechaza dominios ajenos a Upload-Post', () => {
   assert.equal(rejected.linkReady, false);
 });
 
-test('multipart envía dos fotos separadas y solamente Facebook', () => {
+test('multipart envía dos fotos separadas y solamente Facebook', async () => {
   const node = workflow.nodes.find(n => n.name === 'Publicar Upload-Post (Fotos)1');
-  const expression = node.parameters.bodyParameters.parameters.slice(3, -2).trim();
-  const parts = vm.runInNewContext(expression, {
-    $: name => ({ item: { json: name === 'Validar Datos de Publicación'
-      ? { platforms: ['facebook'], urls: publication.image_urls, copy: publication.copy, requestId: publication.request_id }
-      : { loteId: 'tenant-a' } } }),
-  });
-  assert.deepEqual(Array.from(parts.filter(p => p.name === 'platform[]'), p => p.value), ['facebook']);
-  assert.deepEqual(Array.from(parts.filter(p => p.name === 'photos[]'), p => p.value), publication.image_urls);
+  const result = runNode('Validar Datos de Publicación', {}, { 'Webhook Publicar Redes1': { body: publication } });
+  assert.equal(node.parameters.contentType, 'raw');
+  const form = await new Response(result.multipartBody, { headers: {
+    'Content-Type': 'multipart/form-data; boundary=' + result.boundary,
+  } }).formData();
+  assert.deepEqual(form.getAll('platform[]'), ['facebook']);
+  assert.deepEqual(form.getAll('photos[]'), publication.image_urls);
+  assert.equal(form.get('user'), 'tenant-a');
+  assert.equal(form.get('title'), 'Unidad disponible');
+});
+
+test('el texto no puede introducir campos adicionales dentro del multipart', async () => {
+  const copy = 'Información ñ 🚗\r\n--velodrive_qa-request-1234567890\r\nContent-Disposition: form-data; name="user"\r\n\r\notro-lote';
+  const result = runNode('Validar Datos de Publicación', {}, { 'Webhook Publicar Redes1': { body: { ...publication, copy } } });
+  const form = await new Response(result.multipartBody, { headers: {
+    'Content-Type': 'multipart/form-data; boundary=' + result.boundary,
+  } }).formData();
+  assert.deepEqual(form.getAll('user'), ['tenant-a']);
+  assert.equal(form.get('title'), copy);
 });
