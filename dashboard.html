@@ -670,14 +670,14 @@
         <section id="section-marketing" class="dashboard-section space-y-6 hidden">
           <div>
             <h2 class="text-lg font-bold tracking-tight uppercase text-sm">Agente Publicitario IA</h2>
-            <p class="text-xs text-[#9CA3AF] mt-0.5">Arrastra fotos o video de la unidad, deja que Gemini redacte el contenido, y publica en un clic</p>
+            <p class="text-xs text-[#9CA3AF] mt-0.5">Agrega fotos de la unidad, revisa el texto y publica en Instagram o en la página de Facebook de tu lote.</p>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Columna Izquierda: Selección + Drop de Media -->
             <div class="card p-6 space-y-4">
               <div>
-                <label class="block text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider mb-1">Unidad a Promocionar</label>
+                <label for="marketingCarSelect" class="block text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Unidad a Promocionar</label>
                 <select id="marketingCarSelect" class="w-full px-3 py-2 rounded-lg border text-sm"></select>
               </div>
 
@@ -686,7 +686,7 @@
                 <div class="flex flex-col gap-2">
                   <label class="platform-check flex items-center gap-2 cursor-pointer select-none">
                     <input type="checkbox" id="platformFacebook" checked class="w-4 h-4 accent-[#D1373A] flex-shrink-0">
-                    <span class="text-sm text-[#F5F5F4]">Facebook Marketplace</span>
+                    <span class="text-sm text-[#F5F5F4]">Página de Facebook</span>
                   </label>
                   <label class="platform-check flex items-center gap-2 cursor-pointer select-none">
                     <input type="checkbox" id="platformInstagram" checked class="w-4 h-4 accent-[#D1373A] flex-shrink-0">
@@ -695,7 +695,7 @@
                 </div>
               </div>
 
-              <div id="marketingDropzone" class="dropzone flex flex-col items-center justify-center text-center p-8 cursor-pointer">
+              <div id="marketingDropzone" role="button" tabindex="0" aria-label="Agregar fotos a la publicación" class="dropzone flex flex-col items-center justify-center text-center p-8 cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mb-2 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <p class="text-sm font-medium">Arrastra una foto aquí</p>
                 <p class="text-[11px] text-[#9CA3AF] mt-1">JPG o PNG</p>
@@ -712,11 +712,11 @@
             <!-- Columna Derecha: Copy Generado + Publicación -->
             <div class="card p-6 space-y-4 flex flex-col">
               <div>
-                <label class="block text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider mb-1">Copy Generado (editable)</label>
-                <textarea id="marketingCopyText" rows="8" class="w-full px-3 py-2.5 rounded-lg border text-sm leading-relaxed" placeholder="El copy generado por la IA aparecerá aquí. También puedes escribirlo o editarlo manualmente."></textarea>
+                <label for="marketingCopyText" class="block text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Texto de la publicación (editable)</label>
+                <textarea id="marketingCopyText" rows="8" maxlength="2200" class="w-full px-3 py-2.5 rounded-lg border text-sm leading-relaxed"></textarea>
               </div>
 
-              <p id="marketingStatusText" class="text-[11px] text-[#9CA3AF] italic min-h-[14px]"></p>
+              <p id="marketingStatusText" role="status" aria-live="polite" class="text-[11px] text-[#9CA3AF] italic min-h-[14px]"></p>
 
               <button id="btnPublicarRedes" class="btn-primary w-full text-sm font-bold py-3 rounded-xl mt-auto">
                 🚀 Publicar con IA en Redes Sociales
@@ -843,7 +843,7 @@
               <button id="btnVerificarRedes" class="hidden btn-ghost w-full text-xs font-medium py-2 rounded-lg mt-2">
                 Ya conecté mis cuentas — Verificar
               </button>
-              <p id="redesStatusText" class="text-[11px] text-[#6B7280] italic mt-2 min-h-[14px]"></p>
+              <p id="redesStatusText" class="text-[11px] text-[#6B7280] italic mt-2 min-h-[14px]" role="status" aria-live="polite"></p>
             </div>
 
           </div>

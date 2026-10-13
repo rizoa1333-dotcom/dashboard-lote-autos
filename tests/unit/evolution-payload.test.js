@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const workflow = JSON.parse(fs.readFileSync(path.join(__dirname, '../../VeloDrive-n8n-intervencion-automatica.json'), 'utf8'));
 
@@ -48,13 +49,14 @@ test('no asocia eventos que no sean mensajes entrantes ni mensajes de grupos', (
   assert.equal(associateEvolutionPayload({ ...base, body: { ...base.body, data: { ...base.body.data, key: { remoteJid: '123@g.us', fromMe: false } } } }, []).reason, 'invalid_or_group_jid');
 });
 
-test('el IF anti-bucle filtra mensajes propios y exige fromMe=false', () => {
-  const node = workflow.nodes.find((item) => item.name === 'Filtro Anti-Bucle (fromMe)1');
-  assert.ok(node);
-  const conditions = node.parameters.conditions.conditions;
-  const fromMe = conditions.find((condition) => String(condition.leftValue).includes('fromMe'));
-  assert.ok(fromMe);
-  assert.match(fromMe.leftValue, /fromMe === false/);
-  assert.equal(fromMe.operator.type, 'boolean');
-  assert.equal(associateEvolutionPayload({ body: { event: 'messages.upsert', instance: 'Lote-Alpha', data: { key: { remoteJid: '5213121234567@s.whatsapp.net' } } } }, []).reason, 'missing_from_me_flag');
+test('el clasificador permite intervención humana y evita responder mensajes propios de la API', () => {
+  const node = workflow.nodes.find((item) => item.name === 'Clasificar autor WhatsApp (handoff)');
+  for (const [fromMe, source, tipo] of [[false, '', 'cliente'], [true, 'unknown', 'salida_api'], [true, 'android', 'humano'], [undefined, '', 'ignorar']]) {
+    const result = vm.runInNewContext(`(function(){${node.parameters.jsCode}})()`, {
+      $: name => ({ first: () => ({ json: name === 'Webhook WhatsApp1'
+        ? { body: { data: { key: { remoteJid: '5213121234567@s.whatsapp.net', fromMe }, source } } }
+        : { lote_id: 'lote-uuid-a' } }) }),
+    })[0].json;
+    assert.equal(result.tipo, tipo);
+  }
 });

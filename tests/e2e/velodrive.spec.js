@@ -2,6 +2,80 @@ const { test, expect } = require('@playwright/test');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
+test.describe('redes sociales', () => {
+  const session = { user: { id: 'user-qa-001' }, access_token: 'mock', seedCars: [
+    { id: 21, lote_id: 'lote-qa-001', brand: 'Honda', model: 'Civic', image_url: 'https://storage.test/a.jpg' },
+  ] };
+
+  test('publicar respeta Facebook, bloquea doble clic y muestra procesamiento', async ({ page }) => {
+    let payload;
+    let requests = 0;
+    await page.route('**/webhook/publicar-redes', async route => {
+      requests++;
+      payload = route.request().postDataJSON();
+      await new Promise(resolve => setTimeout(resolve, 350));
+      await route.fulfill({ json: { success: true, status: 'processing', request_id: payload.request_id } });
+    });
+    await setupPage(page, session);
+    await page.evaluate(() => {
+      carsCache = window.__fakeState.cars;
+      marketingSelectedCarId = 21;
+      marketingImageUrls = ['https://storage.test/a.jpg', 'https://storage.test/b.jpg'];
+      document.getElementById('section-marketing').classList.remove('hidden');
+    });
+    await page.locator('#platformInstagram').uncheck();
+    await page.locator('#marketingCopyText').fill('Unidad disponible');
+    await page.locator('#btnPublicarRedes').click({ force: true });
+    await expect(page.locator('#btnPublicarRedes')).toBeDisabled();
+    await page.locator('#btnPublicarRedes').evaluate(btn => btn.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await expect(page.locator('#marketingStatusText')).toContainText('En proceso');
+    expect(requests).toBe(1);
+    expect(payload.platforms).toEqual(['facebook']);
+    expect(payload.image_urls).toHaveLength(2);
+    expect(payload.request_id).toMatch(/^[a-zA-Z0-9_-]{16,128}$/);
+    await expect(page.locator('#btnPublicarRedes')).toBeEnabled();
+    await expect(page.locator('#marketingStatusText')).toHaveAttribute('role', 'status');
+  });
+
+  test('una conexión parcial permite gestionar y reconectar las cuentas', async ({ page }) => {
+    await page.route('**/webhook/redes-conectar', route => route.fulfill({ json: {
+      conectado: false, parcial: true, plataformas: { facebook: true, instagram: false },
+    } }));
+    await setupPage(page, session);
+    await page.evaluate(() => {
+      document.getElementById('section-configuracion').classList.remove('hidden');
+      document.getElementById('btnVerificarRedes').classList.remove('hidden');
+    });
+    await page.evaluate(() => verificarRedesSociales());
+    await expect(page.locator('#redesStatusText')).toContainText('Facebook conectado');
+    await expect(page.locator('#redesStatusText')).toContainText('Instagram pendiente');
+    await expect(page.locator('#btnConectarRedes')).toBeEnabled();
+  });
+
+  test('error de publicación conserva el identificador al reintentar y desbloquea la UI', async ({ page }) => {
+    const payloads = [];
+    await page.route('**/webhook/publicar-redes', async route => {
+      payloads.push(route.request().postDataJSON());
+      await route.fulfill({ status: 502, json: { success: false, error: 'Revisa el estado antes de reintentar.' } });
+    });
+    await setupPage(page, session);
+    await page.evaluate(() => {
+      carsCache = window.__fakeState.cars; marketingSelectedCarId = 21;
+      document.getElementById('section-marketing').classList.remove('hidden');
+    });
+    await page.locator('#marketingCopyText').fill('Unidad disponible');
+    for (let i = 0; i < 2; i++) {
+      await page.locator('#btnPublicarRedes').click({ force: true });
+      await expect(page.locator('#marketingStatusText')).toContainText('Revisa el estado');
+      await expect(page.locator('#btnPublicarRedes')).toBeEnabled();
+    }
+    expect(payloads).toHaveLength(2);
+    expect(payloads[0].request_id).toBeTruthy();
+    expect(payloads[0].request_id).toBe(payloads[1].request_id);
+    await expect(page.locator('#marketingStatusText')).toHaveAttribute('role', 'alert');
+  });
+});
+
 const supabaseMock = String.raw`(() => {
   const state = window.__fakeState = {
     lote: { id: 'lote-qa-001', profile_id: 'user-qa-001', nombre: 'Lote QA', stripe_customer_id: 'cus_qa', plan_activo: true },

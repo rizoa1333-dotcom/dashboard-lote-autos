@@ -894,7 +894,7 @@ function calcularMetricasInventario() {
   }
 
   if (kpiPublicadosEl) {
-    const publicadosEsteMes = carsCache.filter(car => car.publicado_meta === true || car.publicado_tiktok === true).length;
+    const publicadosEsteMes = carsCache.filter(car => car.publicado_meta === true).length;
     kpiPublicadosEl.textContent = publicadosEsteMes;
   }
 }
@@ -929,8 +929,8 @@ function calcularSaludInventario(car) {
     || urlFoto.includes('Sin foto');
   const tieneFoto = !esPlaceholder;
 
-  const tieneCopy = !!((car.copy_meta && car.copy_meta.trim()) || (car.tiktok_hook && car.tiktok_hook.trim()));
-  const publicado = car.publicado_meta === true || car.publicado_tiktok === true;
+  const tieneCopy = !!(car.copy_meta && car.copy_meta.trim());
+  const publicado = car.publicado_meta === true;
 
   const items = [
     { label: 'Foto HD', done: tieneFoto },
@@ -958,7 +958,7 @@ async function verificarPublicacionReal(carId, requestId, plataforma, btnEl) {
     if (!resp.ok) throw new Error(`Webhook respondió ${resp.status}`);
     const data = await resp.json();
 
-    if (data.completado && !data.fallo) {
+    if (data.publicado === true) {
       btnEl.textContent = '✅ Confirmado';
       btnEl.classList.add('opacity-60');
       btnEl.disabled = true;
@@ -1003,7 +1003,7 @@ function renderCars() {
     const unidadNombre = `${car.brand || ''} ${car.model || ''}`.trim();
     const esVendido = car.status === 'Vendido';
 
-    const estaPublicado = car.publicado_meta === true || car.publicado_tiktok === true;
+    const estaPublicado = car.publicado_meta === true;
     const dotRedesClass = estaPublicado ? 'status-dot' : 'status-dot status-dot-outline';
     const textoRedes = estaPublicado ? 'Publicado' : 'Pendiente de publicar';
 
@@ -1035,7 +1035,6 @@ function renderCars() {
                 <span class="${dotRedesClass}"></span>
                 <span class="text-[11px] text-[#9CA3AF]">${textoRedes}</span>
                 ${car.upload_post_request_id_meta ? `<button data-verify-id="${escapeHtml(car.id)}" data-request-id="${escapeHtml(car.upload_post_request_id_meta)}" data-plataforma="meta" class="btn-verificar-publicacion text-[10px] underline text-[#6B7280] hover:text-[#F5F5F4]">Verificar Meta</button>` : ''}
-                ${car.upload_post_request_id_tiktok ? `<button data-verify-id="${escapeHtml(car.id)}" data-request-id="${escapeHtml(car.upload_post_request_id_tiktok)}" data-plataforma="tiktok" class="btn-verificar-publicacion text-[10px] underline text-[#6B7280] hover:text-[#F5F5F4]">Verificar TikTok</button>` : ''}
               </div>
               <div class="flex items-center gap-1.5 mt-1.5 catalog-only">
                 <span class="${dotCatalogClass}"></span>
@@ -1380,6 +1379,9 @@ function initMarketingModule() {
   updateBtnPublicarLabel();
 
   dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInput.click(); }
+  });
   fileInput.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     if (files.length) { subirMediaMarketing(files); fileInput.value = ''; }
@@ -1392,7 +1394,7 @@ function initMarketingModule() {
     dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag-active'); });
   });
   dropzone.addEventListener('drop', (e) => {
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
     if (files.length) { subirMediaMarketing(files); }
   });
 
@@ -1412,14 +1414,32 @@ function initMarketingModule() {
   });
 
   btnPublicar.addEventListener('click', async () => {
+    if (btnPublicar.disabled || !currentLote) return;
     const car = carsCache.find(c => String(c.id) === String(marketingSelectedCarId));
     if (!car) { alert('Selecciona una unidad del inventario primero.'); return; }
 
     const platforms = getSelectedPlatforms();
     if (platforms.length === 0) { alert('Selecciona al menos una red social.'); return; }
     if (!copyText.value.trim()) { alert('Genera o escribe un copy antes de publicar.'); return; }
+    if (copyText.value.trim().length > 2200) { alert('El texto debe tener hasta 2200 caracteres.'); return; }
+
+    const urls = marketingImageUrls.length ? [...marketingImageUrls] :
+      (Array.isArray(car.image_urls) && car.image_urls.length ? [...car.image_urls] : [car.image_url]);
+    if (!urls.length || urls.length > 10 || urls.some(url => !url || !String(url).startsWith('https://'))) {
+      alert('Agrega de 1 a 10 fotos antes de publicar.'); return;
+    }
+    const storageKey = `velodrive:publication:${currentLote.id}:${car.id}`;
+    const fingerprint = JSON.stringify({ platforms, urls, copy: copyText.value.trim() });
+    let draft;
+    try { draft = JSON.parse(sessionStorage.getItem(storageKey)); } catch (_) {}
+    // Conserva la misma clave al reintentar una respuesta perdida del proveedor.
+    if (!draft || draft.fingerprint !== fingerprint) draft = { fingerprint, requestId: crypto.randomUUID() };
+    try { sessionStorage.setItem(storageKey, JSON.stringify(draft)); } catch (_) {}
 
     btnPublicar.disabled = true;
+    btnPublicar.setAttribute('aria-busy', 'true');
+    statusText.setAttribute('role', 'status');
+    statusText.textContent = 'Enviando publicación...';
 
     try {
       btnPublicar.textContent = 'Publicando...';
@@ -1427,43 +1447,32 @@ function initMarketingModule() {
       const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
-        body: JSON.stringify({ car: crearPayloadPublicoAuto(car), copy: copyText.value.trim(), image_url: marketingImageUrls[0] || car.image_url, image_urls: marketingImageUrls.length ? marketingImageUrls : car.image_urls })
+        signal: AbortSignal.timeout(45000),
+        body: JSON.stringify({ car: crearPayloadPublicoAuto(car), copy: copyText.value.trim(), image_url: urls[0], image_urls: urls, platforms, request_id: draft.requestId })
       });
-      if (!resp.ok) throw new Error(`Webhook respondió ${resp.status}`);
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.success !== true || !data.request_id) throw new Error(data.error || 'No se confirmó el envío. Revisa el estado antes de reintentar.');
+      car.upload_post_request_id_meta = data.request_id;
+      car.publicado_meta = false;
+      const updatePayload = { copy_meta: copyText.value.trim(), image_url: urls[0], image_urls: urls };
+      const { error } = await supabaseClient.from('cars').update(updatePayload).eq('id', car.id).eq('lote_id', currentLote.id);
+      statusText.textContent = error
+        ? 'En proceso. El envío fue aceptado, pero no se guardó el texto. Verifica la publicación antes de reintentar.'
+        : 'En proceso. Puedes confirmar el resultado con “Verificar Meta” en Inventario.';
+      statusText.style.color = 'var(--text-dim)';
+      await fetchCars();
     } catch (err) {
       console.error('[Agente IA] Error al publicar:', err);
+      statusText.setAttribute('role', 'alert');
+      statusText.textContent = err.name === 'TimeoutError' || !navigator.onLine
+        ? 'Se perdió la conexión. Revisa el estado antes de reintentar; conservamos el envío para evitar duplicados.'
+        : err.message || 'No se pudo publicar. Revisa el estado antes de reintentar.';
+      statusText.style.color = 'var(--danger)';
+    } finally {
       btnPublicar.disabled = false;
+      btnPublicar.removeAttribute('aria-busy');
       updateBtnPublicarLabel();
-      if (statusText) { statusText.textContent = 'Fallo la publicación. Revisa los webhooks de n8n.'; statusText.style.color = 'var(--danger)'; }
-      return;
     }
-
-    const updatePayload = {
-      copy_meta: copyText.value.trim(),
-      image_url: marketingImageUrls[0] || car.image_url
-    };
-    if (marketingImageUrls.length) updatePayload.image_urls = marketingImageUrls;
-
-    if (Object.keys(updatePayload).length > 0) {
-      const { error } = await supabaseClient.from('cars').update(updatePayload).eq('id', car.id).eq('lote_id', currentLote.id);
-      if (error) {
-        console.error('[Agente IA] Error al guardar copy/fotos:', error);
-        btnPublicar.disabled = false;
-        updateBtnPublicarLabel();
-        if (statusText) {
-          statusText.textContent = `Se publicó, pero no se pudo guardar el copy/fotos: ${error.message}`;
-          statusText.style.color = 'var(--danger)';
-        }
-        await fetchCars();
-        return;
-      }
-    }
-
-    btnPublicar.disabled = false;
-    updateBtnPublicarLabel();
-
-    if (statusText) { statusText.textContent = `¡Publicado! ${car.brand} ${car.model} ya está marcado como Publicado.`; statusText.style.color = 'var(--success)'; }
-    await fetchCars();
   });
 }
 
@@ -1939,6 +1948,16 @@ async function conectarRedesSociales() {
   if (!currentLote || !N8N_REDES_WEBHOOK_URL) { alert('Falta configurar N8N_REDES_WEBHOOK_URL en dashboard.js.'); return; }
   const btnConectar = document.getElementById('btnConectarRedes');
   const statusText = document.getElementById('redesStatusText');
+  if (btnConectar.disabled) return;
+
+  // Abrir la pestaña durante el gesto de clic evita que el navegador bloquee
+  // la ventana cuando la respuesta de n8n llega después de una espera de red.
+  const connectWindow = window.open('about:blank', '_blank');
+  if (!connectWindow) {
+    statusText.textContent = 'Permite las ventanas emergentes para abrir la conexión segura de redes.';
+    return;
+  }
+  connectWindow.opener = null;
 
   btnConectar.disabled = true;
   btnConectar.textContent = 'Generando enlace seguro...';
@@ -1947,21 +1966,25 @@ async function conectarRedesSociales() {
     const resp = await fetch(N8N_REDES_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
-      body: JSON.stringify({ accion: 'conectar', lote_id: currentLote.id })
+      body: JSON.stringify({ accion: 'conectar', lote_id: currentLote.id }),
+      signal: AbortSignal.timeout(45000)
     });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || `n8n respondió ${resp.status}`);
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || data.message || `n8n respondió ${resp.status}`);
     if (!data.access_url) throw new Error('El servidor no devolvió un enlace de conexión.');
+    const link = new URL(data.access_url);
+    if (link.origin !== 'https://app.upload-post.com' || !/^\/connect(?:\/|$)/.test(link.pathname)) throw new Error('El enlace de conexión no es válido.');
 
-    window.open(data.access_url, '_blank', 'noopener');
+    connectWindow.location.replace(data.access_url);
     statusText.textContent = 'Conecta tus cuentas en la pestaña nueva y regresa aquí.';
     document.getElementById('btnVerificarRedes').classList.remove('hidden');
   } catch (err) {
     console.error('[Redes Sociales] Error al conectar:', err);
-    statusText.textContent = 'No se pudo generar el enlace. Intenta de nuevo.';
+    connectWindow.close();
+    statusText.textContent = err.message || 'No se pudo generar el enlace. Intenta de nuevo.';
   } finally {
     btnConectar.disabled = false;
-    btnConectar.textContent = 'Conectar Redes Sociales';
+    btnConectar.textContent = 'Conectar o gestionar redes';
   }
 }
 
@@ -1978,24 +2001,20 @@ async function verificarRedesSociales() {
     const resp = await fetch(N8N_REDES_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
-      body: JSON.stringify({ accion: 'verificar', lote_id: currentLote.id })
+      body: JSON.stringify({ accion: 'verificar', lote_id: currentLote.id }),
+      signal: AbortSignal.timeout(45000)
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || `n8n respondió ${resp.status}`);
 
-    if (data.conectado) {
-      badge.textContent = 'Conectado';
-      badge.className = 'badge badge-success';
-      const btnConectar = document.getElementById('btnConectarRedes');
-      btnConectar.textContent = '✅ Conectado';
-      btnConectar.disabled = true;
-      btnConectar.style.background = 'var(--success)';
-      btnConectar.style.color = '#fff';
-      btnVerificar.classList.add('hidden');
-      statusText.textContent = 'Tus redes ya están conectadas.';
-    } else {
-      statusText.textContent = 'Todavía no detectamos la conexión. Termina el proceso y vuelve a verificar.';
-    }
+    badge.textContent = data.conectado ? 'Conectado' : data.parcial ? 'Conexión parcial' : 'Sin conectar';
+    badge.className = data.conectado ? 'badge badge-success' : 'badge badge-warm';
+    const btnConectar = document.getElementById('btnConectarRedes');
+    btnConectar.textContent = 'Conectar o gestionar redes';
+    btnConectar.disabled = false;
+    btnVerificar.classList.remove('hidden');
+    const platforms = data.plataformas || {};
+    statusText.textContent = `${platforms.facebook ? 'Facebook conectado' : 'Facebook pendiente'}. ${platforms.instagram ? 'Instagram conectado' : 'Instagram pendiente'}.`;
   } catch (err) {
     console.error('[Redes Sociales] Error al verificar:', err);
     statusText.textContent = 'Error al verificar. Intenta de nuevo.';
