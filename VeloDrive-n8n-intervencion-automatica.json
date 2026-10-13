@@ -3966,7 +3966,7 @@
         },
         "options": {}
       },
-      "id": "social-if-lookupValid",
+      "id": "581f2b88-6cf9-4f3f-b908-ca23385dafaa",
       "name": "¿Consulta de Perfil Válida?2",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -3976,7 +3976,7 @@
       ]
     },
     {
-      "id": "social-ValidarDatosdePublicacin",
+      "id": "ef2160ad-eb74-452c-ad29-13f4d67c4a29",
       "name": "Validar Datos de Publicación",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4012,7 +4012,7 @@
         },
         "options": {}
       },
-      "id": "social-if-valid",
+      "id": "f5ab81a4-6282-43a7-9d9a-780a3420c03d",
       "name": "¿Publicación Válida?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -4039,7 +4039,7 @@
         },
         "options": {}
       },
-      "id": "social-car-ownership",
+      "id": "889160a9-b14f-4cf9-8dc5-ab993c688296",
       "name": "Consultar Unidad para Publicar",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -4050,7 +4050,7 @@
       "alwaysOutputData": true
     },
     {
-      "id": "social-ComprobarUnidaddelLote",
+      "id": "52f6447c-2fa8-45ef-8b99-777c2c3064c1",
       "name": "Comprobar Unidad del Lote",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4086,7 +4086,7 @@
         },
         "options": {}
       },
-      "id": "social-if-unitValid",
+      "id": "715b5277-b1a3-4f68-bdad-836eef98076a",
       "name": "¿Unidad del Lote?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -4103,7 +4103,7 @@
           "responseCode": "={{ $json.httpStatus || 502 }}"
         }
       },
-      "id": "social-publication-error",
+      "id": "eeaa3562-cab7-4629-b0cc-3b4b5aa9866a",
       "name": "Responder Error de Publicación",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -4113,7 +4113,7 @@
       ]
     },
     {
-      "id": "social-EvaluarEnvodePublicacin",
+      "id": "b53e9c4f-14ae-46d3-97d7-67132fe37cfd",
       "name": "Evaluar Envío de Publicación",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4149,7 +4149,7 @@
         },
         "options": {}
       },
-      "id": "social-if-accepted",
+      "id": "0075075a-04a1-4a7c-972d-28e75ce8ed58",
       "name": "¿Envío Aceptado?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -4159,7 +4159,7 @@
       ]
     },
     {
-      "id": "social-ValidarConsultadePublicacin",
+      "id": "34df4f89-0a1e-436e-af4d-f1bc489a9479",
       "name": "Validar Consulta de Publicación",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4195,7 +4195,7 @@
         },
         "options": {}
       },
-      "id": "social-if-valid",
+      "id": "1b7b8625-258a-4679-af4f-22e59ea3762b",
       "name": "¿Consulta de Publicación Válida?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -4222,7 +4222,7 @@
         },
         "options": {}
       },
-      "id": "social-verify-ownership",
+      "id": "86cf3eaa-79c3-4305-b15f-81846093f704",
       "name": "Consultar Unidad para Verificar",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -4233,7 +4233,7 @@
       "alwaysOutputData": true
     },
     {
-      "id": "social-ComprobarPublicacindelLote",
+      "id": "a968dc5d-8fec-464f-ae6c-86ac62efd9bf",
       "name": "Comprobar Publicación del Lote",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4269,7 +4269,7 @@
         },
         "options": {}
       },
-      "id": "social-if-jobValid",
+      "id": "5880baf4-face-47d3-a5c5-2f17e06be606",
       "name": "¿Publicación del Lote?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,

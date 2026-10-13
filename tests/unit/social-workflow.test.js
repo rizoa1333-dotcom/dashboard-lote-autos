@@ -12,6 +12,10 @@ function runNode(name, json, references = {}) {
   })[0].json;
 }
 
+test('el flujo se puede importar sin identificadores de nodos duplicados', () => {
+  assert.equal(new Set(workflow.nodes.map(node => node.id)).size, workflow.nodes.length);
+});
+
 test('solo TikTok o cuentas vacías no habilitan Facebook e Instagram', () => {
   const result = runNode('Evaluar Conexión2', {
     profiles: [{ username: 'tenant-a', social_accounts: { tiktok: { username: 'old' }, facebook: {}, instagram: '' } }],
