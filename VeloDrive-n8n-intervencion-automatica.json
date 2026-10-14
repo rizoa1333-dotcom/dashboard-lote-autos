@@ -1460,45 +1460,6 @@
             },
             {
               "fieldId": "role",
-              "fieldValue": "user"
-            },
-            {
-              "fieldId": "content",
-              "fieldValue": "={{ $('Edit Fields1').item.json.mensaje_cliente || 'Nota de voz / Media' }}"
-            },
-            {
-              "fieldId": "lote_id",
-              "fieldValue": "={{ $('Edit Fields1').item.json.tenant_lote_id }}"
-            }
-          ]
-        }
-      },
-      "id": "94f8ea53-78ca-46c2-b6f7-e5221f49b2d9",
-      "name": "Guardar Mensaje Usuario1",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        37616,
-        17904
-      ],
-      "credentials": {
-        "supabaseApi": {
-          "id": "3UepTQz4C9DJDsQL",
-          "name": "Supabase account 2"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "tableId": "chat_history",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldId": "phone_number",
-              "fieldValue": "={{ $json.key.remoteJid.replace('@s.whatsapp.net', '').replace(/^521|^52/, '') }}"
-            },
-            {
-              "fieldId": "role",
               "fieldValue": "model"
             },
             {
@@ -4527,7 +4488,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({webhook:{enabled:true,url:'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes?secret='+encodeURIComponent($env.WEBHOOK_SECRET),events:['MESSAGES_UPSERT'],byEvents:false,base64:true,webhookByEvents:false,webhookBase64:true}}) }}",
+        "jsonBody": "={{ JSON.stringify({webhook:{enabled:true,url:'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes?secret='+encodeURIComponent($env.WEBHOOK_SECRET),events:['MESSAGES_UPSERT'],byEvents:false,base64:true,webhookByEvents:false,webhookBase64:true} }) }}",
         "options": {
           "timeout": 10000,
           "response": {
@@ -5254,11 +5215,6 @@
     "Enviar Respuesta WhatsApp1": {
       "main": [
         [
-          {
-            "node": "Guardar Mensaje Usuario1",
-            "type": "main",
-            "index": 0
-          },
           {
             "node": "Guardar Respuesta IA1",
             "type": "main",

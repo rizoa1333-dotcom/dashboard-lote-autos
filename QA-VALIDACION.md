@@ -96,6 +96,13 @@ Causas verificadas en producción: webhook de Evolution ausente; clave de canal 
 
 El controlador QR ahora distingue inexistencia (404) de errores de acceso/servidor, reconecta una instancia existente, recupera su clave real, registra el canal antes de habilitar mensajes y confirma el webhook. Las consultas de estado no generan códigos. El panel bloquea solicitudes simultáneas, limita la espera a 45 s, oculta códigos antiguos y consulta la conexión cada 4 s mientras el código está visible. La vinculación desde el teléfono sigue siendo manual.
 
-Validación local: 48 pruebas unitarias, 14 de navegador. Pendiente de confirmar respuesta real del agente después de desplegar el flujo. La ausencia de pausas manuales debe emitir un elemento vacío para continuar; mantener alwaysOutputData en Consultar pausa de la conversación.
+Validación local final: 50 pruebas unitarias, 14 de navegador. El flujo corregido se importó y publicó en producción; se verificaron HTTP 200 y conectado=true en consultas de estado y conexión de la instancia QA. La ausencia de pausas manuales debe emitir un elemento vacío para continuar; mantener alwaysOutputData en Consultar pausa de la conversación.
 
 La vinculación realiza O(1) llamadas externas por lote. La espera en el panel es acotada (aproximadamente 11 consultas de estado por QR) y usa O(1) memoria. Revisar que N8N_ENCRYPTION_KEY y el volumen de n8n se conserven entre despliegues: reingresar credenciales no demuestra que esa persistencia esté resuelta.
+
+
+Validación real de cierre (14 de octubre): ejecución 16198, usando el mensaje QA entrante existente, completó Gemini, envío Evolution y persistencia del historial. Evolution aceptó el mensaje 3EB026771D98CFBE5BB036; el usuario confirmó recepción en el teléfono destinatario. Esta prueba reutilizó la entrada real desde el editor; no equivale a una prueba nueva de entrega del webhook posterior al despliegue.
+
+La integración detectó una expresión JSON con cierre prematuro de n8n en Configurar webhook WhatsApp. Se separaron las llaves internas y se agregó regresión. También se eliminó Guardar Mensaje Usuario1: el mensaje entrante ya se registra antes de la IA. Esto evita duplicación dentro de una ejecución; aún debe existir deduplicación por ID de Evolution para tolerar reentregas del mismo webhook. No se eliminaron filas históricas de la prueba.
+
+El export final conserva 176 nodos, sus conexiones coinciden con la fuente y pinData está vacío. Se mantiene activa la rotación mensual. La persistencia de N8N_ENCRYPTION_KEY/volumen entre reinicios sigue siendo una comprobación operativa pendiente; no cambiar esa clave sin respaldar y migrar las credenciales.

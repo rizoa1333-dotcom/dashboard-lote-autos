@@ -25,3 +25,14 @@ test('el QR se normaliza y nunca se entrega como objeto o código vacío',()=>{
 });
 
 test('Evolution confirma webhook con HTTP 201 sin rechazar una configuración correcta',()=>{const r=run('Comprobar webhook WhatsApp',{statusCode:201,body:{enabled:true,url:'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes?secret=test-secret',events:['MESSAGES_UPSERT']}});assert.equal(r.valid,true);});
+
+test('el cuerpo del webhook no cierra antes de tiempo la expresión de n8n',()=>{
+ const value=workflow.nodes.find(n=>n.name==='Configurar webhook WhatsApp').parameters.jsonBody;
+ const expression=/{{([\s\S]*?)}}/.exec(value);
+ assert.ok(expression);
+ assert.equal(value.slice(expression.index+expression[0].length).trim(),'');
+ const body=JSON.parse(vm.runInNewContext(expression[1],{$env:{WEBHOOK_SECRET:'test secret'}}));
+ assert.equal(body.webhook.enabled,true);
+ assert.deepEqual(body.webhook.events,['MESSAGES_UPSERT']);
+ assert.ok(body.webhook.url.endsWith('secret=test%20secret'));
+});

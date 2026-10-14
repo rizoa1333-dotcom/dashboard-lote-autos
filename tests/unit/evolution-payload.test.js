@@ -75,3 +75,10 @@ test('los datos reales del lote llegan al asesor cuando Supabase entrega un obje
  const value=vm.runInNewContext(field.value.slice(3,-3),{$:()=>({item:{json:{nombre:'Lote Real'}},first:()=>({json:{nombre:'Lote Real'}})})});
  assert.equal(value,'Lote Real');
 });
+
+test('la respuesta del agente no vuelve a insertar el mensaje de usuario ya registrado',()=>{
+ const wf=require('../../VeloDrive-n8n-intervencion-automatica.json');
+ const next=wf.connections['Enviar Respuesta WhatsApp1'].main[0].map(edge=>edge.node);
+ assert.deepEqual(next,['Guardar Respuesta IA1']);
+ assert.ok(wf.connections['Guardar mensaje al reactivar IA'].main[0].some(edge=>edge.node==='Edit Fields1'));
+});
