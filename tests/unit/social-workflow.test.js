@@ -17,7 +17,7 @@ test('el flujo se puede importar sin identificadores de nodos duplicados', () =>
 });
 
 test('tokens inválidos nunca llegan a PostgreSQL como valores UUID mal formados', () => {
-  for (const name of ['Verificar Token de Tenant7', 'Verificar Token de Tenant8', 'Verificar Token de Tenant9']) {
+  for (const name of ['Verificar Token de Tenant7', 'Verificar Token de Tenant8', 'Verificar Token de Tenant9', 'Verificar Token de Tenant10']) {
     const node = workflow.nodes.find(n => n.name === name);
     for (const authorization of ['', 'Bearer ' + 'x'.repeat(64), 'Bearer 00000000-0000-0000-0000-000000000000']) {
       const url = node.parameters.url.slice(1).replace(/{{([\s\S]*?)}}/g, (_, expression) =>
@@ -129,4 +129,39 @@ test('el texto no puede introducir campos adicionales dentro del multipart', asy
   } }).formData();
   assert.deepEqual(form.getAll('user'), ['tenant-a']);
   assert.equal(form.get('title'), copy);
+});
+
+
+test('la renovación genera un UUID compatible con webhook_token', () => {
+  const node = workflow.nodes.find(n => n.name === 'Generar Nuevo Token1');
+  const generate = () => vm.runInNewContext('(function(){' + node.parameters.jsCode + '})()', {
+    require, $json: { id:'tenant-a', webhook_token:'old-token' },
+  }).json;
+  const first = generate();
+  const second = generate();
+  assert.match(first.token_nuevo, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  assert.notEqual(first.token_nuevo, second.token_nuevo);
+  assert.equal(first.lote_id, 'tenant-a');
+});
+
+
+test('la renovación procesa cada lote y actualiza solo el token que leyó',()=>{
+  const node=name=>workflow.nodes.find(n=>n.name===name);
+  assert.equal(node('Schedule Rotación Mensual Token1').disabled,undefined);
+  assert.equal(node('Generar Nuevo Token1').parameters.mode,'runOnceForEachItem');
+  assert.equal(workflow.connections['Obtener Lotes Activos1'].main[0][0].node,'Generar Nuevo Token1');
+  const patch=node('Actualizar Token en Supabase1');
+  for (const id of ['lot-a','lot-b']) {
+    const source={id,webhook_token:'previous-'+id};
+    const generated=vm.runInNewContext('(function(){'+node('Generar Nuevo Token1').parameters.jsCode+'})()',{require,$json:source}).json;
+    const url=new URL(patch.parameters.url.slice(1).replace(/{{([\s\S]*?)}}/g,(_,expr)=>vm.runInNewContext(expr,{$json:generated})));
+    assert.equal(url.searchParams.get('id'),'eq.'+id);
+    assert.equal(url.searchParams.get('webhook_token'),'eq.previous-'+id);
+    const body=JSON.parse(vm.runInNewContext(patch.parameters.jsonBody.slice(3,-3),{$json:generated}));
+    assert.equal(body.webhook_token,generated.token_nuevo);
+  }
+  assert.equal(patch.parameters.headerParameters.parameters.find(h=>h.name==='Prefer').value,'return=representation');
+  assert.notEqual(patch.onError,'continueRegularOutput');
+  const url=node('Notificar Token Rotado1').parameters.url.slice(1).replace(/{{([\s\S]*?)}}/g,(_,expr)=>vm.runInNewContext(expr,{$json:{instance_name:'instance-a'}}));
+  assert.equal(new URL(url).pathname,'/message/sendText/instance-a');
 });

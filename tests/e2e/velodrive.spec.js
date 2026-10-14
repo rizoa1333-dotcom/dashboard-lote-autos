@@ -52,6 +52,25 @@ test.describe('redes sociales', () => {
     await expect(page.locator('#btnConectarRedes')).toBeEnabled();
   });
 
+  test('una sesión abierta recupera el acceso después de rotar el token del lote',async ({page})=>{
+    const headers=[];
+    await page.route('**/webhook/redes-conectar',route=>{
+      const token=route.request().headers().authorization;
+      headers.push(token);
+      return route.fulfill({status:token==='Bearer new-token'?200:401,json:token==='Bearer new-token'?
+        {conectado:true,plataformas:{facebook:true,instagram:true}}:{error:'Token inválido'}});
+    });
+    await setupPage(page, session);
+    await page.evaluate(()=>{
+      currentLote={...currentLote,webhook_token:'old-token'};
+      window.__fakeState.lote.webhook_token='new-token';
+      document.getElementById('section-configuracion').classList.remove('hidden');
+    });
+    await page.evaluate(()=>verificarRedesSociales());
+    await expect(page.locator('#redesStatusText')).toContainText('Facebook conectado. Instagram conectado.');
+    expect(headers).toEqual(['Bearer old-token','Bearer new-token']);
+  });
+
   test('error de publicación conserva el identificador al reintentar y desbloquea la UI', async ({ page }) => {
     const payloads = [];
     await page.route('**/webhook/publicar-redes', async route => {
@@ -146,6 +165,7 @@ const supabaseMock = String.raw`(() => {
 async function setupPage(page, session = null, registerResponse = null, search = '') {
   const bootstrap = `window.__testSession=${JSON.stringify(session)};window.__registerResponse=${JSON.stringify(registerResponse)};const realFetch=window.fetch.bind(window);window.fetch=async(input,options)=>{if(String(input).includes('/api/register-lote')){const r=window.__registerResponse||{status:201,body:{}};return new Response(JSON.stringify(r.body),{status:r.status,headers:{'Content-Type':'application/json'}})}return realFetch(input,options)};`;
   await page.addInitScript({ content: bootstrap + supabaseMock });
+  await page.route('https://storage.test/**', route => route.fulfill({ contentType:'image/svg+xml', body:'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>' }));
   await page.route('https://cdn.tailwindcss.com/**', (route) => route.abort());
   await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2**', (route) => route.abort());
   await page.goto(pathToFileURL(path.resolve(__dirname, '../../dashboard.html')).href + search, { waitUntil: 'load' });

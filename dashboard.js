@@ -95,6 +95,16 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
   }
 });
 
+const fetchTenantWebhook = window.VeloDriveUI.createTenantWebhookClient({
+  getTenant: () => currentLote,
+  loadToken: async (id) => {
+    const { data, error } = await supabaseClient.from('lotes').select('webhook_token').eq('id', id).single();
+    if (error || !data?.webhook_token) throw new Error('No se pudo renovar la conexión. Revisa tu sesión e inténtalo de nuevo.');
+    return data.webhook_token;
+  },
+  fetch: (url, options) => fetch(url, options)
+});
+
 supabaseClient.auth.onAuthStateChange((event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
     passwordRecoveryActive = true;
@@ -950,7 +960,7 @@ async function verificarPublicacionReal(carId, requestId, plataforma, btnEl) {
   btnEl.textContent = 'Verificando...';
 
   try {
-    const resp = await fetch(N8N_VERIFICAR_PUBLICACION_URL, {
+    const resp = await fetchTenantWebhook(N8N_VERIFICAR_PUBLICACION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
       body: JSON.stringify({ car_id: carId, request_id: requestId, plataforma })
@@ -1292,7 +1302,7 @@ async function generarCopyIA(car) {
     return generarCopyLocal(car);
   }
   try {
-    const resp = await fetch(N8N_MARKETING_WEBHOOK_URL, {
+    const resp = await fetchTenantWebhook(N8N_MARKETING_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
       body: JSON.stringify({ car: crearPayloadPublicoAuto(car), lote_id: currentLote.id, image_url: marketingImageUrls[0], image_urls: marketingImageUrls })
@@ -1444,7 +1454,7 @@ function initMarketingModule() {
     try {
       btnPublicar.textContent = 'Publicando...';
       if (!N8N_PUBLISH_WEBHOOK_URL) throw new Error('Falta configurar N8N_PUBLISH_WEBHOOK_URL en dashboard.js.');
-      const resp = await fetch(N8N_PUBLISH_WEBHOOK_URL, {
+      const resp = await fetchTenantWebhook(N8N_PUBLISH_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
         signal: AbortSignal.timeout(45000),
@@ -1898,7 +1908,7 @@ async function cargarEstadoWhatsappQr() {
   qrLoading.classList.remove('hidden');
 
   try {
-    const resp = await fetch(N8N_QR_WEBHOOK_URL, {
+    const resp = await fetchTenantWebhook(N8N_QR_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
       body: JSON.stringify({ lote_id: currentLote.id })
@@ -1963,7 +1973,7 @@ async function conectarRedesSociales() {
   btnConectar.textContent = 'Generando enlace seguro...';
 
   try {
-    const resp = await fetch(N8N_REDES_WEBHOOK_URL, {
+    const resp = await fetchTenantWebhook(N8N_REDES_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
       body: JSON.stringify({ accion: 'conectar', lote_id: currentLote.id }),
@@ -1998,7 +2008,7 @@ async function verificarRedesSociales() {
   btnVerificar.textContent = 'Verificando...';
 
   try {
-    const resp = await fetch(N8N_REDES_WEBHOOK_URL, {
+    const resp = await fetchTenantWebhook(N8N_REDES_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
       body: JSON.stringify({ accion: 'verificar', lote_id: currentLote.id }),

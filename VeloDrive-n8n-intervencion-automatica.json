@@ -962,7 +962,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([A-Za-z0-9_-]{32,128})$/i.exec(String($json.headers?.authorization || \"\")); return m ? encodeURIComponent(m[1]) : \"__invalid__\"; })() }}&select=id",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -985,7 +985,8 @@
       "position": [
         35120,
         21584
-      ]
+      ],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -3294,7 +3295,8 @@
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst lote = $json;\n// 24 bytes aleatorios: token hexadecimal de 48 caracteres.\nconst token = crypto.randomBytes(24).toString('hex');\nreturn [{ json: {\n  lote_id: lote.id,\n  nombre: lote.nombre,\n  whatsapp_number: lote.whatsapp_number,\n  token_anterior: lote.webhook_token,\n  token_nuevo: token\n} }];"
+        "jsCode": "const crypto = require('crypto');\nconst lote = $json;\nconst token = crypto.randomUUID();\nreturn { json: {\n  lote_id: lote.id,\n  nombre: lote.nombre,\n  whatsapp_number: lote.whatsapp_number,\n  token_anterior: lote.webhook_token,\n  token_nuevo: token\n} };",
+        "mode": "runOnceForEachItem"
       },
       "id": "9cd618ae-d0d5-41ac-90db-1bfbc5dcd27f",
       "name": "Generar Nuevo Token1",
@@ -3308,7 +3310,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?id=eq.{{ $json.lote_id }}",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?id=eq.{{ $json.lote_id }}&webhook_token=eq.{{ $json.token_anterior }}&select=id,webhook_token",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -3326,7 +3328,7 @@
             },
             {
               "name": "Prefer",
-              "value": "return=minimal"
+              "value": "return=representation"
             }
           ]
         },
@@ -3342,12 +3344,11 @@
       "position": [
         35792,
         22768
-      ],
-      "onError": "continueRegularOutput"
+      ]
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/whatsapp_channels?lote_id=eq.{{ $json.lote_id }}&select=instance_name",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/whatsapp_channels?lote_id=eq.{{ $json.id }}&select=instance_name",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -3370,13 +3371,12 @@
       "position": [
         36016,
         22768
-      ],
-      "onError": "continueRegularOutput"
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://evolution-api-production-3652.up.railway.app/message/sendText/{{ ($input.all()[0].json[0] && $input.all()[0].json[0].instance_name) || '' }}",
+        "url": "=https://evolution-api-production-3652.up.railway.app/message/sendText/{{ encodeURIComponent($json.instance_name) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -5478,17 +5478,6 @@
       ]
     },
     "Obtener Lotes Activos1": {
-      "main": [
-        [
-          {
-            "node": "Split por Lote1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Split por Lote1": {
       "main": [
         [
           {

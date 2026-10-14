@@ -70,3 +70,21 @@ npm run test:e2e
 - Accesibilidad revisada en los casos: diálogo etiquetado, foco inicial/restauración, Escape, labels, `aria-busy`, `role=status` y `role=alert`.
 
 Para validar integraciones reales después de desplegar, ejecutar una cuenta de prueba de Stripe y un mensaje controlado de WhatsApp; revisar en sus consolas que el evento llegue y que el registro quede asociado al lote correcto.
+
+
+## Rotación mensual de tokens — 13 de octubre de 2026
+
+La rotación se mantiene activa. La rama procesa cada lote por separado con UUID v4, y el PATCH compara el token anterior antes de reemplazarlo. Solo una actualización confirmada puede continuar hacia la notificación. El panel recupera el token mediante su sesión Supabase/RLS cuando un webhook responde 401, y reintenta una sola vez con el mismo cuerpo y request_id. No reintenta fallos de red ni respuestas 5xx.
+
+Complejidad: O(n) en el trabajo mensual para n lotes; O(1) solicitudes adicionales por operación del panel (máximo una consulta de token y un reintento). El procesamiento de n8n conserva los n elementos durante la ejecución.
+
+Orden de despliegue: primero dashboard.js y ui-feedback.js; después importar y publicar el JSON completo en n8n. Mantener activo Schedule Rotación Mensual Token1. No ejecutar manualmente el flujo completo para probar esta rama: contiene operaciones de cobro, mensajes y publicación.
+
+Verificaciones locales: 39 pruebas unitarias y 11 pruebas de navegador. Los servicios externos del navegador están simulados; estos resultados no prueban una publicación real de Meta ni una conversación real de WhatsApp.
+
+Puertas de salida antes de ofrecer el servicio completo:
+1. Desplegar esta revisión y verificar una rotación controlada del lote QA sin cerrar su sesión.
+2. Conectar Página de Facebook e Instagram del lote QA; publicar contenido aprobado y comprobar resultado en cada red.
+3. Confirmar WhatsApp real: mensaje entrante, respuesta, registro del prospecto/cita, intervención humana y reanudación.
+4. Confirmar ciclo de Stripe: pago, cancelación desde portal, renovación y pago fallido. Evitar CFDI duplicados por reentrega de invoice.paid.
+5. Verificar límites del plan Upload-Post por lote, alertas de fallos y restauración de respaldo antes de ampliar clientes.
