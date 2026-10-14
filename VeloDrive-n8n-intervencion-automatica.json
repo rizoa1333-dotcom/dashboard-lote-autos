@@ -1076,12 +1076,11 @@
         35904,
         21584
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "url": "=https://evolution-api-production-3652.up.railway.app/instance/connectionState/{{ $('Buscar Instancia Evolution').item.json.instance_name || ('instancia_' + $('Normalizar Verificación Token8').item.json.loteId) }}",
+        "url": "=https://evolution-api-production-3652.up.railway.app/instance/connectionState/{{ encodeURIComponent($('Preparar conexión QR').first().json.instance) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1091,7 +1090,16 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
       },
       "id": "5c4f030f-7666-4ff8-9add-dcf3d7e9b0c1",
       "name": "Consultar Estado Conexión",
@@ -1100,8 +1108,7 @@
       "position": [
         36160,
         21584
-      ],
-      "onError": "continueRegularOutput"
+      ]
     },
     {
       "parameters": {
@@ -1114,7 +1121,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.instance.state }}",
+              "leftValue": "={{ $('Preparar canal confirmado').first().json.connected ? 'open' : 'close' }}",
               "rightValue": "open",
               "operator": {
                 "type": "string",
@@ -1138,7 +1145,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { conectado: true, numero: $('Buscar Instancia Evolution').item.json.phone_number } }}",
+        "responseBody": "={{ {conectado:true,numero:$('Preparar canal confirmado').first().json.phone_number} }}",
         "options": {}
       },
       "id": "282e7f37-ff84-4377-89f1-53c7a531d021",
@@ -1165,8 +1172,17 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ instanceName: $('Buscar Instancia Evolution').item.json.instance_name || ('instancia_' + $('Normalizar Verificación Token8').item.json.loteId), integration: 'WHATSAPP-BAILEYS', token: $('Normalizar Verificación Token8').item.json.apiKeyGenerado, qrcode: true }) }}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify({instanceName:$('Preparar conexión QR').first().json.instance,integration:'WHATSAPP-BAILEYS',token:$('Normalizar Verificación Token8').first().json.apiKeyGenerado,qrcode:false}) }}",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
       },
       "id": "856946f2-ab0c-43e9-97d6-ebe94d73bcbd",
       "name": "Obtener QR",
@@ -1175,8 +1191,7 @@
       "position": [
         36704,
         21808
-      ],
-      "onError": "continueRegularOutput"
+      ]
     },
     {
       "parameters": {
@@ -1189,7 +1204,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ !!$json.error }}",
+              "leftValue": "={{ !$json.valid }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -1212,7 +1227,7 @@
     },
     {
       "parameters": {
-        "url": "=https://evolution-api-production-3652.up.railway.app/instance/connect/{{ $('Buscar Instancia Evolution').item.json.instance_name || ('instancia_' + $('Normalizar Verificación Token8').item.json.loteId) }}",
+        "url": "=https://evolution-api-production-3652.up.railway.app/instance/connect/{{ encodeURIComponent($('Preparar conexión QR').first().json.instance) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1222,7 +1237,16 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
       },
       "id": "74e99ace-bad4-4063-b818-c94667ce2499",
       "name": "Conectar Instancia Existente",
@@ -1231,13 +1255,12 @@
       "position": [
         37184,
         21904
-      ],
-      "onError": "continueRegularOutput"
+      ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { conectado: false, qr_base64: $json.base64 || ($json.qrcode && $json.qrcode.base64) || $json.qrcode } }}",
+        "responseBody": "={{ {conectado:false,qr_base64:$json.qr_base64,expires_in:$json.expires_in,pending:$json.pending} }}",
         "options": {}
       },
       "id": "1cfa335a-899e-44d1-8e79-f67ca2d2b5d3",
@@ -1381,7 +1404,8 @@
       "parameters": {
         "options": {
           "temperature": 0.3
-        }
+        },
+        "modelName": "models/gemini-2.5-flash"
       },
       "id": "41b9f08e-2273-4584-979c-b4c06f598284",
       "name": "Google Gemini Chat Model1",
@@ -1728,73 +1752,73 @@
             {
               "id": "lote-nombre-f1",
               "name": "lote_nombre",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].nombre) || '' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.nombre;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || '';})() }}",
               "type": "string"
             },
             {
               "id": "lote-dir-f1",
               "name": "lote_direccion",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].direccion) || '' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.direccion;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || '';})() }}",
               "type": "string"
             },
             {
               "id": "lote-ciudad-f1",
               "name": "lote_ciudad",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].ciudad) || '' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.ciudad;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || '';})() }}",
               "type": "string"
             },
             {
               "id": "lote-abre-f1",
               "name": "lote_hora_abre",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].hora_abre) || '09:00' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.hora_abre;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || '09:00';})() }}",
               "type": "string"
             },
             {
               "id": "lote-cierra-f1",
               "name": "lote_hora_cierra",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].hora_cierra) || '19:00' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.hora_cierra;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || '19:00';})() }}",
               "type": "string"
             },
             {
               "id": "lote-dias-f1",
               "name": "lote_dias_atencion",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].dias_atencion) || 'Lunes a Sábado' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.dias_atencion;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || 'Lunes a Sábado';})() }}",
               "type": "string"
             },
             {
               "id": "lote-tipofin-f1",
               "name": "lote_tipo_financiamiento",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].tipo_financiamiento) || '' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.tipo_financiamiento;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || '';})() }}",
               "type": "string"
             },
             {
               "id": "lote-financieras-f1",
               "name": "lote_financieras",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].financieras) || '' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.financieras;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || '';})() }}",
               "type": "string"
             },
             {
               "id": "lote-plazos-f1",
               "name": "lote_plazos_meses",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].plazos_meses) || '36, 48, 60' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.plazos_meses;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || '36, 48, 60';})() }}",
               "type": "string"
             },
             {
               "id": "lote-tasa-f1",
               "name": "lote_tasa_anual",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].tasa_anual) || null }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.tasa_anual;return (value===null||value===undefined||value===''?null:Number(value)) || null;})() }}",
               "type": "number"
             },
             {
               "id": "lote-engmin-f1",
               "name": "lote_enganche_minimo_pct",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].enganche_minimo_pct) || null }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.enganche_minimo_pct;return (value===null||value===undefined||value===''?null:Number(value)) || null;})() }}",
               "type": "number"
             },
             {
               "id": "lote-buro-f1",
               "name": "lote_acepta_buro_afectado",
-              "value": "={{ ($('Buscar Datos Lote').item.json[0] && $('Buscar Datos Lote').item.json[0].acepta_buro_afectado) || 'depende del caso' }}",
+              "value": "={{ (()=>{const row=$('Buscar Datos Lote').first().json;const value=(Array.isArray(row)?row[0]:row)?.acepta_buro_afectado;return (Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Sí':'No'):String(value??'')) || 'depende del caso';})() }}",
               "type": "string"
             }
           ]
@@ -3222,8 +3246,10 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ lote_id: $('Normalizar Verificación Token8').item.json.loteId, instance_name: $('Buscar Instancia Evolution').item.json.instance_name || ('instancia_' + $('Normalizar Verificación Token8').item.json.loteId), api_key: ( $('Obtener QR').item.json.hash && ( typeof $('Obtener QR').item.json.hash === 'string' ? $('Obtener QR').item.json.hash : $('Obtener QR').item.json.hash.apikey ) ) || $('Normalizar Verificación Token8').item.json.apiKeyGenerado }) }}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify({ lote_id:$json.lote_id,instance_name:$json.instance_name,api_key:$json.api_key,...($json.phone_number?{phone_number:$json.phone_number}:{}) }) }}",
+        "options": {
+          "timeout": 10000
+        }
       },
       "id": "205f38da-6ec6-40d2-9baa-b4ab6652cb41",
       "name": "Guardar Instancia en Supabase1",
@@ -3589,7 +3615,8 @@
       "position": [
         36128,
         18112
-      ]
+      ],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -4276,6 +4303,377 @@
         36700,
         18864
       ]
+    },
+    {
+      "name": "Preparar conexión QR",
+      "id": "4c0356b7-8dc4-41d4-a102-5e1f8bf3d0d4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        36500,
+        21400
+      ],
+      "parameters": {
+        "jsCode": "const channel=$json; const auth=$('Normalizar Verificación Token8').first().json;\nconst body=$('Webhook QR WhatsApp').first().json.body||{};\nreturn [{json:{loteId:auth.loteId,instance:channel.instance_name||('instancia_'+auth.loteId),accion:body.accion==='estado'?'estado':'conectar'}}];"
+      }
+    },
+    {
+      "name": "Evaluar estado de instancia",
+      "id": "0d46eb04-91fa-46bc-a29a-81b49fbd020d",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        36740,
+        21400
+      ],
+      "parameters": {
+        "jsCode": "const status=Number($json.statusCode||0); const state=$json.body?.instance?.state;\nconst exists=status===200&&['open','close','connecting'].includes(state);\nreturn [{json:{valid:exists||status===404,exists,connected:state==='open',state:state||'unknown',httpStatus:502,error:'No se pudo consultar Evolution. Intenta de nuevo.'}}];"
+      }
+    },
+    {
+      "name": "¿Estado de instancia válido?",
+      "id": "c31e33c3-288e-4fda-9c97-9d5b09dadf04",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        36980,
+        21400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2ba4e332-360c-4377-9b76-526e3bb0ec7d",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "¿Solo consultar estado?",
+      "id": "7eb2cc02-78d1-4712-b530-7958d1710056",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        37220,
+        21400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cec3a107-5c0a-48a2-97ca-b26b5335b5dc",
+              "leftValue": "={{ $('Preparar conexión QR').first().json.accion === 'estado' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "¿Existe instancia WhatsApp?",
+      "id": "c742a213-3da7-4bfe-a654-08d4a0742bdc",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        37460,
+        21400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3493a1bb-ac84-4f3c-a6d0-da3352a7f26d",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Recuperar instancia confirmada",
+      "id": "1d9522dc-bb66-403d-b159-b13c4cd83b66",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        37700,
+        21400
+      ],
+      "parameters": {
+        "url": "=https://evolution-api-production-3652.up.railway.app/instance/fetchInstances?instanceName={{ encodeURIComponent($('Preparar conexión QR').first().json.instance) }}",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Preparar canal confirmado",
+      "id": "ab8d40af-1710-4801-aafa-facc5b8a4548",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        37940,
+        21400
+      ],
+      "parameters": {
+        "jsCode": "const ctx=$('Preparar conexión QR').first().json;\nconst rows=Array.isArray($json.body)?$json.body:[];\nconst instance=rows.find(row=>row.name===ctx.instance);\nconst valid=Number($json.statusCode)===200&&!!instance&&typeof instance.token==='string'&&instance.token.length>0;\nreturn [{json:{valid,lote_id:ctx.loteId,instance_name:ctx.instance,api_key:valid?instance.token:null,phone_number:valid?String(instance.ownerJid||instance.number||'').split('@')[0]:null,connected:instance?.connectionStatus==='open',httpStatus:502,error:'No se pudo confirmar la instancia del lote. Intenta de nuevo.'}}];"
+      }
+    },
+    {
+      "name": "¿Canal confirmado?",
+      "id": "4871675c-5296-418a-8402-ae39488284b1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        38180,
+        21400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "031a2279-4af5-451e-b72e-2d34dc5c5a25",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Configurar webhook WhatsApp",
+      "id": "c27c811b-9aeb-4b5e-8c33-11b7313346f6",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        38420,
+        21400
+      ],
+      "parameters": {
+        "url": "=https://evolution-api-production-3652.up.railway.app/webhook/set/{{ encodeURIComponent($('Preparar conexión QR').first().json.instance) }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({webhook:{enabled:true,url:'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes?secret='+encodeURIComponent($env.WEBHOOK_SECRET),events:['MESSAGES_UPSERT'],byEvents:false,base64:true,webhookByEvents:false,webhookBase64:true}}) }}",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Comprobar webhook WhatsApp",
+      "id": "5b051961-2618-48a7-840f-ab282f7eb1fe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        38660,
+        21400
+      ],
+      "parameters": {
+        "jsCode": "const b=$json.body||{};\nconst expected='https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes?secret='+encodeURIComponent($env.WEBHOOK_SECRET||'');\nconst valid=Number($json.statusCode)>=200&&Number($json.statusCode)<300&&!!$env.WEBHOOK_SECRET&&b.enabled===true&&b.url===expected&&Array.isArray(b.events)&&b.events.includes('MESSAGES_UPSERT');\nreturn [{json:{valid,httpStatus:502,error:'No se pudo preparar la recepción de mensajes. Intenta de nuevo.'}}];"
+      }
+    },
+    {
+      "name": "¿Webhook WhatsApp listo?",
+      "id": "bcf361b4-b1b0-44e5-93b4-81543ff18b2b",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        38900,
+        21400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5932e6f3-7fd6-487b-a91b-dba4d5565b62",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Evaluar creación de instancia",
+      "id": "79c0c5f5-f2db-4612-bee0-c7991d89e1c3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        39140,
+        21400
+      ],
+      "parameters": {
+        "jsCode": "const status=Number($json.statusCode||0); const b=$json.body||{};\nconst conflict=status===403&&JSON.stringify(b).toLowerCase().includes('already in use');\nreturn [{json:{valid:(status>=200&&status<300)||conflict,httpStatus:502,error:'No se pudo crear la instancia de WhatsApp. Intenta de nuevo.'}}];"
+      }
+    },
+    {
+      "name": "Evaluar QR entregado",
+      "id": "e4de4a1d-0ae7-42dc-9979-17610d37fd15",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        39380,
+        21400
+      ],
+      "parameters": {
+        "jsCode": "const b=$json.body||{};const raw=b.base64||b.qrcode?.base64;\nconst qr=typeof raw==='string'&&/^data:image\\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(raw)?raw:null;\nreturn [{json:{valid:Number($json.statusCode)===200,conectado:false,qr_base64:qr,expires_in:45,pending:!qr,httpStatus:502,error:'Evolution no pudo generar el QR. Intenta de nuevo.'}}];"
+      }
+    },
+    {
+      "name": "¿QR entregado válido?",
+      "id": "2b16299a-321c-4cdd-962e-d3f044840238",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        39620,
+        21400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4acf2c42-df2f-437d-a9f6-c07d5982809b",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {conectado:$('Evaluar estado de instancia').first().json.connected,state:$('Evaluar estado de instancia').first().json.state,numero:$('Buscar Instancia Evolution').first().json.phone_number||null} }}",
+        "options": {}
+      },
+      "id": "7679abbe-4edd-442a-bd43-e0a145138acc",
+      "name": "Responder estado WhatsApp",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        36500,
+        22200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {conectado:false,error:$json.error||'No se pudo completar la conexión. Intenta de nuevo.'} }}",
+        "options": {
+          "responseCode": "={{ $json.httpStatus || 502 }}"
+        }
+      },
+      "id": "eb834cf1-7118-4d7b-a065-ee45c44f40d3",
+      "name": "Responder error WhatsApp",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        36740,
+        22200
+      ]
     }
   ],
   "connections": {
@@ -4715,7 +5113,7 @@
       "main": [
         [
           {
-            "node": "Consultar Estado Conexión",
+            "node": "Preparar conexión QR",
             "type": "main",
             "index": 0
           }
@@ -4726,7 +5124,7 @@
       "main": [
         [
           {
-            "node": "¿Ya Está Conectado?",
+            "node": "Evaluar estado de instancia",
             "type": "main",
             "index": 0
           }
@@ -4744,7 +5142,7 @@
         ],
         [
           {
-            "node": "Obtener QR",
+            "node": "Conectar Instancia Existente",
             "type": "main",
             "index": 0
           }
@@ -4755,7 +5153,7 @@
       "main": [
         [
           {
-            "node": "¿Falló Creación?",
+            "node": "Evaluar creación de instancia",
             "type": "main",
             "index": 0
           }
@@ -4766,19 +5164,14 @@
       "main": [
         [
           {
-            "node": "Conectar Instancia Existente",
+            "node": "Responder error WhatsApp",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Responder QR",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Guardar Instancia en Supabase1",
+            "node": "Recuperar instancia confirmada",
             "type": "main",
             "index": 0
           }
@@ -4789,12 +5182,7 @@
       "main": [
         [
           {
-            "node": "Responder QR",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Guardar Instancia en Supabase1",
+            "node": "Evaluar QR entregado",
             "type": "main",
             "index": 0
           }
@@ -5915,6 +6303,213 @@
         [
           {
             "node": "Responder Error de Publicación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar conexión QR": {
+      "main": [
+        [
+          {
+            "node": "Consultar Estado Conexión",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluar estado de instancia": {
+      "main": [
+        [
+          {
+            "node": "¿Estado de instancia válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Estado de instancia válido?": {
+      "main": [
+        [
+          {
+            "node": "¿Solo consultar estado?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Solo consultar estado?": {
+      "main": [
+        [
+          {
+            "node": "Responder estado WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Existe instancia WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Existe instancia WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Recuperar instancia confirmada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtener QR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluar creación de instancia": {
+      "main": [
+        [
+          {
+            "node": "¿Falló Creación?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recuperar instancia confirmada": {
+      "main": [
+        [
+          {
+            "node": "Preparar canal confirmado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar canal confirmado": {
+      "main": [
+        [
+          {
+            "node": "¿Canal confirmado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Canal confirmado?": {
+      "main": [
+        [
+          {
+            "node": "Guardar Instancia en Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Instancia en Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Configurar webhook WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configurar webhook WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Comprobar webhook WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comprobar webhook WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "¿Webhook WhatsApp listo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Webhook WhatsApp listo?": {
+      "main": [
+        [
+          {
+            "node": "¿Ya Está Conectado?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluar QR entregado": {
+      "main": [
+        [
+          {
+            "node": "¿QR entregado válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿QR entregado válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder QR",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error WhatsApp",
             "type": "main",
             "index": 0
           }

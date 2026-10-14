@@ -88,3 +88,14 @@ Puertas de salida antes de ofrecer el servicio completo:
 3. Confirmar WhatsApp real: mensaje entrante, respuesta, registro del prospecto/cita, intervención humana y reanudación.
 4. Confirmar ciclo de Stripe: pago, cancelación desde portal, renovación y pago fallido. Evitar CFDI duplicados por reentrega de invoice.paid.
 5. Verificar límites del plan Upload-Post por lote, alertas de fallos y restauración de respaldo antes de ampliar clientes.
+
+
+## Reparación WhatsApp — 14 de octubre de 2026
+
+Causas verificadas en producción: webhook de Evolution ausente; clave de canal distinta de la real; credenciales Supabase/Gemini no descifrables en n8n; consulta de pausa vacía detenía la ejecución sin error. Se repararon webhook, clave y credenciales existentes sin desvincular la instancia.
+
+El controlador QR ahora distingue inexistencia (404) de errores de acceso/servidor, reconecta una instancia existente, recupera su clave real, registra el canal antes de habilitar mensajes y confirma el webhook. Las consultas de estado no generan códigos. El panel bloquea solicitudes simultáneas, limita la espera a 45 s, oculta códigos antiguos y consulta la conexión cada 4 s mientras el código está visible. La vinculación desde el teléfono sigue siendo manual.
+
+Validación local: 48 pruebas unitarias, 14 de navegador. Pendiente de confirmar respuesta real del agente después de desplegar el flujo. La ausencia de pausas manuales debe emitir un elemento vacío para continuar; mantener alwaysOutputData en Consultar pausa de la conversación.
+
+La vinculación realiza O(1) llamadas externas por lote. La espera en el panel es acotada (aproximadamente 11 consultas de estado por QR) y usa O(1) memoria. Revisar que N8N_ENCRYPTION_KEY y el volumen de n8n se conserven entre despliegues: reingresar credenciales no demuestra que esa persistencia esté resuelta.

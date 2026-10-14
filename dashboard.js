@@ -1894,60 +1894,92 @@ async function checarEstatusWhatsApp() {
 // ------------------------------------------------------------
 // MÓDULO WHATSAPP QR
 // ------------------------------------------------------------
-async function cargarEstadoWhatsappQr() {
-  if (!currentLote || !N8N_QR_WEBHOOK_URL) return;
+let whatsappRequestPending=false;
+let whatsappPollTimer=null;
+let whatsappExpiryTimer=null;
+let whatsappQrExpires=0;
+let whatsappQrLoteId=null;
 
-  const badge = document.getElementById('whatsappEstadoBadge');
-  const conectadoWrap = document.getElementById('whatsappConectado');
-  const qrWrap = document.getElementById('whatsappQrWrap');
-  const qrImg = document.getElementById('whatsappQrImg');
-  const qrLoading = document.getElementById('whatsappQrLoading');
+function detenerEsperaWhatsapp() {
+  clearTimeout(whatsappPollTimer);
+  clearTimeout(whatsappExpiryTimer);
+  whatsappPollTimer=null;
+  whatsappExpiryTimer=null;
+}
 
-  qrLoading.textContent = 'Cargando código QR...';
-  qrImg.classList.add('hidden');
-  qrLoading.classList.remove('hidden');
-
+async function cargarEstadoWhatsappQr(options={}) {
+  if (!currentLote || !N8N_QR_WEBHOOK_URL || whatsappRequestPending) return;
+  const loteId=currentLote.id;
+  const badge=document.getElementById('whatsappEstadoBadge');
+  const conectadoWrap=document.getElementById('whatsappConectado');
+  const qrWrap=document.getElementById('whatsappQrWrap');
+  const qrImg=document.getElementById('whatsappQrImg');
+  const status=document.getElementById('whatsappQrLoading');
+  const button=document.getElementById('btnRefrescarQr');
+  const cached=whatsappQrLoteId===loteId && whatsappQrExpires>Date.now();
+  const accion=options.accion==='estado'||(!options.renovar&&cached)?'estado':'conectar';
+  whatsappRequestPending=true;
+  button.disabled=true;
+  button.setAttribute('aria-busy','true');
+  status.setAttribute('role','status');
+  status.setAttribute('aria-live','polite');
+  if(accion==='conectar') {
+    detenerEsperaWhatsapp();
+    whatsappQrExpires=0;
+    qrImg.classList.add('hidden');
+    status.classList.remove('hidden');
+    status.textContent='Preparando conexión segura de WhatsApp…';
+  }
   try {
-    const resp = await fetchTenantWebhook(N8N_QR_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentLote.webhook_token}` },
-      body: JSON.stringify({ lote_id: currentLote.id })
+    const response=await fetchTenantWebhook(N8N_QR_WEBHOOK_URL,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lote_id:loteId,accion}),signal:AbortSignal.timeout(45000)
     });
-
-    const raw = await resp.text();
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch (_) {
-      throw new Error(`n8n respondió ${resp.status} sin JSON válido.`);
-    }
-    if (!resp.ok) {
-      throw new Error(`n8n respondió ${resp.status}: ${data.error || raw.slice(0, 200)}`);
-    }
-
-    if (data.conectado) {
-      badge.textContent = 'Conectado';
-      badge.className = 'badge badge-success';
-      conectadoWrap.classList.remove('hidden');
-      conectadoWrap.classList.add('flex');
+    const data=await response.json().catch(()=>null);
+    if(!response.ok || !data) throw new Error(data?.error||'No se pudo consultar WhatsApp. Intenta actualizar.');
+    if(currentLote?.id!==loteId)return;
+    if(data.conectado===true) {
+      detenerEsperaWhatsapp();
+      whatsappQrExpires=0;
+      badge.textContent='Conectado';badge.className='badge badge-success';
+      conectadoWrap.classList.remove('hidden');conectadoWrap.classList.add('flex');
       qrWrap.classList.add('hidden');
-      document.getElementById('whatsappNumeroConectado').textContent = data.numero || '--';
-    } else {
-      badge.textContent = 'Sin conectar';
-      badge.className = 'badge badge-warm';
-      conectadoWrap.classList.add('hidden');
-      qrWrap.classList.remove('hidden');
-      if (data.qr_base64) {
-        qrImg.src = data.qr_base64;
-        qrImg.classList.remove('hidden');
-        qrLoading.classList.add('hidden');
+      document.getElementById('whatsappNumeroConectado').textContent=data.numero||'Instancia vinculada';
+      return;
+    }
+    conectadoWrap.classList.add('hidden');conectadoWrap.classList.remove('flex');
+    qrWrap.classList.remove('hidden');
+    badge.textContent='Sin conectar';badge.className='badge badge-warm';
+    if(accion==='conectar') {
+      if(typeof data.qr_base64==='string' && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(data.qr_base64)) {
+        qrImg.src=data.qr_base64;qrImg.classList.remove('hidden');
+        status.classList.add('hidden');
+        whatsappQrLoteId=loteId;
+        whatsappQrExpires=Date.now()+Math.min(Number(data.expires_in)||45,45)*1000;
+        whatsappExpiryTimer=setTimeout(()=>{
+          detenerEsperaWhatsapp();whatsappQrExpires=0;qrImg.classList.add('hidden');
+          status.classList.remove('hidden');status.textContent='Actualiza el QR para obtener un código vigente.';
+        },whatsappQrExpires-Date.now());
       } else {
-        qrLoading.textContent = 'No se pudo generar el QR. Intenta actualizar.';
+        status.textContent='Evolution todavía no entregó el QR. Espera unos segundos y pulsa Actualizar QR.';
       }
     }
-  } catch (err) {
-    console.error('[WhatsApp QR] Error:', err);
-    qrLoading.textContent = err.message || 'Error al cargar el QR.';
+    if(whatsappQrExpires>Date.now()) {
+      clearTimeout(whatsappPollTimer);
+      whatsappPollTimer=setTimeout(()=>{
+        if(currentLote?.id===loteId&&!document.getElementById('section-configuracion').classList.contains('hidden'))
+          cargarEstadoWhatsappQr({accion:'estado'});
+      },4000);
+    }
+  } catch(error) {
+    detenerEsperaWhatsapp();whatsappQrExpires=0;
+    qrImg.classList.add('hidden');qrWrap.classList.remove('hidden');
+    status.classList.remove('hidden');status.setAttribute('role','alert');
+    status.textContent=error.name==='TimeoutError'?'La conexión tardó demasiado. Pulsa Actualizar QR para reintentar.':
+      error instanceof TypeError?'No se pudo conectar. Revisa tu internet y pulsa Actualizar QR.':error.message;
+    console.error('[WhatsApp QR]',error);
+  } finally {
+    whatsappRequestPending=false;button.disabled=false;button.removeAttribute('aria-busy');
   }
 }
 
@@ -2457,7 +2489,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── TERCERO: listeners del dashboard (solo si los elementos existen) ───
   on('subscriptionPayBtn', 'click', () => { if (currentLote) redirigirAStripeCheckout(currentLote); });
-  on('btnRefrescarQr',    'click', cargarEstadoWhatsappQr);
+  on('btnRefrescarQr',    'click', () => cargarEstadoWhatsappQr({renovar:true}));
   on('btnConectarRedes',  'click', conectarRedesSociales);
   on('btnVerificarRedes', 'click', verificarRedesSociales);
   on('logoutBtn', 'click', async () => {

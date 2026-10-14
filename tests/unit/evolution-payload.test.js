@@ -60,3 +60,18 @@ test('el clasificador permite intervención humana y evita responder mensajes pr
     assert.equal(result.tipo, tipo);
   }
 });
+
+
+test('un cliente sin pausa manual continúa hacia la IA aunque la consulta no devuelva filas',()=>{
+ const query=workflow.nodes.find(n=>n.name==='Consultar pausa de la conversación');
+ assert.equal(query.alwaysOutputData,true);
+ const evaluate=workflow.nodes.find(n=>n.name==='Evaluar expiración de pausa');
+ const r=vm.runInNewContext('(function(){'+evaluate.parameters.jsCode+'})()',{$input:{all:()=>[{json:{}}]},$:name=>({first:()=>({json:name==='Webhook WhatsApp1'?{body:{data:{key:{remoteJid:'523121234567@s.whatsapp.net'},message:{conversation:'Hola'}}}}:{lote_id:'lot-a'}})})})[0].json;
+ assert.equal(r.manual_activo,false);assert.equal(r.phone_number,'3121234567');
+});
+
+test('los datos reales del lote llegan al asesor cuando Supabase entrega un objeto',()=>{
+ const field=workflow.nodes.find(n=>n.name==='Edit Fields1').parameters.assignments.assignments.find(f=>f.name==='lote_nombre');
+ const value=vm.runInNewContext(field.value.slice(3,-3),{$:()=>({item:{json:{nombre:'Lote Real'}},first:()=>({json:{nombre:'Lote Real'}})})});
+ assert.equal(value,'Lote Real');
+});

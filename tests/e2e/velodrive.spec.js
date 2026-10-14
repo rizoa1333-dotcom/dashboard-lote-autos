@@ -382,3 +382,43 @@ test.describe('inventario y utilidad', () => {
     await expect(page.locator('#actionToast')).toContainText('Gasto registrado');
   });
 });
+
+
+test.describe('conexión WhatsApp',()=>{
+  const session={user:{id:'user-qa-001'},access_token:'mock'};
+  test('solicitudes simultáneas generan un solo QR y restauran el botón',async({page})=>{
+    let requests=0;
+    await page.route('**/webhook/whatsapp-qr',async route=>{
+      requests++;await new Promise(resolve=>setTimeout(resolve,250));
+      await route.fulfill({json:{conectado:false,qr_base64:'data:image/png;base64,aGVsbG8=',expires_in:45}});
+    });
+    await setupPage(page,session);
+    await page.evaluate(()=>document.getElementById('section-configuracion').classList.remove('hidden'));
+    await page.evaluate(()=>Promise.all([cargarEstadoWhatsappQr(),cargarEstadoWhatsappQr()]));
+    expect(requests).toBe(1);
+    await expect(page.locator('#btnRefrescarQr')).toBeEnabled();
+    await expect(page.locator('#whatsappQrLoading')).toHaveAttribute('role','status');
+  });
+  test('la conexión se confirma automáticamente sin renovar el QR mostrado',async({page})=>{
+    const bodies=[];
+    await page.route('**/webhook/whatsapp-qr',route=>{
+      bodies.push(route.request().postDataJSON());
+      return route.fulfill({json:bodies.length===1?
+        {conectado:false,qr_base64:'data:image/png;base64,aGVsbG8=',expires_in:45}:
+        {conectado:true,numero:'523121234567'}});
+    });
+    await setupPage(page,session);
+    await page.clock.install();
+    await page.evaluate(async()=>{document.getElementById('section-configuracion').classList.remove('hidden');await cargarEstadoWhatsappQr();});
+    await page.clock.fastForward(5000);
+    await expect(page.locator('#whatsappEstadoBadge')).toHaveText('Conectado');
+    expect(bodies[1].accion).toBe('estado');
+  });
+  test('un fallo de red muestra un error accesible y permite reintentar',async({page})=>{
+    await page.route('**/webhook/whatsapp-qr',route=>route.abort('failed'));
+    await setupPage(page,session);
+    await page.evaluate(async()=>{document.getElementById('section-configuracion').classList.remove('hidden');await cargarEstadoWhatsappQr();});
+    await expect(page.locator('#whatsappQrLoading')).toHaveAttribute('role','alert');
+    await expect(page.locator('#btnRefrescarQr')).toBeEnabled();
+  });
+});
