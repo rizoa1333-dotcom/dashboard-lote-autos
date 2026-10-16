@@ -1,5 +1,18 @@
 # Validación QA de VeloDrive
 
+## Corrección de citas y documentos — 16 de octubre de 2026
+
+- Causa comprobada en ejecución `16996`: `leads.id` es numérico (lead QA `18`), pero el nodo documental lo validaba como UUID. Se acepta un entero positivo compatible con bigint y se comprueba el UUID del lote contra el tenant autenticado.
+- La confirmación de una cita nueva incluye la primera solicitud de identificación en el mismo mensaje. Una cita previa no reinicia la solicitud. Completar documentos no vuelve a prometer crear la cita que ya existe.
+- La escritura de documentos filtra por lead y lote. Las respuestas documentales pasan por autorización atómica, aceptación y cierre del mensaje durable.
+- En el primer despliegue de esta corrección, `17004` fue rechazado por Evolution porque se eliminó el prefijo internacional. Se corrigió conservando el destinatario del JID y agregando una regresión explícita. Ese intento no se reenvía automáticamente.
+- Versión final publicada con 197 nodos y el mismo Error Workflow. Exportada y comparada con el archivo local: parámetros de documentación, fusión, actualización, respuesta y cierre coinciden.
+- Prueba real `17006`: respuesta aceptada con ID saliente y estado `completed`. Se conserva una sola cita QA para el 17/10/2026 a las 17:00. La entrega al teléfono y el recorrido de adjuntos se confirman por separado.
+- Pruebas de regresión: ID numérico, aislamiento de lote, prefijo internacional, imagen, PDF sin base64, paso inválido, solicitud inicial, cita previa y conexiones durables. Los generadores conservan esta corrección al ejecutarse repetidamente.
+- Suite final del 16/10/2026: 70 pruebas unitarias y 14 pruebas de navegador aprobadas. Las pruebas de adjuntos con datos simulados no sustituyen la entrega real por WhatsApp y Storage.
+
+El análisis documental por mensaje usa memoria proporcional al adjunto O(b); validación de identidad y paso O(1). No equivale a validar autenticidad de documentos ni aprobación crediticia.
+
 ## Estado comprobado — 15 de octubre de 2026
 
 - Flujo principal publicado: 191 nodos, reclamación durable por `(instance_name,message_id)`, ACK después de persistir y autorización atómica antes del envío. La rotación mensual sigue activa.

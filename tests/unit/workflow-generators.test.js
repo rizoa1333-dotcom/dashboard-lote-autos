@@ -12,10 +12,10 @@ test('regenerar flujos conserva credenciales, vigilancia y produce el mismo resu
   try {
     fs.mkdirSync(path.join(temp,'scripts'));
     for(const name of [...files,'whatsapp-reliability.js'])fs.copyFileSync(path.join(repo,name),path.join(temp,name));
-    for(const name of ['update-whatsapp-reliability.cjs','update-incident-workflows.cjs'])fs.copyFileSync(path.join(repo,'scripts',name),path.join(temp,'scripts',name));
+    for(const name of ['update-whatsapp-reliability.cjs','update-incident-workflows.cjs','update-documentation-flow.cjs'])fs.copyFileSync(path.join(repo,'scripts',name),path.join(temp,'scripts',name));
     const initial=JSON.parse(fs.readFileSync(path.join(temp,files[2])));
     const credentials=initial.nodes.find(n=>n.name==='Enviar alerta de soporte').credentials;
-    const generate=()=>{for(const name of ['update-whatsapp-reliability.cjs','update-incident-workflows.cjs'])execFileSync(process.execPath,[path.join(temp,'scripts',name)],{cwd:temp});};
+    const generate=()=>{for(const name of ['update-whatsapp-reliability.cjs','update-incident-workflows.cjs','update-documentation-flow.cjs'])execFileSync(process.execPath,[path.join(temp,'scripts',name)],{cwd:temp});};
     generate();const first=files.map(name=>fs.readFileSync(path.join(temp,name),'utf8'));
     generate();assert.deepEqual(files.map(name=>fs.readFileSync(path.join(temp,name),'utf8')),first);
     assert.deepEqual(JSON.parse(first[2]).nodes.find(n=>n.name==='Enviar alerta de soporte').credentials,credentials);
