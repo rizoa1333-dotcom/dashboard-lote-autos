@@ -1,5 +1,16 @@
 # Validación QA de VeloDrive
 
+## Aislamiento de conversaciones — 16 de octubre de 2026
+
+- Incidente semántico `17014`: un segundo teléfono recibió nombre y contexto del primero aunque la ejecución terminó `completed`. Un estado técnico exitoso no demuestra que la respuesta sea correcta.
+- `Simple Memory1` usaba `$json.body.key.remoteJid`, una ruta distinta de `body.data.key.remoteJid` y dependiente del nodo anterior. Se sustituyó por una clave versionada construida exclusivamente con el lote y teléfono validados, con rechazo explícito de identidades ausentes.
+- La nueva clave `velodrive:v2:<lote>:<telefono>` no reutiliza la memoria anterior. Historial y búsqueda de lead usan esa misma identidad validada y filtran por lote y teléfono.
+- Se respaldó cifrado el lead QA 24 y su historial. Se retiraron sus datos derivados contaminados y una respuesta del modelo; se conservó el mensaje original del usuario. El expediente del lead 18 no se borró.
+- 74 pruebas unitarias y 14 de navegador aprobadas. Pruebas nuevas: dos teléfonos en un lote, mismo teléfono en lotes distintos, entrada del nodo anterior manipulada e identidad inválida. Clave y filtros exportados de n8n coinciden con el código local; 197 nodos y Error Workflow conservados.
+- Pendiente de confirmar con el usuario: saludo nuevo del segundo teléfono y alternancia entre ambos. La prueba de carga de múltiples clientes y recuperación de memoria tras reinicio siguen siendo validaciones distintas.
+
+Construir una clave cuesta O(1) para identificadores de longitud acotada. La memoria total crece con conversaciones e historial retenidos; esta separación no establece por sí sola un límite de memoria.
+
 ## Corrección de citas y documentos — 16 de octubre de 2026
 
 - Causa comprobada en ejecución `16996`: `leads.id` es numérico (lead QA `18`), pero el nodo documental lo validaba como UUID. Se acepta un entero positivo compatible con bigint y se comprueba el UUID del lote contra el tenant autenticado.

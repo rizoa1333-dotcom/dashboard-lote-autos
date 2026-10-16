@@ -1354,12 +1354,12 @@
             {
               "keyName": "phone_number",
               "condition": "eq",
-              "keyValue": "={{ $('Webhook WhatsApp1').item.json.body.data.key.remoteJid.split('@')[0].replace(/^521|^52/, '') }}"
+              "keyValue": "={{ $('Preparar identidad del mensaje').first().json.phone_number }}"
             },
             {
               "keyName": "lote_id",
               "condition": "eq",
-              "keyValue": "={{ $('Get many rows1').item.json.lote_id }}"
+              "keyValue": "={{ $('Edit Fields1').first().json.tenant_lote_id }}"
             }
           ]
         }
@@ -1493,7 +1493,7 @@
     {
       "parameters": {
         "sessionIdType": "customKey",
-        "sessionKey": "={{ $json.body.key.remoteJid }}_{{ $('Edit Fields1').item.json.tenant_lote_id }}_test_limpio"
+        "sessionKey": "={{ (() => {\n  const lot = String($('Edit Fields1').first().json.tenant_lote_id || '');\n  const phone = String($('Preparar identidad del mensaje').first().json.phone_number || '');\n  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(lot) || !/^[0-9]{10,15}$/.test(phone)) throw new Error('CONVERSATION_IDENTITY_REQUIRED');\n  return 'velodrive:v2:' + lot.toLowerCase() + ':' + phone;\n})() }}"
       },
       "id": "de2d36bc-0deb-46f8-8343-a82858c7104f",
       "name": "Simple Memory1",
@@ -1552,12 +1552,12 @@
             {
               "keyName": "phone_number",
               "condition": "eq",
-              "keyValue": "={{ ($('Webhook WhatsApp1').item.json.body.data.key.remoteJid || '').split('@')[0].replace(/^521/, '').replace(/^52/, '') }}"
+              "keyValue": "={{ $('Preparar identidad del mensaje').first().json.phone_number }}"
             },
             {
               "keyName": "lote_id",
               "condition": "eq",
-              "keyValue": "={{ $('Get many rows1').first().json.lote_id }}"
+              "keyValue": "={{ $('Edit Fields1').first().json.tenant_lote_id }}"
             }
           ]
         }
