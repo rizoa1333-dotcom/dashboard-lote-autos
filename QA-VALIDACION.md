@@ -7,7 +7,9 @@
 - La escritura de documentos filtra por lead y lote. Las respuestas documentales pasan por autorización atómica, aceptación y cierre del mensaje durable.
 - En el primer despliegue de esta corrección, `17004` fue rechazado por Evolution porque se eliminó el prefijo internacional. Se corrigió conservando el destinatario del JID y agregando una regresión explícita. Ese intento no se reenvía automáticamente.
 - Versión final publicada con 197 nodos y el mismo Error Workflow. Exportada y comparada con el archivo local: parámetros de documentación, fusión, actualización, respuesta y cierre coinciden.
-- Prueba real `17006`: respuesta aceptada con ID saliente y estado `completed`. Se conserva una sola cita QA para el 17/10/2026 a las 17:00. La entrega al teléfono y el recorrido de adjuntos se confirman por separado.
+- Prueba real `17006`: respuesta aceptada con ID saliente y estado `completed`; recepción confirmada por el usuario. Se conserva una sola cita QA para el 17/10/2026 a las 17:00.
+- Adjunto sintético enviado por WhatsApp: `17009` guardó la imagen de prueba en el bucket privado y avanzó al paso 2; acceso autorizado al objeto devuelve 200. `17010` guardó el segundo documento y avanzó al paso 3. Ambas respuestas quedaron `completed` con ID saliente. El usuario no envió documentos personales para estas pruebas.
+- Cierre real `17013`: paso 4, estado `Documentación Completa`, respuesta `completed` con ID saliente. Los tres archivos devuelven 200 con autorización y 400 en la ruta pública sin credenciales. Sigue existiendo una sola cita. El usuario confirmó el recorrido por teléfono.
 - Pruebas de regresión: ID numérico, aislamiento de lote, prefijo internacional, imagen, PDF sin base64, paso inválido, solicitud inicial, cita previa y conexiones durables. Los generadores conservan esta corrección al ejecutarse repetidamente.
 - Suite final del 16/10/2026: 70 pruebas unitarias y 14 pruebas de navegador aprobadas. Las pruebas de adjuntos con datos simulados no sustituyen la entrega real por WhatsApp y Storage.
 
