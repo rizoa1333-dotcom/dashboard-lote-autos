@@ -1438,7 +1438,9 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ number: $('Webhook WhatsApp1').item.json.body.data.key.remoteJid.split('@')[0], text: $('AI Agent Vendedor1').item.json.output.split('<<<DATOS_INTERNOS>>>')[0].trim() }) }}",
-        "options": {}
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "5a4cde1b-3daf-4695-90a0-91f260d742ae",
       "name": "Enviar Respuesta WhatsApp1",
@@ -1456,7 +1458,7 @@
           "fieldValues": [
             {
               "fieldId": "phone_number",
-              "fieldValue": "={{ $json.key.remoteJid.replace('@s.whatsapp.net', '').replace(/^521|^52/, '') }}"
+              "fieldValue": "={{ $('Preparar identidad del mensaje').first().json.phone_number }}"
             },
             {
               "fieldId": "role",
@@ -1617,8 +1619,8 @@
           "conditions": [
             {
               "keyName": "instance_name",
-              "condition": "ilike",
-              "keyValue": "={{ ($('Webhook WhatsApp1').item.json.body.instance || $('Webhook WhatsApp1').item.json.body.data?.instanceId || $('Webhook WhatsApp1').item.json.body.data?.instance || '').trim() }}"
+              "condition": "eq",
+              "keyValue": "={{ $('Preparar identidad del mensaje').first().json.instance }}"
             }
           ]
         }
@@ -2150,7 +2152,9 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ number: $('Webhook WhatsApp1').item.json.body.data.key.remoteJid.split('@')[0], text: 'Estamos teniendo un problema técnico en este momento. En breve un asesor te contactará directamente. Disculpa la molestia.' }) }}",
-        "options": {}
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "b42dff52-219d-4a6c-8118-a1d71fc4c408",
       "name": "responder error IA1",
@@ -2172,11 +2176,11 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.body.event }}",
-              "rightValue": "messages.upsert",
+              "leftValue": "={{ $json.valid === true }}",
+              "rightValue": true,
               "operator": {
-                "type": "string",
-                "operation": "equals"
+                "type": "boolean",
+                "operation": "true"
               }
             }
           ],
@@ -4635,6 +4639,419 @@
         36740,
         22200
       ]
+    },
+    {
+      "id": "c218750a-e604-4fdc-ac85-7fe92d6d559b",
+      "name": "Preparar identidad del mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        34900,
+        18500
+      ],
+      "parameters": {
+        "jsCode": "function normalizeEvolutionEvent(event, executionId) {\n  if (!event || typeof event !== 'object') return { valid: false };\n  const body = /** @type {Record<string, any>} */ (event);\n  const data = body.data || {};\n  const key = data.key || {};\n  const instance = typeof body.instance === 'string' ? body.instance.trim() : '';\n  const messageId = typeof key.id === 'string' ? key.id : '';\n  const jid = typeof key.remoteJid === 'string' ? key.remoteJid : '';\n  const execution = String(executionId || '');\n  if (String(body.event || '').toLowerCase().replaceAll('_', '.') !== 'messages.upsert'\n      || !/^[A-Za-z0-9_-]{1,120}$/.test(instance)\n      || !/^[A-Za-z0-9_-]{1,128}$/.test(messageId)\n      || !/^\\d{10,15}(?::\\d{1,5})?@s\\.whatsapp\\.net$/.test(jid)\n      || typeof key.fromMe !== 'boolean'\n      || !/^[A-Za-z0-9_-]{1,100}$/.test(execution)) return { valid: false };\n  const phone = jid.split('@')[0].replace(/:\\d+$/, '').replace(/^521|^52/, '');\n  if (!/^\\d{10,15}$/.test(phone)) return { valid: false };\n  return { valid: true, instance, message_id: messageId, phone_number: phone, execution_id: execution, from_me: key.fromMe };\n}\nreturn [{json:normalizeEvolutionEvent($('Webhook WhatsApp1').first().json.body,String($execution.id))}];"
+      }
+    },
+    {
+      "id": "2def2755-9495-4894-b7c5-02fd73aafd9b",
+      "name": "Responder evento ignorado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        35100,
+        19100
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {received:true,ignored:true} }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "477e4386-623a-46d8-80b7-2f14d9005407",
+      "name": "Reclamar mensaje durable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        35400,
+        18500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/claim_whatsapp_event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const id = $('Preparar identidad del mensaje').first().json; return JSON.stringify({ p_instance:id.instance,p_message_id:id.message_id,p_execution_id:id.execution_id,p_phone:id.phone_number }); })() }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "fad5eed0-0bda-4e6b-8749-0bce2c79a408",
+      "name": "Normalizar reclamación durable",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        35600,
+        18500
+      ],
+      "parameters": {
+        "jsCode": "function normalizeClaimResult(value) {\n  const result = !Array.isArray(value) && value && typeof value === 'object'\n    ? /** @type {Record<string, any>} */ (value) : {};\n  return { process: result.acquired === true && typeof result.lote_id === 'string'\n    && Boolean(result.lote_id) && result.state === 'processing' };\n}\nconst result=normalizeClaimResult($json); result.process = result.process && $json.lote_id === $('Get many rows1').first().json.lote_id; return [{json:result}];"
+      }
+    },
+    {
+      "id": "3960b24a-e95b-4074-b552-3d7d98a16fe8",
+      "name": "¿Mensaje adquirido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        35800,
+        18500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1634a01c-66b3-4e9d-b5b5-2a8c8a27ce71",
+              "leftValue": "={{ $('Normalizar reclamación durable').first().json.process === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "57a998e9-b903-43ab-9fb4-23d5c23dcdb1",
+      "name": "Autorizar envío único",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        36400,
+        18500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/begin_whatsapp_send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const id = $('Preparar identidad del mensaje').first().json; return JSON.stringify({ p_instance:id.instance,p_message_id:id.message_id,p_execution_id:id.execution_id }); })() }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "fae382bf-4f6a-486a-a7e2-8a7c283632d9",
+      "name": "¿Envío autorizado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        36600,
+        18500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5f22cbe0-51ba-4855-a641-489ccc440e49",
+              "leftValue": "={{ $json.send === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "cfe8ec0e-1aa1-452f-a4c0-24e41fbbd71c",
+      "name": "Confirmar envío aceptado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        37000,
+        18500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/finish_whatsapp_event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const id = $('Preparar identidad del mensaje').first().json; return JSON.stringify({ p_instance:id.instance,p_message_id:id.message_id,p_execution_id:id.execution_id,p_state:'accepted',p_outbound_id:$('Enviar Respuesta WhatsApp1').first().json.key.id }); })() }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "ce809f74-610b-43e8-a54e-4dfa8a5d4f32",
+      "name": "¿Envío confirmado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        37200,
+        18500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "865f6194-8ac3-4045-9ad6-89c418b88997",
+              "leftValue": "={{ $json.updated === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "466439c7-113d-4a8f-8598-b17eb6903856",
+      "name": "Detener confirmación inconsistente",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        37400,
+        18900
+      ],
+      "parameters": {
+        "errorMessage": "WHATSAPP_EVENT_STATE_CONFLICT"
+      }
+    },
+    {
+      "id": "ac575477-eccc-4832-a9a7-3cea15aa4c15",
+      "name": "Completar mensaje durable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        37700,
+        18500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/finish_whatsapp_event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const id = $('Preparar identidad del mensaje').first().json; return JSON.stringify({ p_instance:id.instance,p_message_id:id.message_id,p_execution_id:id.execution_id,p_state:'completed' }); })() }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "a8859ff8-c30e-48b3-ab7b-a8886a474c1d",
+      "name": "Autorizar contingencia única",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        36500,
+        19100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/begin_whatsapp_send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const id = $('Preparar identidad del mensaje').first().json; return JSON.stringify({ p_instance:id.instance,p_message_id:id.message_id,p_execution_id:id.execution_id }); })() }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "c6c7b662-0326-45aa-b3be-d9ee5560001b",
+      "name": "¿Contingencia autorizada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        36700,
+        19100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4fac318e-a52c-4397-aaf8-df84a2bc9f55",
+              "leftValue": "={{ $json.send === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "05cc181c-f7da-4beb-a1ad-314385b2eb2f",
+      "name": "Confirmar contingencia aceptada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        37000,
+        19100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/finish_whatsapp_event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const id = $('Preparar identidad del mensaje').first().json; return JSON.stringify({ p_instance:id.instance,p_message_id:id.message_id,p_execution_id:id.execution_id,p_state:'accepted',p_outbound_id:$('responder error IA1').first().json.key.id }); })() }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "43669100-0259-4e2f-b9aa-2c3563e7a5d0",
+      "name": "Registrar fallo controlado IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        37200,
+        19100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/record_whatsapp_failure",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const id = $('Preparar identidad del mensaje').first().json; return JSON.stringify({ p_execution_id:id.execution_id,p_workflow_id:$workflow.id,p_node_name:'AI Agent Vendedor1',p_code:'WORKFLOW_FAILED' }); })() }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
     }
   ],
   "connections": {
@@ -5154,7 +5571,7 @@
       "main": [
         [
           {
-            "node": "Enviar Respuesta WhatsApp1",
+            "node": "Autorizar envío único",
             "type": "main",
             "index": 0
           }
@@ -5194,7 +5611,7 @@
         ],
         [
           {
-            "node": "responder error IA1",
+            "node": "Autorizar contingencia única",
             "type": "main",
             "index": 0
           }
@@ -5216,7 +5633,7 @@
       "main": [
         [
           {
-            "node": "Guardar Respuesta IA1",
+            "node": "Confirmar envío aceptado",
             "type": "main",
             "index": 0
           }
@@ -5282,14 +5699,14 @@
       "main": [
         [
           {
-            "node": "Buscar Datos Lote",
+            "node": "Reclamar mensaje durable",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Canal No Configurado - Detener1",
+            "node": "Responder evento ignorado",
             "type": "main",
             "index": 0
           }
@@ -5413,12 +5830,7 @@
       "main": [
         [
           {
-            "node": "Filtro Anti-Bucle (fromMe)1",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Responder OK Inmediato",
+            "node": "Preparar identidad del mensaje",
             "type": "main",
             "index": 0
           }
@@ -5437,6 +5849,13 @@
         [
           {
             "node": "Get many rows1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder evento ignorado",
             "type": "main",
             "index": 0
           }
@@ -5896,7 +6315,13 @@
     },
     "¿Mensaje enviado por API?": {
       "main": [
-        [],
+        [
+          {
+            "node": "Completar mensaje durable",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Consultar pausa de la conversación",
@@ -6471,6 +6896,203 @@
           }
         ]
       ]
+    },
+    "Preparar identidad del mensaje": {
+      "main": [
+        [
+          {
+            "node": "Filtro Anti-Bucle (fromMe)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reclamar mensaje durable": {
+      "main": [
+        [
+          {
+            "node": "Normalizar reclamación durable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar reclamación durable": {
+      "main": [
+        [
+          {
+            "node": "Responder OK Inmediato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder OK Inmediato": {
+      "main": [
+        [
+          {
+            "node": "¿Mensaje adquirido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Mensaje adquirido?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Datos Lote",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Autorizar envío único": {
+      "main": [
+        [
+          {
+            "node": "¿Envío autorizado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Envío autorizado?": {
+      "main": [
+        [
+          {
+            "node": "Enviar Respuesta WhatsApp1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Confirmar envío aceptado": {
+      "main": [
+        [
+          {
+            "node": "¿Envío confirmado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Envío confirmado?": {
+      "main": [
+        [
+          {
+            "node": "Guardar Respuesta IA1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detener confirmación inconsistente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Respuesta IA1": {
+      "main": [
+        [
+          {
+            "node": "Completar mensaje durable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar mensaje del encargado": {
+      "main": [
+        [
+          {
+            "node": "Completar mensaje durable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar mensaje recibido durante pausa": {
+      "main": [
+        [
+          {
+            "node": "Completar mensaje durable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Autorizar contingencia única": {
+      "main": [
+        [
+          {
+            "node": "¿Contingencia autorizada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Contingencia autorizada?": {
+      "main": [
+        [
+          {
+            "node": "responder error IA1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "responder error IA1": {
+      "main": [
+        [
+          {
+            "node": "Confirmar contingencia aceptada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar contingencia aceptada": {
+      "main": [
+        [
+          {
+            "node": "Registrar fallo controlado IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar fallo controlado IA": {
+      "main": [
+        [
+          {
+            "node": "Completar mensaje durable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
@@ -6482,6 +7104,10 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "RWgTd6Jx8snoluJc",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
   }
 }

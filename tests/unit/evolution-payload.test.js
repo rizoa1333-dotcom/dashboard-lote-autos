@@ -78,7 +78,11 @@ test('los datos reales del lote llegan al asesor cuando Supabase entrega un obje
 
 test('la respuesta del agente no vuelve a insertar el mensaje de usuario ya registrado',()=>{
  const wf=require('../../VeloDrive-n8n-intervencion-automatica.json');
- const next=wf.connections['Enviar Respuesta WhatsApp1'].main[0].map(edge=>edge.node);
- assert.deepEqual(next,['Guardar Respuesta IA1']);
+ const visited=new Set();const pending=['Enviar Respuesta WhatsApp1'];
+ while(pending.length){const name=pending.pop();if(visited.has(name))continue;visited.add(name);
+   for(const outputs of Object.values(wf.connections[name]||{}))for(const edges of outputs)for(const edge of edges)pending.push(edge.node);
+ }
+ assert.equal(visited.has('Guardar Respuesta IA1'),true);
+ assert.equal(visited.has('Guardar Mensaje Usuario1'),false);
  assert.ok(wf.connections['Guardar mensaje al reactivar IA'].main[0].some(edge=>edge.node==='Edit Fields1'));
 });

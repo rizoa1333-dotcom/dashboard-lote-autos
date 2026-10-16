@@ -1,0 +1,155 @@
+{
+  "name": "VeloDrive - Incidentes y alertas",
+  "nodes": [
+    {
+      "id": "4427a397-1f6d-46a3-a1ff-6f3c56566dc1",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "c6fead7d-5736-43c0-b00a-a02056f4cfca",
+      "name": "Sanear incidente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "function sanitizeIncident(event, handlerExecutionId) {\n  const error = event.execution?.error || event.trigger?.error || {};\n  const message = String(error.message || '').slice(0, 2000).toLowerCase();\n  const code = /credential|encryption|decrypt/.test(message) ? 'CREDENTIALS_UNAVAILABLE'\n    : /timeout|timed out/.test(message) ? 'DEPENDENCY_TIMEOUT' : 'WORKFLOW_FAILED';\n  const safeId = value => /^[A-Za-z0-9_-]{1,100}$/.test(String(value || '')) ? String(value) : null;\n  const node = String(event.execution?.lastNodeExecuted || error.lastNodeExecuted || error.node?.name || 'unknown');\n  const fallback=safeId(handlerExecutionId);\n  return { execution_id: safeId(event.execution?.id) || (fallback ? safeId('trigger_'+fallback) : null), workflow_id: safeId(event.workflow?.id),\n    node_name: /^[\\p{L}\\p{N} _?¿()/-]{1,120}$/u.test(node) ? node : 'unknown', code };\n}\nreturn [{json:sanitizeIncident($json,String($execution.id))}];"
+      }
+    },
+    {
+      "id": "2ec35818-645a-45fa-a4ee-7773ea2304a9",
+      "name": "Registrar incidente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/record_whatsapp_failure",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_execution_id:$json.execution_id,p_workflow_id:$json.workflow_id,p_node_name:$json.node_name,p_code:$json.code}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "d940c443c38064d76bde224dce169d38",
+      "name": "Revisar cada cinco minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f6fea21a7cb8c7f379380328d17eae34",
+      "name": "Detectar mensajes atascados",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/collect_stale_whatsapp_events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {} }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Sanear incidente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanear incidente": {
+      "main": [
+        [
+          {
+            "node": "Registrar incidente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revisar cada cinco minutos": {
+      "main": [
+        [
+          {
+            "node": "Detectar mensajes atascados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "pinData": {}
+}

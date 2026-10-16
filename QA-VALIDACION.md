@@ -1,5 +1,21 @@
 # Validación QA de VeloDrive
 
+## Estado comprobado — 15 de octubre de 2026
+
+- Flujo principal publicado: 191 nodos, reclamación durable por `(instance_name,message_id)`, ACK después de persistir y autorización atómica antes del envío. La rotación mensual sigue activa.
+- Manejador de incidentes publicado y asociado al principal: `RWgTd6Jx8snoluJc`. Registra referencias saneadas y revisa mensajes atascados cada cinco minutos.
+- Alertas HTTPS publicadas: `M74TiQsnq4FpEEg8`, Resend con permiso de envío y credencial limitada a `api.resend.com`. Recepción del correo QA confirmada por el usuario. SMTP no se usa: Railway Hobby lo bloquea.
+- n8n conserva su clave vigente y configuración en el volumen `/home/node/.n8n`. Reinicio comprobado; las tres credenciales se descifraron correctamente. Acceso SSH temporal revocado.
+- Respaldo PostgreSQL restaurado en una base aislada: 11 flujos y tres credenciales cifradas. Falta automatizar copias y probar recuperación integral de la aplicación.
+- 62 pruebas unitarias aprobadas; 14 pruebas Playwright aprobadas el mismo día. Las E2E usan servicios simulados.
+- 22 comprobaciones reales de aislamiento: dos usuarios efímeros, citas, documentos privados, cambios de plan/claves y escrituras ajenas. Fixtures eliminados.
+- RPC reales: ocho reclamaciones concurrentes producen un propietario y ocho autorizaciones producen un intento de envío; comprobados fallos previos, resultados inciertos y permisos.
+- Webhook real: cinco entregas de un eco QA produjeron un registro y ningún envío. Mensaje nuevo «prueba final velodrive»: una entrada, una respuesta y estado `completed`; recepción confirmada. Repetición de ese ID cinco veces conservó ejecución e historial originales.
+
+- Error Trigger automático comprobado: la ejecución QA `16257` generó el incidente `DEPENDENCY_TIMEOUT`; el despachador programado lo cerró como `sent` a las 16:10:57 (Colima). El flujo temporal `7RPj2584NmSxrn6L` quedó archivado. La aceptación de esta segunda alerta por Resend está comprobada; la recepción de la primera alerta fue confirmada por el usuario.
+
+Límites: falta un monitor externo a n8n, respaldos recurrentes, prueba integral de recuperación y ejercicio operativo de resolución manual de un envío incierto. El respaldo actual depende de DPAPI del usuario Windows; requiere custodia portable adicional. Estos controles no prometen ausencia de fallos ni entrega exactamente una vez.
+
 ## 1. Registro y rollback compensatorio
 
 El navegador ahora envía el formulario a `POST /api/register-lote`. El servidor crea la cuenta de Supabase Auth, inserta el lote con `email_admin` y, si falla la inserción, elimina el lote parcial y la cuenta Auth recién creada. La llave `SUPABASE_SERVICE_ROLE_KEY` solo se usa en el servidor.
@@ -30,15 +46,15 @@ También registrar `APP_BASE_URL` en Supabase Auth → URL Configuration → Red
 
 ## 2. Diagnóstico del flujo de Evolution API/n8n
 
-Revisé el archivo `VeloDrive-n8n-intervencion-automatica.json` disponible en el proyecto. El export está marcado `active: false`. La ruta principal sí está conectada: `Webhook WhatsApp1` → `Secret Evolution Válido1` → `Filtro Anti-Bucle (fromMe)1` → `Get many rows1` → asociación de canal/lote → agente. El `AI Agent Vendedor1` tiene una salida de error conectada a `responder error IA1`, que responde al contacto; no hay un nodo que notifique al dueño.
+El export local está marcado `active: false` para evitar activar copias accidentalmente; producción está publicada. El flujo valida secreto, identidad del evento y canal exacto; reclama el mensaje en PostgreSQL y después confirma recepción. Solo la ejecución que obtuvo la reclamación continúa hacia el agente o la intervención humana.
 
-Hallazgo concreto: el nodo llamado `Filtro Anti-Bucle (fromMe)1` solo comparaba `body.event == "messages.upsert"`; podía dejar pasar mensajes originados por la propia instancia y generar bucles. Ya actualicé el JSON del flujo para exigir además `body.data.key.fromMe === false`. La salida false simplemente ignora otros eventos. El filtro de canales consulta `whatsapp_channels.instance_name`, así que el valor de `body.instance` debe coincidir con el nombre guardado en esa tabla.
+`Preparar identidad del mensaje` exige ID, instancia y `fromMe` booleano. Acepta mensajes propios para distinguir intervención humana de ecos de la API; los ecos no activan IA. Los IDs salientes registrados también se descartan por la reclamación durable. El nombre de instancia debe coincidir exactamente con `whatsapp_channels.instance_name`.
 
 ### Checklist para localizar por qué no inicia una ejecución
 
 1. En n8n, confirma que el workflow está **activo** y copia la **Production URL**, no la Test URL. El webhook exportado es `POST /webhook/whatsapp-lotes`.
 2. En Evolution API, habilita el webhook global o de la instancia y configura la URL pública de producción de n8n, por ejemplo `https://<tu-n8n>/webhook/whatsapp-lotes?secret=<secreto-compartido>`.
-3. Suscribe el evento entrante `MESSAGES_UPSERT`/`messages.upsert` según cómo lo muestra tu versión de Evolution. El IF actual compara exactamente el texto en minúsculas `messages.upsert`; verifica el valor real en el payload recibido.
+3. Suscribe `MESSAGES_UPSERT`; el controlador normaliza el nombre del evento a `messages.upsert`. Verifica el payload real y el ID del mensaje.
 4. En n8n → Executions, envía un mensaje desde otro teléfono. **Si no aparece ejecución**, el problema ocurre antes del primer nodo: URL, workflow inactivo, conectividad, método HTTP o webhook configurado en otra instancia.
 5. Si aparece y se detiene en `Secret Evolution Válido1`, verifica que la query `secret` coincida con `WEBHOOK_SECRET` del servicio n8n. No compartas ese secreto en capturas o mensajes.
 6. Si pasa el secreto pero no llega a consultar datos, revisa evento/cuerpo en `Filtro Anti-Bucle (fromMe)1`.
@@ -47,18 +63,18 @@ Hallazgo concreto: el nodo llamado `Filtro Anti-Bucle (fromMe)1` solo comparaba 
 
 ### Aviso al dueño cuando falla el agente
 
-Crear un **workflow separado** en n8n para manejar fallos de ejecución:
+La implementación actual utiliza dos workflows separados:
 
-1. Añadir **Error Trigger** como primer nodo.
-2. Añadir un nodo **Edit Fields** para formar un resumen con nombre del workflow, nodo que falló, mensaje de error, timestamp y `execution.url`. No incluir API keys ni el payload íntegro del prospecto.
-3. Añadir **Send Email** usando SMTP y las credenciales del correo de soporte/dueño. Destinatario: correo del dueño del lote. Para elegir destinatario por lote, el flujo principal debe enviar el `lote_id`/correo del dueño a una tabla de incidentes o a un webhook de errores; el Error Trigger por sí solo no conoce de forma fiable la fila que el agente estaba procesando.
-4. En el workflow principal, abrir Settings y seleccionar este workflow en **Error Workflow**. Activarlo y probar con una ejecución controlada que falle.
+1. `VeloDrive-n8n-incidentes.json`: Error Trigger → saneamiento → RPC de incidentes. Otra rama programada revisa ejecuciones atascadas. Está asociado en Settings → Error Workflow del principal.
+2. `VeloDrive-n8n-alertas-correo.json`: consulta avisos pendientes → reclamación atómica → Resend HTTPS con Idempotency-Key → confirmación o resultado incierto.
+3. Destinatario central autorizado: `rizoa1333@gmail.com`. Solo se envían código, nodo e identificadores; no conversaciones, documentos ni mensajes de error originales.
+4. El correo de prueba llegó. El ejercicio completo de un fallo automático que dispare Error Trigger sigue pendiente; las ejecuciones manuales no disparan ese trigger.
 
 El archivo exportado actual ya responde al cliente por la salida de error del agente. El Error Trigger agrega una alerta operativa independiente; no sustituye la respuesta manual ni recupera ejecuciones por sí solo.
 
 ## 3. Pruebas agregadas
 
-Los tests usan servicios Supabase/Evolution simulados. No escriben en producción ni confirman que Railway, n8n, Evolution, Stripe o Gemini estén operativos.
+`npm test` y Playwright usan dobles de servicios. Los scripts de `tests/integration/` requieren `--live-qa`, escriben fixtures explícitos en Supabase y los limpian; el replay exige un mensaje QA reciente ya respondido. No ejecutar pruebas reales sin revisar su alcance.
 
 ```powershell
 npm test

@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+if(!process.argv.includes('--live-qa'))throw new Error('Requiere --live-qa y un ID del mensaje de prueba ya respondido.');
+const index=process.argv.indexOf('--message-id');const messageId=process.argv[index+1];
+assert.ok(index>=0&&/^[A-Za-z0-9_-]{1,128}$/.test(messageId));
+const cfg=Object.fromEntries(readFileSync('.env','utf8').split(/\r?\n/).filter(x=>/^[A-Z_0-9]+=/.test(x)).map(x=>{const i=x.indexOf('=');return [x.slice(0,i),x.slice(i+1).replace(/^['"]|['"]$/g,'')];}));
+const base=new URL(cfg.SUPABASE_URL).origin;
+const headers={apikey:cfg.SUPABASE_SERVICE_ROLE_KEY,Authorization:`Bearer ${cfg.SUPABASE_SERVICE_ROLE_KEY}`,'User-Agent':'VeloDrive-QA/1.0'};
+const instance='instancia_38fc2094-ce52-4e6a-9c42-69db7725d65f';
+async function get(path){const r=await fetch(base+'/rest/v1/'+path,{headers,signal:AbortSignal.timeout(15000)});assert.equal(r.status,200);return r.json();}
+const inboxPath=`whatsapp_inbox?instance_name=eq.${instance}&message_id=eq.${messageId}`;
+const [event]=await get(inboxPath);assert.ok(event);assert.equal(event.state,'completed');assert.ok(event.outbound_id);
+assert.ok(Date.now()-new Date(event.created_at).getTime()<30*60*1000,'solo se repite una prueba reciente');
+const since=new Date(new Date(event.created_at).getTime()-1000).toISOString();
+const historyPath=`chat_history?lote_id=eq.${event.lote_id}&phone_number=eq.${encodeURIComponent(event.phone_number)}&created_at=gte.${encodeURIComponent(since)}&order=created_at.asc`;
+const before=await get(historyPath);
+assert.ok(before.some(x=>x.role==='user'&&/^(hola[, ]*)?prueba final( de)? velodrive[.!]?$/i.test(x.content.trim())),'el mensaje debe ser la prueba final autorizada');
+const webhook=new URL('https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes');webhook.searchParams.set('secret',cfg.WEBHOOK_SECRET);
+const body={event:'messages.upsert',instance,data:{key:{id:messageId,fromMe:false,remoteJid:event.phone_number+'@s.whatsapp.net'},message:{conversation:'prueba final velodrive'}}};
+const responses=await Promise.all(Array.from({length:5},()=>fetch(webhook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)})));
+assert.ok(responses.every(r=>r.ok));
+const [after]=await get(inboxPath);assert.equal(after.execution_id,event.execution_id);assert.equal(after.outbound_id,event.outbound_id);assert.equal(after.state,'completed');
+const historyAfter=await get(historyPath);assert.deepEqual(historyAfter,before);
+console.log('PASS: repetir 5 veces el mensaje QA real conserva ejecución, respuesta e historial originales.');

@@ -1,0 +1,398 @@
+{
+  "name": "VeloDrive - Alertas por correo",
+  "nodes": [
+    {
+      "id": "ade429409d26161d590457b2c171c4bd",
+      "name": "Revisar alertas pendientes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3dffc62ad852f4a38e10231c39f9b451",
+      "name": "Listar incidentes pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/operational_incidents?notification_state=eq.pending&order=created_at.asc&limit=20&select=execution_id,workflow_id,lote_id,node_name,code,created_at",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "1b1762348fe53a82e17a0cae8f7fcfae",
+      "name": "Por incidente",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "82ff9999a8b6262f2739e91493fc4433",
+      "name": "Reclamar alerta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/claim_incident_notification",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {p_incident_id:$json.execution_id,p_sender_id:String($execution.id)} }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "4fb8717085267fabd3d978b67e5ba389",
+      "name": "¿Alerta adquirida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "47f30ac6158f9a528d57988f72c86335",
+              "leftValue": "={{ $json.acquired === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4e184446c6561aac90ae5033a4e36484",
+      "name": "Enviar alerta de soporte",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ 'velodrive-incident/'+$('Por incidente').item.json.execution_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {from:$env.ALERT_FROM_EMAIL || 'VeloDrive <onboarding@resend.dev>',to:['rizoa1333@gmail.com'],subject:'VeloDrive: incidente operativo',text:'VeloDrive requiere revisión manual.\\nEjecución: '+$('Por incidente').item.json.execution_id+'\\nFlujo: '+$('Por incidente').item.json.workflow_id+'\\nLote: '+($('Por incidente').item.json.lote_id || 'sin identificar')+'\\nNodo: '+$('Por incidente').item.json.node_name+'\\nCódigo: '+$('Por incidente').item.json.code+'\\nNo reenvíes un mensaje con resultado incierto sin comprobar su entrega.'} }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5c9A40nxvDkWxTvF",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "8dca839c8f7ff80a4ea38c801c430c07",
+      "name": "¿Proveedor aceptó alerta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "abacce47f328e900298b742fd2013b01",
+              "leftValue": "={{ typeof $json.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test($json.id) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4d8d05981a3854731c74341764dfeed5",
+      "name": "Confirmar alerta enviada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/finish_incident_notification",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {p_incident_id:$('Por incidente').item.json.execution_id,p_sender_id:String($execution.id),p_sent:true} }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "94b5a4443f87122cc82503b799c5e058",
+      "name": "Marcar alerta incierta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/finish_incident_notification",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {p_incident_id:$('Por incidente').item.json.execution_id,p_sender_id:String($execution.id),p_sent:false} }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Revisar alertas pendientes": {
+      "main": [
+        [
+          {
+            "node": "Listar incidentes pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar incidentes pendientes": {
+      "main": [
+        [
+          {
+            "node": "Por incidente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Por incidente": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Reclamar alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reclamar alerta": {
+      "main": [
+        [
+          {
+            "node": "¿Alerta adquirida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Alerta adquirida?": {
+      "main": [
+        [
+          {
+            "node": "Enviar alerta de soporte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Por incidente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar alerta de soporte": {
+      "main": [
+        [
+          {
+            "node": "¿Proveedor aceptó alerta?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar alerta incierta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Proveedor aceptó alerta?": {
+      "main": [
+        [
+          {
+            "node": "Confirmar alerta enviada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar alerta incierta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar alerta enviada": {
+      "main": [
+        [
+          {
+            "node": "Por incidente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar alerta incierta": {
+      "main": [
+        [
+          {
+            "node": "Por incidente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "active": false,
+  "pinData": {}
+}
