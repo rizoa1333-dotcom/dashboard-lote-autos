@@ -7,7 +7,9 @@
 - La nueva clave `velodrive:v2:<lote>:<telefono>` no reutiliza la memoria anterior. Historial y búsqueda de lead usan esa misma identidad validada y filtran por lote y teléfono.
 - Se respaldó cifrado el lead QA 24 y su historial. Se retiraron sus datos derivados contaminados y una respuesta del modelo; se conservó el mensaje original del usuario. El expediente del lead 18 no se borró.
 - 74 pruebas unitarias y 14 de navegador aprobadas. Pruebas nuevas: dos teléfonos en un lote, mismo teléfono en lotes distintos, entrada del nodo anterior manipulada e identidad inválida. Clave y filtros exportados de n8n coinciden con el código local; 197 nodos y Error Workflow conservados.
-- Pendiente de confirmar con el usuario: saludo nuevo del segundo teléfono y alternancia entre ambos. La prueba de carga de múltiples clientes y recuperación de memoria tras reinicio siguen siendo validaciones distintas.
+- Prueba real posterior: `17161` terminó `completed`; un teléfono nuevo creó el lead 25, saludó y pidió nombre sin mencionar al primer cliente ni solicitar documentos. El lead nuevo no heredó cita.
+- Prueba cruzada real confirmada: `17164` reconoce Bruno en el teléfono nuevo sin mencionar Ángel; `17165` reconoce Ángel en el original sin mencionar Bruno. Ambas terminaron `completed` con ID saliente. El lead 18 conserva paso 4, el lead 25 paso 0 y sin cita; el lote conserva exactamente una cita. El usuario completó la prueba alternando ambos teléfonos.
+- La prueba de carga de múltiples clientes y recuperación de memoria tras reinicio siguen siendo validaciones distintas. Simple Memory sigue siendo memoria en proceso; esta corrección no acredita persistencia tras un reinicio.
 
 Construir una clave cuesta O(1) para identificadores de longitud acotada. La memoria total crece con conversaciones e historial retenidos; esta separación no establece por sí sola un límite de memoria.
 
