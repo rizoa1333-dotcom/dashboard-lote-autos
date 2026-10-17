@@ -38,7 +38,9 @@ La integración requiere `.env` local ignorado y crea lotes inactivos y usuarios
 
 Resultados del 16 de octubre de 2026: 81 pruebas unitarias, 14 de navegador e integración real de Supabase aprobadas. Se publicó la versión «Memoria persistente Supabase por lote y teléfono», 200 nodos, y se comparó su exportación con los RPC y constructor locales. El manejador de errores existente permanece configurado.
 
-Pendiente de evidencia: prueba desde dos teléfonos, reinicio controlado y recuperación de datos distintos después del reinicio. Las pruebas de navegador usan dependencias simuladas y no sustituyen esta comprobación real.
+Prueba real del 16 de octubre: ejecución 17370 guardó el color azul y su respuesta antes del reinicio. Se redesplegó n8n con la misma imagen y volumen (deployment `2f06b906-bada-4f75-bf3f-59e8360ee0f8`, SUCCESS; readiness HTTP200). Después, la ejecución 17373 recuperó azul ante una pregunta sin pista, terminó `completed` y guardó exactamente una respuesta sin bloques internos. El contexto contenía 22 entradas, incluido el dato anterior al reinicio, y ninguna fila ajena a la conversación. El usuario confirmó recepción correcta.
+
+Pendiente: repetir la comprobación real con dos teléfonos después del reinicio; el usuario solo tenía uno disponible. El aislamiento de dos teléfonos y dos lotes sí se probó contra Supabase con fixtures controlados. Las pruebas de navegador usan dependencias simuladas.
 
 ## Límites operativos
 

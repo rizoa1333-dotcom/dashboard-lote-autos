@@ -20,7 +20,7 @@
 - [x] Añadir migración aditiva con índices y RPC de lectura/escritura, exclusivos de service_role; probar concurrencia e idempotencia con fixtures exactos.
 - [x] Implementar constructor de contexto acotado y generador n8n. Recuperar campos confirmados, desconectar memoria volátil y registrar respuestas normales, documentales y de contingencia una vez.
 - [x] Aplicar SQL y publicar n8n, preservando configuración y credenciales existentes; comparar exportación con el archivo local.
-- [ ] Ejecutar suite y pruebas reales con dos teléfonos, reiniciar n8n de forma controlada y verificar continuidad. No declarar prueba de reinicio sin evidencia posterior.
+- [x] Ejecutar suite, reiniciar n8n de forma controlada y verificar continuidad con un teléfono real. Aislamiento de dos conversaciones probado en integración; repetición humana con dos teléfonos pendiente por disponibilidad.
 - [ ] Documentar evidencia, limitaciones y commit; comprobar respaldo remoto.
 
 ## Revisión
@@ -37,3 +37,7 @@ La consulta indexada cuesta O(log n + k), con k acotado; construir contexto cues
 - n8n publicado con 200 nodos, exportación comparada, errorWorkflow preservado.
 - Pendiente prueba humana de dos teléfonos y reinicio controlado.
 - Ruling: conservar ventana de 24 mensajes y campos confirmados, sin resumen adicional — coste acotado — preferencias antiguas pueden salir de contexto.
+
+- Reinicio real SUCCESS/readiness200: deployment 2f06b906-bada-4f75-bf3f-59e8360ee0f8. Ejecuciones 17370/17373: azul conservado, contexto22, ninguna fila ajena, una respuesta y completed. Usuario confirmó recepción.
+- Ruling: validar continuidad con un teléfono disponible y aislamiento con fixtures en Supabase — usuario sin segundo teléfono — queda pendiente repetir aislamiento humano tras reinicio.
+- Código guardado en 7f32fb8. Push bloqueado por Git Credential Manager; no se eludió el bloqueo.
