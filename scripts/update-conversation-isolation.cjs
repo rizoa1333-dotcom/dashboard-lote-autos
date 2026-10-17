@@ -15,7 +15,9 @@ node('Simple Memory1').parameters.sessionKey = `={{ (() => {
   return 'velodrive:v2:' + lot.toLowerCase() + ':' + phone;
 })() }}`;
 for (const name of ['Buscar Lead Existente1', 'Recuperar Historial1']) {
-  const filters = node(name).parameters.filters.conditions;
+  const filters = node(name).parameters.filters?.conditions;
+  if (!filters && name === 'Recuperar Historial1' && node(name).parameters.url?.endsWith('/get_conversation_context')) continue;
+  if (!filters) throw new Error(`Missing conversation filters: ${name}`);
   filters.find(condition => condition.keyName === 'phone_number').keyValue = "={{ $('Preparar identidad del mensaje').first().json.phone_number }}";
   filters.find(condition => condition.keyName === 'lote_id').keyValue = "={{ $('Edit Fields1').first().json.tenant_lote_id }}";
 }

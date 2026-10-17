@@ -43,8 +43,8 @@ put('Detener confirmación inconsistente','n8n-nodes-base.stopAndError',{errorMe
 connect('Enviar Respuesta WhatsApp1',['Confirmar envío aceptado']);
 connect('Confirmar envío aceptado',['¿Envío confirmado?']);
 connect('¿Envío confirmado?',['Guardar Respuesta IA1'],['Detener confirmación inconsistente']);
-const phoneField=node('Guardar Respuesta IA1').parameters.fieldsUi.fieldValues.find(f=>f.fieldId==='phone_number');
-phoneField.fieldValue="={{ $('Preparar identidad del mensaje').first().json.phone_number }}";
+const phoneField=node('Guardar Respuesta IA1').parameters.fieldsUi?.fieldValues.find(f=>f.fieldId==='phone_number');
+if(phoneField)phoneField.fieldValue="={{ $('Preparar identidad del mensaje').first().json.phone_number }}";
 rpc('Completar mensaje durable','finish_whatsapp_event',keyBody+",p_state:'completed'",[37700,18500]);
 connect('Guardar Respuesta IA1',['Completar mensaje durable']);
 connect('Guardar mensaje del encargado',['Completar mensaje durable']);
