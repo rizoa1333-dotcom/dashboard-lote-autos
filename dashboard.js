@@ -52,12 +52,30 @@ function showActionToast(message, state = 'success') {
   if (actionToastTimer) clearTimeout(actionToastTimer);
   actionToastTimer = setTimeout(() => toast.classList.add('hidden'), 4500);
 }
-function redirigirAStripeCheckout(lote) {
-  const url = new URL(STRIPE_LINK);
-  // Payment Links aceptan esta referencia en Checkout; el webhook firmado la
-  // usa para asociar el pago al lote y valida además el correo del administrador.
-  url.searchParams.set('client_reference_id', lote.id);
-  window.location.href = url.toString();
+let checkoutPending = false;
+async function redirigirAStripeCheckout(lote) {
+  if (checkoutPending) return;
+  checkoutPending = true;
+  const finish = window.VeloDriveUI.beginSubmit(document.getElementById('subscriptionPayBtn'), null, 'Preparando pago…');
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    const token = data?.session?.access_token;
+    if (!token) throw new Error('La cuenta está creada. Inicia sesión para continuar con el pago.');
+    const response = await fetch('/api/stripe-checkout-link', {
+      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lote_id: lote.id, qa: STRIPE_LIVE_QA_MODE, test: STRIPE_TEST_MODE }),
+      signal: AbortSignal.timeout(15000)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || 'No se pudo preparar el pago. Intenta de nuevo.');
+    if (currentLote?.id !== lote.id) throw new Error('Tu sesión cambió. Vuelve a iniciar sesión.');
+    const url = new URL(result.url);
+    if (url.origin !== 'https://buy.stripe.com') throw new Error('El enlace de pago no es válido.');
+    window.location.href = url.toString();
+  } finally {
+    checkoutPending = false;
+    finish?.();
+  }
 }
 
 const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22250%22%20viewBox%3D%220%200%20400%20250%22%3E%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22%2320242F%22/%3E%3Ctext%20x%3D%22200%22%20y%3D%22125%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2216%22%20fill%3D%22%239CA3AF%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3ESin%20foto%3C%2Ftext%3E%3C%2Fsvg%3E';
@@ -2235,7 +2253,7 @@ async function handleRegistroSubmit(e) {
       if (sessionError) throw new Error('La cuenta y el lote se crearon, pero no se pudo iniciar sesión. Inicia sesión para continuar al pago.');
       currentUser = result.user;
       currentLote = result.lote;
-      redirigirAStripeCheckout(currentLote);
+      await redirigirAStripeCheckout(currentLote);
       return;
     }
 
@@ -2488,7 +2506,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   handleSocialReturn();
 
   // ── TERCERO: listeners del dashboard (solo si los elementos existen) ───
-  on('subscriptionPayBtn', 'click', () => { if (currentLote) redirigirAStripeCheckout(currentLote); });
+  on('subscriptionPayBtn', 'click', async () => {
+    if (!currentLote) return;
+    try { await redirigirAStripeCheckout(currentLote); }
+    catch (error) { showActionToast(error.message || 'No se pudo preparar el pago.', 'error'); }
+  });
   on('btnRefrescarQr',    'click', () => cargarEstadoWhatsappQr({renovar:true}));
   on('btnConectarRedes',  'click', conectarRedesSociales);
   on('btnVerificarRedes', 'click', verificarRedesSociales);

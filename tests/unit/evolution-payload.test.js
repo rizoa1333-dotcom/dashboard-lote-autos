@@ -27,7 +27,8 @@ test('workflow export contiene un webhook POST /webhook/whatsapp-lotes', () => {
   assert.ok(node);
   assert.equal(node.parameters.httpMethod, 'POST');
   assert.equal(node.parameters.path, 'whatsapp-lotes');
-  assert.equal(workflow.connections['Webhook WhatsApp1'].main[0][0].node, 'Secret Evolution Válido1');
+  assert.equal(workflow.connections['Webhook WhatsApp1'].main[0][0].node, 'Validar origen Evolution');
+  assert.equal(workflow.connections['Validar origen Evolution'].main[0][0].node, 'Secret Evolution Válido1');
 });
 
 test('payload messages.upsert asocia una instancia al lote y normaliza el teléfono', () => {

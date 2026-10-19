@@ -147,7 +147,10 @@ const supabaseMock = String.raw`(() => {
     auth: {
       getSession: async () => ({ data: { session: window.__testSession || null }, error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
-      setSession: async () => ({ data: { session: window.__testSession || null }, error: null }),
+      setSession: async (tokens) => {
+        window.__testSession = { ...tokens, user: window.__registerResponse?.body?.user || window.__testSession?.user };
+        return { data: { session: window.__testSession }, error: null };
+      },
       signOut: async () => ({ error: null }),
       signInWithPassword: async () => ({ data: {}, error: null }),
       updateUser: async () => ({ error: null }),
@@ -163,7 +166,7 @@ const supabaseMock = String.raw`(() => {
 })();`;
 
 async function setupPage(page, session = null, registerResponse = null, search = '') {
-  const bootstrap = `window.__testSession=${JSON.stringify(session)};window.__registerResponse=${JSON.stringify(registerResponse)};const realFetch=window.fetch.bind(window);window.fetch=async(input,options)=>{if(String(input).includes('/api/register-lote')){const r=window.__registerResponse||{status:201,body:{}};return new Response(JSON.stringify(r.body),{status:r.status,headers:{'Content-Type':'application/json'}})}return realFetch(input,options)};`;
+  const bootstrap = `window.__testSession=${JSON.stringify(session)};window.__registerResponse=${JSON.stringify(registerResponse)};window.__checkoutRequests=[];const realFetch=window.fetch.bind(window);window.fetch=async(input,options)=>{if(String(input).includes('/api/stripe-checkout-link')){window.__checkoutRequests.push(JSON.parse(options.body));const slug=window.VELODRIVE_STRIPE_TEST_MODE?'test_6oU5kFft7f452Bw0x73oA00':window.VELODRIVE_STRIPE_LIVE_QA_MODE?'fZu8wRbcR09b0to93D3oA07':'9B614p0ydcVXa3Y1Bb3oA06';return new Response(JSON.stringify({url:'https://buy.stripe.com/'+slug+'?client_reference_id=server_signed_reference'}),{status:200,headers:{'Content-Type':'application/json'}})}if(String(input).includes('/api/register-lote')){const r=window.__registerResponse||{status:201,body:{}};return new Response(JSON.stringify(r.body),{status:r.status,headers:{'Content-Type':'application/json'}})}return realFetch(input,options)};`;
   await page.addInitScript({ content: bootstrap + supabaseMock });
   await page.route('https://storage.test/**', route => route.fulfill({ contentType:'image/svg+xml', body:'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>' }));
   await page.route('https://cdn.tailwindcss.com/**', (route) => route.abort());
@@ -239,7 +242,7 @@ test('registro: persiste el lote y redirige a Stripe con referencia del lote', a
   await page.route('https://buy.stripe.com/**', (route) => route.abort());
   await completeRegistrationWizard(page);
   await page.locator('#btnSubmitRegistro').click();
-  await expect.poll(() => stripeRequest).toContain('client_reference_id=lote-qa-001');
+  await expect.poll(() => stripeRequest).toContain('client_reference_id=server_signed_reference');
   await expect.poll(() => stripeRequest).toMatch(/^https:\/\/buy\.stripe\.com\/9B614p0ydcVXa3Y1Bb3oA06\?/);
 });
 
@@ -262,7 +265,7 @@ test('registro de prueba: muestra el aviso, cobra $10 MXN/mes en Stripe Test y c
   await expect(page.locator('#registroPrecioTexto')).toContainText('10');
   await page.locator('#btnSubmitRegistro').click();
   await expect.poll(() => stripeRequest).toContain('https://buy.stripe.com/test_6oU5kFft7f452Bw0x73oA00');
-  await expect.poll(() => stripeRequest).toContain('client_reference_id=lote-qa-001');
+  await expect.poll(() => stripeRequest).toContain('client_reference_id=server_signed_reference');
 });
 
 test('registro QA con cobro real: muestra aviso de recurrencia y usa el Payment Link de $10 MXN', async ({ page }) => {
@@ -284,7 +287,7 @@ test('registro QA con cobro real: muestra aviso de recurrencia y usa el Payment 
   await expect(page.locator('#registroPrecioTexto')).toContainText('cobro real');
   await page.locator('#btnSubmitRegistro').click();
   await expect.poll(() => stripeRequest).toContain('https://buy.stripe.com/fZu8wRbcR09b0to93D3oA07');
-  await expect.poll(() => stripeRequest).toContain('client_reference_id=lote-qa-001');
+  await expect.poll(() => stripeRequest).toContain('client_reference_id=server_signed_reference');
 });
 
 test.describe('inventario y utilidad', () => {

@@ -3,6 +3,7 @@ const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { createStripeWebhookHandler } = require('./stripe-webhook');
+const { createCheckoutLinkHandler } = require('./checkout-authorization');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,6 +32,7 @@ const registerRateLimit = rateLimit({
 // Stripe requiere el cuerpo HTTP sin parsear para comprobar la firma.
 // Esta ruta debe conservar express.raw y colocarse antes de cualquier JSON global.
 app.post('/api/stripe-webhook', express.raw({ type: 'application/json', limit: '1mb' }), createStripeWebhookHandler());
+app.post('/api/stripe-checkout-link', express.json({ limit: '2kb' }), createCheckoutLinkHandler());
 
 // Crea Auth y el lote desde el servidor. Auth y PostgREST no comparten una
 // transacción SQL; si el INSERT falla se compensa eliminando al usuario Auth
@@ -93,15 +95,22 @@ app.post('/api/register-lote', registerRateLimit, express.json({ limit: '20kb' }
       })
     });
     const authResult = await authResponse.json().catch(() => ({}));
-    if (!authResponse.ok || !authResult.user?.id) {
+    const authUser = authResult.user || (typeof authResult.id === 'string' ? authResult : null);
+    const obfuscatedDuplicate = Array.isArray(authUser?.identities) && authUser.identities.length === 0;
+    if (!authResponse.ok || !authUser?.id || obfuscatedDuplicate) {
       const message = String(authResult.msg || authResult.message || authResult.error_description || 'No se pudo crear la cuenta.').toLowerCase();
-      const duplicate = /already|registered|exists|duplicate|already been registered/.test(message);
-      return res.status(duplicate ? 422 : (authResponse.status >= 500 ? 502 : authResponse.status)).json({
+      const duplicate = obfuscatedDuplicate || /already|registered|exists|duplicate|already been registered/.test(message);
+      return res.status(duplicate ? 422 : (authResponse.ok || authResponse.status >= 500 ? 502 : authResponse.status)).json({
         code: duplicate ? 'EMAIL_ALREADY_REGISTERED' : 'AUTH_SIGNUP_FAILED',
         message: duplicate ? 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.' : (authResult.msg || authResult.message || 'No se pudo crear la cuenta. Revisa los datos e inténtalo de nuevo.')
       });
     }
-    createdUserId = authResult.user.id;
+    createdUserId = authUser.id;
+    const authSession = authResult.access_token && authResult.refresh_token ? {
+      access_token: authResult.access_token, refresh_token: authResult.refresh_token,
+      expires_in: authResult.expires_in, expires_at: authResult.expires_at,
+      token_type: authResult.token_type, user: authUser
+    } : authResult.session || null;
 
     const lotResponse = await fetch(`${supabaseUrl}/rest/v1/lotes?select=*`, {
       method: 'POST',
@@ -146,10 +155,10 @@ app.post('/api/register-lote', registerRateLimit, express.json({ limit: '20kb' }
     }
 
     return res.status(201).json({
-      user: { id: createdUserId, email: authResult.user.email },
+      user: { id: createdUserId, email: authUser.email },
       lote: lotResult[0],
-      session: authResult.session || null,
-      requiresEmailConfirmation: !authResult.session
+      session: authSession,
+      requiresEmailConfirmation: !authSession
     });
   } catch (error) {
     console.error('[Registro] Error de conexión creando cuenta/lote:', error.message);

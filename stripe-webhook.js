@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { verifyCheckoutReference } = require('./checkout-authorization');
 
 const SIGNATURE_TOLERANCE_SECONDS = 300;
 
@@ -31,151 +32,117 @@ function getActiveStatus(status) {
 function createStripeWebhookHandler({ fetchImpl = (...args) => fetch(...args), env = process.env } = {}) {
   return async function stripeWebhookHandler(req, res) {
     const secret = env.STRIPE_WEBHOOK_SECRET;
-    const stripeSecretKey = env.STRIPE_SECRET_KEY;
-    const supabaseUrl = (env.SUPABASE_URL || '').replace(/\/$/, '');
-    const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
-    const allowedPaymentLinks = new Set((env.STRIPE_ALLOWED_PAYMENT_LINK_IDS || '').split(',').map((id) => id.trim()).filter(Boolean));
-    const qaPaymentLinkId = String(env.STRIPE_QA_PAYMENT_LINK_ID || '').trim();
-    const qaEmail = String(env.STRIPE_QA_EMAIL || '').trim().toLowerCase();
-
-    if (!secret || !stripeSecretKey || !supabaseUrl || !serviceRoleKey || allowedPaymentLinks.size === 0 || !qaPaymentLinkId || !qaEmail) {
+    const stripeKey = env.STRIPE_SECRET_KEY;
+    const origin = (env.SUPABASE_URL || '').replace(/\/$/, '');
+    const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
+    const allowed = new Set((env.STRIPE_ALLOWED_PAYMENT_LINK_IDS || '').split(',').map(s => s.trim()).filter(Boolean));
+    if (!secret || !stripeKey || !origin || !serviceKey || !allowed.size || !env.STRIPE_QA_PAYMENT_LINK_ID || !env.STRIPE_QA_EMAIL) {
       return res.status(503).json({ error: 'Stripe webhook is not configured.' });
     }
     if (!verifyStripeSignature(req.body, req.get('stripe-signature'), secret)) {
       return res.status(400).json({ error: 'Invalid Stripe signature.' });
     }
-
     let event;
-    try {
-      event = JSON.parse(req.body.toString('utf8'));
-    } catch (_) {
-      return res.status(400).json({ error: 'Invalid event body.' });
+    try { event = JSON.parse(req.body.toString('utf8')); }
+    catch { return res.status(400).json({ error: 'Invalid event body.' }); }
+    if (!event || typeof event.id !== 'string' || !/^evt_[A-Za-z0-9]{1,128}$/.test(event.id)) {
+      return res.status(400).json({ error: 'Invalid event ID.' });
     }
-
-    const stripeGet = async (resource) => {
-      const response = await fetchImpl(`https://api.stripe.com/v1/${resource}`, {
-        headers: { Authorization: `Basic ${Buffer.from(`${stripeSecretKey}:`).toString('base64')}` }
+    const supported = ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated',
+      'customer.subscription.deleted', 'invoice.paid', 'invoice.payment_failed'];
+    if (!supported.includes(event.type)) return res.json({ received: true, ignored: true });
+    const object = event.data?.object || {};
+    const checkout = event.type === 'checkout.session.completed';
+    let identity = null;
+    if (checkout) {
+      if (object.mode !== 'subscription' || !allowed.has(object.payment_link)) {
+        return res.json({ received: true, ignored: true, reason: 'payment_link_not_allowed' });
+      }
+      identity = verifyCheckoutReference({ reference: object.client_reference_id, paymentLinkId: object.payment_link, secret, created: object.created });
+      if (!identity) return res.json({ received: true, ignored: true, reason: 'invalid_checkout_reference' });
+    }
+    const subscriptionId = checkout ? object.subscription : event.type.startsWith('customer.subscription.') ? object.id : getSubscriptionId(object);
+    if (typeof subscriptionId !== 'string' || !/^sub_[A-Za-z0-9]{1,128}$/.test(subscriptionId)) {
+      return res.json({ received: true, ignored: true, reason: 'subscription_missing' });
+    }
+    const serviceHeaders = { apikey: serviceKey, 'Content-Type': 'application/json' };
+    if (serviceKey.startsWith('eyJ')) serviceHeaders.Authorization = 'Bearer ' + serviceKey;
+    const rpc = async (name, data) => {
+      const response = await fetchImpl(origin + '/rest/v1/rpc/' + name, {
+        method: 'POST', headers: serviceHeaders, body: JSON.stringify(data), signal: AbortSignal.timeout(15000)
       });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(`Stripe API error (${response.status}).`);
-      return result;
+      const value = await response.json().catch(() => null);
+      if (!response.ok) throw new Error('BILLING_STORE_FAILED');
+      return value;
     };
-
-    const updateLot = async (filter, patch) => {
-      const response = await fetchImpl(`${supabaseUrl}/rest/v1/lotes?${filter}`, {
-        method: 'PATCH',
-        headers: {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          'Content-Type': 'application/json',
-          Prefer: 'return=representation'
-        },
-        body: JSON.stringify(patch)
-      });
-      const rows = await response.json().catch(() => []);
-      if (!response.ok) throw new Error(`Supabase update error (${response.status}).`);
-      return rows;
-    };
-
-    const findLot = async (lotId) => {
-      const query = new URLSearchParams({
-        select: 'id,email_admin,stripe_subscription_id,plan_status',
-        id: `eq.${lotId}`,
-        limit: '1'
-      });
-      const response = await fetchImpl(`${supabaseUrl}/rest/v1/lotes?${query}`, {
-        headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` }
-      });
-      const rows = await response.json().catch(() => []);
-      if (!response.ok) throw new Error(`Supabase lookup error (${response.status}).`);
-      return rows[0] || null;
-    };
-
+    const lease = { p_event_id: event.id, p_subscription_id: subscriptionId, p_lease_token: crypto.randomUUID() };
+    let acquired = false, applied = false;
     try {
-      if (event.type === 'checkout.session.completed') {
-        const session = event.data?.object || {};
-        if (session.mode !== 'subscription' || !allowedPaymentLinks.has(session.payment_link)) {
-          return res.status(200).json({ received: true, ignored: true });
+      const claim = await rpc('claim_stripe_security_event', lease);
+      if (claim?.state === 'duplicate') return res.json({ received: true, duplicate: true });
+      if (claim?.state === 'busy') return res.status(503).json({ error: 'Subscription is being reconciled. Retry later.' });
+      if (claim?.state !== 'claimed') throw new Error('INVALID_BILLING_CLAIM');
+      acquired = true;
+      let lot;
+      if (checkout) {
+        const query = new URLSearchParams({ select: 'id,profile_id,email_admin,stripe_subscription_id', id: 'eq.' + identity.lotId, limit: '1' });
+        const lookup = await fetchImpl(origin + '/rest/v1/lotes?' + query, { headers: serviceHeaders, signal: AbortSignal.timeout(15000) });
+        if (!lookup.ok) throw new Error('LOT_LOOKUP_FAILED');
+        const rows = await lookup.json();
+        lot = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+        const email = String(object.customer_details?.email || object.customer_email || '').trim().toLowerCase();
+        const qa = object.payment_link === env.STRIPE_QA_PAYMENT_LINK_ID;
+        if (!lot || lot.id !== identity.lotId || lot.profile_id !== identity.ownerId
+          || !email || email !== String(lot.email_admin || '').trim().toLowerCase()
+          || (qa && email !== env.STRIPE_QA_EMAIL.toLowerCase())
+          || (lot.stripe_subscription_id && lot.stripe_subscription_id !== subscriptionId)) {
+          return res.json({ received: true, ignored: true, reason: 'checkout_owner_conflict' });
         }
-        if (!session.client_reference_id || !session.subscription || !session.customer) {
-          return res.status(400).json({ error: 'Checkout session is missing its lot or subscription reference.' });
-        }
-
-        const lot = await findLot(session.client_reference_id);
-        if (!lot) return res.status(404).json({ error: 'Lot not found for Stripe checkout.' });
-        const checkoutEmail = String(session.customer_details?.email || session.customer_email || '').trim().toLowerCase();
-        if (session.payment_link === qaPaymentLinkId && checkoutEmail !== qaEmail) {
-          console.error('[Stripe Webhook] Correo fuera de la lista de prueba de $10 MXN:', lot.id);
-          return res.status(200).json({ received: true, ignored: true, reason: 'qa_email_not_allowed' });
-        }
-        if (!checkoutEmail || checkoutEmail !== String(lot.email_admin || '').trim().toLowerCase()) {
-          console.error('[Stripe Webhook] El correo de Checkout no coincide con el administrador del lote:', lot.id);
-          return res.status(200).json({ received: true, ignored: true, reason: 'customer_email_mismatch' });
-        }
-        if (lot.stripe_subscription_id && lot.stripe_subscription_id !== session.subscription) {
-          console.error('[Stripe Webhook] Lote ya vinculado a otra suscripción activa:', lot.id);
-          return res.status(200).json({ received: true, ignored: true, reason: 'lot_already_subscribed' });
-        }
-
-        const subscription = await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`);
-        if (getActiveStatus(subscription.status) === 'inactive') {
-          return res.status(200).json({ received: true, ignored: true, reason: 'subscription_inactive' });
-        }
-        const isPaid = session.payment_status === 'paid' || session.payment_status === 'no_payment_required';
-        const status = isPaid ? getActiveStatus(subscription.status) : 'pending';
-        const patch = {
-          stripe_customer_id: session.customer,
-          stripe_subscription_id: subscription.id,
-          plan_status: status,
-          fecha_vencimiento: subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000).toISOString()
-            : null
-        };
-        // El filtro compare-and-set evita que dos checkouts concurrentes
-        // sobrescriban la suscripción de un mismo lote.
-        const lotFilter = new URLSearchParams({
-          id: `eq.${session.client_reference_id}`,
-          or: `(stripe_subscription_id.is.null,stripe_subscription_id.eq.${session.subscription})`
-        });
-        const rows = await updateLot(lotFilter.toString(), patch);
-        if (!rows.length) return res.status(200).json({ received: true, ignored: true, reason: 'lot_subscription_conflict' });
-        return res.status(200).json({ received: true });
       }
-
-      if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
-        const subscription = event.data?.object || {};
-        if (!subscription.id) return res.status(400).json({ error: 'Subscription event is missing its ID.' });
-        const isCancelled = event.type === 'customer.subscription.deleted' || subscription.status === 'canceled';
-        const rows = await updateLot(`stripe_subscription_id=eq.${encodeURIComponent(subscription.id)}`, {
-          stripe_customer_id: subscription.customer,
-          stripe_subscription_id: isCancelled ? null : subscription.id,
-          plan_status: isCancelled ? 'inactive' : getActiveStatus(subscription.status),
-          fecha_vencimiento: subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000).toISOString()
-            : null
-        });
-        return res.status(200).json({ received: true, matched: rows.length > 0 });
+      // El lease por suscripción se obtiene ANTES de leer Stripe; el RPC de commit comprueba el fencing token.
+      const stripeResponse = await fetchImpl('https://api.stripe.com/v1/subscriptions/' + encodeURIComponent(subscriptionId), {
+        headers: { Authorization: 'Basic ' + Buffer.from(stripeKey + ':').toString('base64') }, signal: AbortSignal.timeout(15000)
+      });
+      if (!stripeResponse.ok) throw new Error('STRIPE_LOOKUP_FAILED');
+      const current = await stripeResponse.json();
+      if (current.id !== subscriptionId || typeof current.customer !== 'string' || !/^cus_[A-Za-z0-9]{1,128}$/.test(current.customer)) {
+        throw new Error('SUBSCRIPTION_IDENTITY_MISMATCH');
       }
-
-      if (event.type === 'invoice.paid' || event.type === 'invoice.payment_failed') {
-        const invoice = event.data?.object || {};
-        const subscriptionId = getSubscriptionId(invoice);
-        if (!subscriptionId) return res.status(200).json({ received: true, ignored: true });
-        const subscription = await stripeGet(`subscriptions/${encodeURIComponent(subscriptionId)}`);
-        const rows = await updateLot(`stripe_subscription_id=eq.${encodeURIComponent(subscriptionId)}`, {
-          stripe_customer_id: invoice.customer || subscription.customer,
-          plan_status: event.type === 'invoice.paid' ? getActiveStatus(subscription.status) : 'past_due',
-          fecha_vencimiento: subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000).toISOString()
-            : null
-        });
-        return res.status(200).json({ received: true, matched: rows.length > 0 });
+      if (checkout) {
+        const items = current.items?.data;
+        const price = Array.isArray(items) && items.length === 1 ? items[0].price : null;
+        const qa = object.payment_link === env.STRIPE_QA_PAYMENT_LINK_ID;
+        const expectedAmount = qa ? 1000 : 1160000;
+        const expectedPrice = qa ? env.STRIPE_QA_PRICE_ID : env.STRIPE_PRODUCTION_PRICE_ID;
+        if (current.customer !== object.customer || !price || price.currency !== 'mxn'
+          || price.unit_amount !== expectedAmount || price.recurring?.interval !== 'month'
+          || price.recurring.interval_count !== 1 || (expectedPrice && price.id !== expectedPrice)) {
+          return res.json({ received: true, ignored: true, reason: 'checkout_price_or_customer_conflict' });
+        }
       }
-
-      return res.status(200).json({ received: true, ignored: true });
-    } catch (error) {
-      console.error('[Stripe Webhook] Error procesando evento:', event.id, error.message);
+      let planStatus = getActiveStatus(current.status);
+      if (checkout && object.payment_status !== 'paid' && object.payment_status !== 'no_payment_required' && planStatus === 'active') {
+        planStatus = 'pending';
+      }
+      const periodEnd = current.current_period_end ?? current.items?.data?.[0]?.current_period_end;
+      if (periodEnd != null && (!Number.isSafeInteger(periodEnd) || periodEnd <= 0)) throw new Error('INVALID_PERIOD');
+      const result = await rpc('apply_stripe_security_event', {
+        ...lease, p_lote_id: identity?.lotId || null, p_owner_id: identity?.ownerId || null,
+        p_customer_id: current.customer, p_plan_status: planStatus,
+        p_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+        p_cancelled: current.status === 'canceled'
+      });
+      if (result?.applied !== true) throw new Error('BILLING_COMMIT_NOT_CONFIRMED');
+      applied = true;
+      return res.json({ received: true, matched: result.matched === true });
+    } catch {
+      console.error('[Stripe Webhook] Reconciliation failed:', event.id);
       return res.status(500).json({ error: 'Stripe event processing failed.' });
+    } finally {
+      if (acquired && !applied) {
+        try { await rpc('fail_stripe_security_event', lease); }
+        catch { console.error('[Stripe Webhook] Lease cleanup deferred:', event.id); }
+      }
     }
   };
 }

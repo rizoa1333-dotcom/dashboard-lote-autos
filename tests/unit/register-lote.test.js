@@ -140,3 +140,50 @@ test('rechaza el consentimiento legal incompleto antes de contactar Supabase', a
   assert.equal(response.body.code, 'LEGAL_CONSENT_REQUIRED');
   assert.equal(called, false);
 });
+
+test('signup REST conserva tokens en raíz para continuar al pago', async () => {
+  global.fetch = async (input, options = {}) => {
+    if (new URL(input).pathname === '/auth/v1/signup') return jsonResponse(200, {
+      access_token: 'rest-access', refresh_token: 'rest-refresh', expires_in: 3600,
+      token_type: 'bearer', user: { id: 'user-123', email: 'qa@example.com', identities: [{ id: 'new-identity' }] }
+    });
+    if (options.method === 'POST') return jsonResponse(201, [{ id: 'lot-123' }]);
+    throw new Error('Unexpected cleanup');
+  };
+  const result = await postRegister(validPayload());
+  assert.equal(result.status, 201);
+  assert.equal(result.body.session?.access_token, 'rest-access');
+  assert.equal(result.body.requiresEmailConfirmation, false);
+});
+
+test('signup REST con confirmación crea el lote usando usuario en raíz', async () => {
+  let inserted;
+  global.fetch = async (input, options = {}) => {
+    if (new URL(input).pathname === '/auth/v1/signup') return jsonResponse(200, {
+      id: 'new-confirmed-later', email: 'qa@example.com', identities: [{ id: 'new-identity' }]
+    });
+    inserted = JSON.parse(options.body);
+    return jsonResponse(201, [{ id: 'lot-123' }]);
+  };
+  const result = await postRegister(validPayload());
+  assert.equal(result.status, 201);
+  assert.equal(inserted.profile_id, 'new-confirmed-later');
+  assert.equal(result.body.requiresEmailConfirmation, true);
+});
+
+test('usuario duplicado ofuscado no autoriza insertar ni borrar una cuenta existente', async () => {
+  let calls = 0;
+  global.fetch = async () => {
+    calls++;
+    return jsonResponse(200, { id: 'existing-obfuscated', email: 'qa@example.com', identities: [] });
+  };
+  const result = await postRegister(validPayload());
+  assert.equal(result.status, 422);
+  assert.equal(result.body.code, 'EMAIL_ALREADY_REGISTERED');
+  assert.equal(calls, 1);
+});
+
+test('respuesta Auth 200 sin usuario válido produce 502 y no un error con HTTP 200', async () => {
+  global.fetch = async () => jsonResponse(200, {});
+  assert.equal((await postRegister(validPayload())).status, 502);
+});

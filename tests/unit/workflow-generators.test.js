@@ -11,15 +11,19 @@ test('regenerar flujos conserva credenciales, vigilancia y produce el mismo resu
   const files=['VeloDrive-n8n-intervencion-automatica.json','VeloDrive-n8n-incidentes.json','VeloDrive-n8n-alertas-correo.json'];
   try {
     fs.mkdirSync(path.join(temp,'scripts'));
-    for(const name of [...files,'whatsapp-reliability.js','persistent-memory.js'])fs.copyFileSync(path.join(repo,name),path.join(temp,name));
-    for(const name of ['update-whatsapp-reliability.cjs','update-incident-workflows.cjs','update-documentation-flow.cjs','update-conversation-isolation.cjs','update-persistent-memory.cjs'])fs.copyFileSync(path.join(repo,'scripts',name),path.join(temp,'scripts',name));
+    for(const name of [...files,'whatsapp-reliability.js','persistent-memory.js','webhook-security.js'])fs.copyFileSync(path.join(repo,name),path.join(temp,name));
+    for(const name of ['update-whatsapp-reliability.cjs','update-incident-workflows.cjs','update-documentation-flow.cjs','update-conversation-isolation.cjs','update-persistent-memory.cjs','update-security-workflows.cjs'])fs.copyFileSync(path.join(repo,'scripts',name),path.join(temp,'scripts',name));
     const initial=JSON.parse(fs.readFileSync(path.join(temp,files[2])));
     const credentials=initial.nodes.find(n=>n.name==='Enviar alerta de soporte').credentials;
-    const generate=()=>{for(const name of ['update-whatsapp-reliability.cjs','update-incident-workflows.cjs','update-documentation-flow.cjs','update-conversation-isolation.cjs','update-persistent-memory.cjs'])execFileSync(process.execPath,[path.join(temp,'scripts',name)],{cwd:temp});};
+    const generate=()=>{for(const name of ['update-whatsapp-reliability.cjs','update-incident-workflows.cjs','update-documentation-flow.cjs','update-conversation-isolation.cjs','update-persistent-memory.cjs','update-security-workflows.cjs'])execFileSync(process.execPath,[path.join(temp,'scripts',name)],{cwd:temp});};
     generate();const first=files.map(name=>fs.readFileSync(path.join(temp,name),'utf8'));
     generate();assert.deepEqual(files.map(name=>fs.readFileSync(path.join(temp,name),'utf8')),first);
     assert.deepEqual(JSON.parse(first[2]).nodes.find(n=>n.name==='Enviar alerta de soporte').credentials,credentials);
     assert.ok(JSON.parse(first[1]).nodes.some(n=>n.name==='Detectar mensajes atascados'));
+    const main=JSON.parse(first[0]);
+    assert.equal(main.nodes.find(n=>n.name==='Stripe Trigger1').disabled,true);
+    assert.equal(main.nodes.find(n=>n.name==='consultar_inventario_autos1').parameters.tableId,'agent_inventory');
+    assert.equal(main.connections['Webhook WhatsApp1'].main[0][0].node,'Validar origen Evolution');
   } finally {
     assert.equal(path.dirname(fs.realpathSync(temp)),tempRoot,'la limpieza debe permanecer en la carpeta temporal');
     fs.rmSync(temp,{recursive:true,force:true});

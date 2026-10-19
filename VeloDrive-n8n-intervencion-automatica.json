@@ -30,7 +30,8 @@
       "position": [
         35552,
         19952
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -69,7 +70,8 @@
       "position": [
         36224,
         19696
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -101,7 +103,8 @@
       "position": [
         35776,
         20048
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -140,7 +143,8 @@
       "position": [
         36224,
         19904
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -172,7 +176,8 @@
       "position": [
         36000,
         20112
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -211,7 +216,8 @@
       "position": [
         36224,
         20192
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -226,7 +232,8 @@
       "position": [
         36448,
         19968
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -239,7 +246,8 @@
       "position": [
         35328,
         19952
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -262,7 +270,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id&plan_status=eq.active",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -451,7 +459,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id&plan_status=eq.active",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -636,7 +644,8 @@
           "id": "pADq9BK9HF3Qwb8W",
           "name": "Stripe account"
         }
-      }
+      },
+      "disabled": true
     },
     {
       "parameters": {
@@ -672,7 +681,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id&plan_status=eq.active",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -962,7 +971,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id&plan_status=eq.active",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1507,7 +1516,7 @@
         "descriptionType": "manual",
         "toolDescription": "Consulta el inventario de autos DISPONIBLES para la venta (status = Disponible) en este lote.",
         "operation": "getAll",
-        "tableId": "cars",
+        "tableId": "agent_inventory",
         "returnAll": true,
         "matchType": "allFilters",
         "filters": {
@@ -1582,7 +1591,7 @@
         "descriptionType": "manual",
         "toolDescription": "Busca en el catálogo COMPLETO de autos del lote, incluyendo unidades vendidas o reservadas.",
         "operation": "getAll",
-        "tableId": "cars",
+        "tableId": "agent_inventory",
         "matchType": "allFilters",
         "filters": {
           "conditions": [
@@ -2093,19 +2102,18 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
-            "leftValue": "",
             "typeValidation": "strict",
             "version": 2
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.query.secret }}",
-              "rightValue": "={{ $env.WEBHOOK_SECRET }}",
+              "id": "969923a4-9790-405b-a454-ccdf011312cd",
+              "leftValue": "={{ $json.valid_webhook === true }}",
+              "rightValue": true,
               "operator": {
-                "type": "string",
-                "operation": "equals"
-              },
-              "id": "969923a4-9790-405b-a454-ccdf011312cd"
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -2504,19 +2512,18 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
-            "leftValue": "",
             "typeValidation": "strict",
             "version": 2
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.headers['x-cita-secret'] }}",
-              "rightValue": "={{ $env.WEBHOOK_SECRET }}",
+              "id": "secret-cita-valido-0001",
+              "leftValue": "={{ $json.valid_webhook === true }}",
+              "rightValue": true,
               "operator": {
-                "type": "string",
-                "operation": "equals"
-              },
-              "id": "secret-cita-valido-0001"
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -2551,7 +2558,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/whatsapp_channels?lote_id=eq.{{ $('Webhook Nueva Cita').item.json.body.record.lote_id }}&select=instance_name,api_key,telefono_notificaciones",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/whatsapp_channels?lote_id=eq.{{ $('Cita verificada').item.json.body.record.lote_id }}&select=instance_name,api_key,telefono_notificaciones",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -2579,7 +2586,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const cita = $('Webhook Nueva Cita').item.json.body.record;\nconst loteRow = ($('Buscar Instancia para Nueva Cita').item.json && $('Buscar Instancia para Nueva Cita').item.json[0]) || {};\nconst datosLote = ($('Buscar Datos Lote para Cita').item.json && $('Buscar Datos Lote para Cita').item.json[0]) || {};\nconst telefonoNotificaciones = (loteRow.telefono_notificaciones || '').trim();\nconst instanceName = loteRow.instance_name || null;\nconst apiKey = loteRow.api_key || null;\nconst debeNotificar = !!(telefonoNotificaciones && instanceName && apiKey);\nconst direccion = datosLote.direccion || null;\nconst ciudad = datosLote.ciudad || null;\nconst horaAbre = datosLote.hora_abre ? datosLote.hora_abre.slice(0, 5) : null;\nconst horaCierra = datosLote.hora_cierra ? datosLote.hora_cierra.slice(0, 5) : null;\nconst diasAtencion = datosLote.dias_atencion || null;\nconst mensajeDueno = '📅 *Nueva cita agendada*\\n\\n'\n  + '👤 Cliente: ' + (cita.nombre_cliente || 'Sin nombre') + '\\n'\n  + '📱 Teléfono: ' + (cita.telefono || 'Sin teléfono') + '\\n'\n  + '🚗 Auto de interés: ' + (cita.auto_interes || 'No especificado') + '\\n'\n  + '🗓️ Fecha: ' + (cita.fecha_cita || '---') + '\\n'\n  + '⏰ Hora: ' + (cita.hora_cita || '').slice(0, 5) + ' hrs';\nlet mensajeCliente = '✅ *¡Tu cita está confirmada, ' + (cita.nombre_cliente || 'estimado cliente') + '! 🤝*\\n\\n'\n  + '🗓️ Fecha: *' + (cita.fecha_cita || '---') + '*\\n'\n  + '⏰ Hora: *' + (cita.hora_cita || '').slice(0, 5) + ' hrs*\\n'\n  + '🚗 Auto: *' + (cita.auto_interes || 'el vehículo de tu interés') + '*\\n\\n';\nif (direccion) {\n  mensajeCliente += '📍 *Nuestra ubicación:*\\n' + direccion + (ciudad ? ', ' + ciudad : '') + '\\n\\n';\n}\nif (horaAbre && horaCierra) {\n  mensajeCliente += '🕐 *Horario:* ' + horaAbre + ' a ' + horaCierra + ' hrs'\n    + (diasAtencion ? '\\n📆 ' + diasAtencion : '') + '\\n\\n';\n}\nmensajeCliente += '¡Te esperamos! Si necesitas cambiar o cancelar tu cita, avísanos con anticipación. 🙏';\nconst telefonoCliente = cita.telefono || null;\nconst debeConfirmarCliente = !!(telefonoCliente && instanceName && apiKey);\nreturn [{ json: { debeNotificar, telefonoNotificaciones, instanceName, apiKey, mensaje: mensajeDueno, mensajeCliente, telefonoCliente, debeConfirmarCliente } }];"
+        "jsCode": "const cita = $('Cita verificada').item.json.body.record;\nconst channelResult=$('Buscar Instancia para Nueva Cita').first().json;\nconst loteRow=(Array.isArray(channelResult)?channelResult[0]:channelResult)||{};\nconst lotResult=$('Buscar Datos Lote para Cita').first().json;\nconst datosLote=(Array.isArray(lotResult)?lotResult[0]:lotResult)||{};\nconst telefonoNotificaciones = (loteRow.telefono_notificaciones || '').trim();\nconst instanceName = loteRow.instance_name || null;\nconst apiKey = loteRow.api_key || null;\nconst debeNotificar = !!(telefonoNotificaciones && instanceName && apiKey);\nconst direccion = datosLote.direccion || null;\nconst ciudad = datosLote.ciudad || null;\nconst horaAbre = datosLote.hora_abre ? datosLote.hora_abre.slice(0, 5) : null;\nconst horaCierra = datosLote.hora_cierra ? datosLote.hora_cierra.slice(0, 5) : null;\nconst diasAtencion = datosLote.dias_atencion || null;\nconst mensajeDueno = '📅 *Nueva cita agendada*\\n\\n'\n  + '👤 Cliente: ' + (cita.nombre_cliente || 'Sin nombre') + '\\n'\n  + '📱 Teléfono: ' + (cita.telefono || 'Sin teléfono') + '\\n'\n  + '🚗 Auto de interés: ' + (cita.auto_interes || 'No especificado') + '\\n'\n  + '🗓️ Fecha: ' + (cita.fecha_cita || '---') + '\\n'\n  + '⏰ Hora: ' + (cita.hora_cita || '').slice(0, 5) + ' hrs';\nlet mensajeCliente = '✅ *¡Tu cita está confirmada, ' + (cita.nombre_cliente || 'estimado cliente') + '! 🤝*\\n\\n'\n  + '🗓️ Fecha: *' + (cita.fecha_cita || '---') + '*\\n'\n  + '⏰ Hora: *' + (cita.hora_cita || '').slice(0, 5) + ' hrs*\\n'\n  + '🚗 Auto: *' + (cita.auto_interes || 'el vehículo de tu interés') + '*\\n\\n';\nif (direccion) {\n  mensajeCliente += '📍 *Nuestra ubicación:*\\n' + direccion + (ciudad ? ', ' + ciudad : '') + '\\n\\n';\n}\nif (horaAbre && horaCierra) {\n  mensajeCliente += '🕐 *Horario:* ' + horaAbre + ' a ' + horaCierra + ' hrs'\n    + (diasAtencion ? '\\n📆 ' + diasAtencion : '') + '\\n\\n';\n}\nmensajeCliente += '¡Te esperamos! Si necesitas cambiar o cancelar tu cita, avísanos con anticipación. 🙏';\nconst telefonoCliente = cita.telefono || null;\nconst debeConfirmarCliente = !!(telefonoCliente && instanceName && apiKey);\nreturn [{ json: { debeNotificar, telefonoNotificaciones, instanceName, apiKey, mensaje: mensajeDueno, mensajeCliente, telefonoCliente, debeConfirmarCliente } }];"
       },
       "id": "a5c0aa05-3ab8-4854-8afe-cd60095837b8",
       "name": "Preparar Notificación",
@@ -2668,7 +2675,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/citas?recordatorio_enviado=eq.false&fecha_cita=gte.{{ $now.setZone('America/Mexico_City').toFormat('yyyy-MM-dd') }}&select=*",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/citas?recordatorio_enviado=eq.false&fecha_cita=gte.{{ $now.setZone('America/Mexico_City').toFormat('yyyy-MM-dd') }}&select=*,lotes!inner(plan_status)&lotes.plan_status=eq.active",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -2848,7 +2855,7 @@
     },
     {
       "parameters": {
-        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/leads?fecha_cita=is.null&seguimiento_enviado=eq.false&select=*",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/leads?fecha_cita=is.null&seguimiento_enviado=eq.false&select=*,lotes!inner(plan_status)&lotes.plan_status=eq.active",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -3098,7 +3105,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?id=eq.{{ $('Webhook Nueva Cita').item.json.body.record.lote_id }}&select=nombre,direccion,ciudad,estado,hora_abre,hora_cierra,dias_atencion",
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?id=eq.{{ $('Cita verificada').item.json.body.record.lote_id }}&select=nombre,direccion,ciudad,estado,hora_abre,hora_cierra,dias_atencion",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -4272,7 +4279,7 @@
         21400
       ],
       "parameters": {
-        "jsCode": "const channel=$json; const auth=$('Normalizar Verificación Token8').first().json;\nconst body=$('Webhook QR WhatsApp').first().json.body||{};\nreturn [{json:{loteId:auth.loteId,instance:channel.instance_name||('instancia_'+auth.loteId),accion:body.accion==='estado'?'estado':'conectar'}}];"
+        "jsCode": "function deriveChannelToken(instance, rootSecret) {\n  if (typeof instance !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(instance)\n    || typeof rootSecret !== 'string' || rootSecret.length < 32) throw new Error('INVALID_WEBHOOK_CONFIG');\n  return require('crypto').createHmac('sha256', rootSecret).update('velodrive-evolution-v1:' + instance).digest('hex');\n}\nconst channel=$json; const auth=$('Normalizar Verificación Token8').first().json;\nconst body=$('Webhook QR WhatsApp').first().json.body||{};\nconst webhookToken=deriveChannelToken(channel.instance_name||('instancia_'+auth.loteId),$env.EVOLUTION_WEBHOOK_ROOT_SECRET);\nreturn [{json:{webhookToken,loteId:auth.loteId,instance:channel.instance_name||('instancia_'+auth.loteId),accion:body.accion==='estado'?'estado':'conectar'}}];"
       }
     },
     {
@@ -4485,7 +4492,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({webhook:{enabled:true,url:'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes?secret='+encodeURIComponent($env.WEBHOOK_SECRET),events:['MESSAGES_UPSERT'],byEvents:false,base64:true,webhookByEvents:false,webhookBase64:true} }) }}",
+        "jsonBody": "={{ JSON.stringify({webhook:{enabled:true,url:'https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes',headers:{'x-velodrive-channel':$('Preparar conexión QR').first().json.webhookToken},events:['MESSAGES_UPSERT'],byEvents:false,base64:true,webhookByEvents:false,webhookBase64:true} }) }}",
         "options": {
           "timeout": 10000,
           "response": {
@@ -4508,7 +4515,7 @@
         21400
       ],
       "parameters": {
-        "jsCode": "const b=$json.body||{};\nconst expected='https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes?secret='+encodeURIComponent($env.WEBHOOK_SECRET||'');\nconst valid=Number($json.statusCode)>=200&&Number($json.statusCode)<300&&!!$env.WEBHOOK_SECRET&&b.enabled===true&&b.url===expected&&Array.isArray(b.events)&&b.events.includes('MESSAGES_UPSERT');\nreturn [{json:{valid,httpStatus:502,error:'No se pudo preparar la recepción de mensajes. Intenta de nuevo.'}}];"
+        "jsCode": "const b=$json.body?.webhook||$json.body||{};\nconst token=$('Preparar conexión QR').first().json.webhookToken;\nconst valid=Number($json.statusCode)>=200&&Number($json.statusCode)<300&&typeof token==='string'&&token.length===64&&b.enabled===true&&b.url==='https://n8n-production-97a4.up.railway.app/webhook/whatsapp-lotes'&&b.headers?.['x-velodrive-channel']===token&&Array.isArray(b.events)&&b.events.includes('MESSAGES_UPSERT');\nreturn [{json:{valid,httpStatus:502,error:'No se pudo preparar la recepción de mensajes. Intenta de nuevo.'}}];"
       }
     },
     {
@@ -5334,107 +5341,251 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 1000
+    },
+    {
+      "id": "0c970827-fa25-47a5-a0d9-2943cf6f3ffc",
+      "name": "Validar origen Evolution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        34500,
+        18000
+      ],
+      "parameters": {
+        "jsCode": "function deriveChannelToken(instance, rootSecret) {\n  if (typeof instance !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(instance)\n    || typeof rootSecret !== 'string' || rootSecret.length < 32) throw new Error('INVALID_WEBHOOK_CONFIG');\n  return require('crypto').createHmac('sha256', rootSecret).update('velodrive-evolution-v1:' + instance).digest('hex');\n}\nfunction verifyEvolutionWebhook(input, rootSecret) {\n  const token = input?.headers?.['x-velodrive-channel'];\n  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) return false;\n  try {\n    const expected = deriveChannelToken(input.body?.instance, rootSecret);\n    return require('crypto').timingSafeEqual(Buffer.from(token, 'hex'), Buffer.from(expected, 'hex'));\n  } catch { return false; }\n}\nreturn [{json:{...$json,valid_webhook:verifyEvolutionWebhook($json,$env.EVOLUTION_WEBHOOK_ROOT_SECRET)}}];"
+      }
+    },
+    {
+      "id": "fc6de7fe-a6f8-4b5b-9dba-165798ea6b89",
+      "name": "Verificar plan del canal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        35200,
+        18100
+      ],
+      "parameters": {
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?id=eq.{{ $('Get many rows1').first().json.lote_id }}&plan_status=eq.active&select=id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "20a1423f-a979-4d27-bf42-a9990f35fef0",
+      "name": "¿Plan del canal activo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        35400,
+        18100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c93c0ad3-0594-472d-bba4-1c6342297cf6",
+              "leftValue": "={{ $json.id === $('Get many rows1').first().json.lote_id }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7830e853-823e-49aa-a52e-3a0c6d699c93",
+      "name": "Validar origen Cita",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        35000,
+        21000
+      ],
+      "parameters": {
+        "jsCode": "function verifyCitaWebhook(input, secret) {\n  const token = input?.headers?.['x-cita-secret'];\n  if (typeof token !== 'string' || typeof secret !== 'string' || secret.length < 32) return false;\n  const a = Buffer.from(token), b = Buffer.from(secret);\n  return a.length === b.length && require('crypto').timingSafeEqual(a, b);\n}\nreturn [{json:{...$json,valid_webhook:verifyCitaWebhook($json,$env.CITA_WEBHOOK_SECRET)}}];"
+      }
+    },
+    {
+      "id": "b81c5431-806a-479d-a6cd-63dac3679f34",
+      "name": "Validar ID de cita",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        35400,
+        21000
+      ],
+      "parameters": {
+        "jsCode": "function normalizeCitaId(input) {\n  const id = input?.body?.cita_id ?? input?.body?.record?.id;\n  const value = typeof id === 'string' || (typeof id === 'number' && Number.isSafeInteger(id)) ? String(id) : '';\n  if (!/^[1-9][0-9]{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n) throw new Error('INVALID_CITA_ID');\n  return value;\n}\nreturn [{json:{cita_id:normalizeCitaId($json)}}];"
+      }
+    },
+    {
+      "id": "d42c8fa5-9c01-4189-b448-503e40d62869",
+      "name": "Consultar cita real",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        35600,
+        21000
+      ],
+      "parameters": {
+        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/citas?id=eq.{{ $json.cita_id }}&select=id&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "983f4c44-5d2e-48f4-b771-65cccf758001",
+      "name": "Reclamar notificación de cita",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        35800,
+        21000
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/claim_cita_security_notification",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_cita_id:$('Validar ID de cita').first().json.cita_id,p_execution_id:String($execution.id)}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "d3994922-62a8-4aae-915c-bb382b474cc0",
+      "name": "¿Notificación de cita adquirida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        36000,
+        21000
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "679c8299-1d0e-4bbd-87df-8c09ecc73ba9",
+              "leftValue": "={{ $json.acquired === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "42329a05-9216-4ddb-81b4-5ff3ea09e71b",
+      "name": "Cita verificada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        36200,
+        21000
+      ],
+      "parameters": {
+        "jsCode": "function normalizeCitaId(input) {\n  const id = input?.body?.cita_id ?? input?.body?.record?.id;\n  const value = typeof id === 'string' || (typeof id === 'number' && Number.isSafeInteger(id)) ? String(id) : '';\n  if (!/^[1-9][0-9]{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n) throw new Error('INVALID_CITA_ID');\n  return value;\n}\nconst record=$json.record;\nif(!record||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(record.lote_id||''))throw new Error('INVALID_VERIFIED_CITA');\nconst id=normalizeCitaId({body:{cita_id:record.id}});\nreturn [{json:{body:{record:{...record,id}}}}];"
+      }
+    },
+    {
+      "id": "e2b24655-468f-473c-bf41-e5b81cb9d30e",
+      "name": "Confirmar notificación de cita",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        37000,
+        21000
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/finish_cita_security_notification",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_cita_id:$('Validar ID de cita').first().json.cita_id,p_execution_id:String($execution.id),p_outbound_id:$('Enviar Notificación Nueva Cita').first().json.key.id}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
     }
   ],
   "connections": {
-    "Es Activación Inicial1": {
-      "main": [
-        [
-          {
-            "node": "Activar Lote Inicial1",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Es Renovación1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Activar Lote Inicial1": {
-      "main": [
-        [
-          {
-            "node": "Responder OK1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Es Renovación1": {
-      "main": [
-        [
-          {
-            "node": "Renovar Suscripción1",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Es Cancelación1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Renovar Suscripción1": {
-      "main": [
-        [
-          {
-            "node": "Responder OK1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Es Cancelación1": {
-      "main": [
-        [
-          {
-            "node": "Cancelar Suscripción1",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Responder OK1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Cancelar Suscripción1": {
-      "main": [
-        [
-          {
-            "node": "Responder OK1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parsear Evento Stripe": {
-      "main": [
-        [
-          {
-            "node": "Es Activación Inicial1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Webhook Publicar Redes1": {
       "main": [
         [
@@ -5586,17 +5737,6 @@
         [
           {
             "node": "Responder Estado1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Stripe Trigger1": {
-      "main": [
-        [
-          {
-            "node": "Parsear Evento Stripe",
             "type": "main",
             "index": 0
           }
@@ -5864,7 +6004,7 @@
       "main": [
         [
           {
-            "node": "Secret Evolution Válido1",
+            "node": "Validar origen Evolution",
             "type": "main",
             "index": 0
           }
@@ -5970,7 +6110,7 @@
       "main": [
         [
           {
-            "node": "Reclamar mensaje durable",
+            "node": "Verificar plan del canal",
             "type": "main",
             "index": 0
           }
@@ -6232,7 +6372,7 @@
       "main": [
         [
           {
-            "node": "Secret Cita Válido",
+            "node": "Validar origen Cita",
             "type": "main",
             "index": 0
           }
@@ -6243,7 +6383,7 @@
       "main": [
         [
           {
-            "node": "Buscar Instancia para Nueva Cita",
+            "node": "Validar ID de cita",
             "type": "main",
             "index": 0
           }
@@ -6306,7 +6446,7 @@
       "main": [
         [
           {
-            "node": "Responder OK Cita",
+            "node": "Confirmar notificación de cita",
             "type": "main",
             "index": 0
           }
@@ -7494,6 +7634,130 @@
           }
         ]
       ]
+    },
+    "Validar origen Evolution": {
+      "main": [
+        [
+          {
+            "node": "Secret Evolution Válido1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar plan del canal": {
+      "main": [
+        [
+          {
+            "node": "¿Plan del canal activo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Plan del canal activo?": {
+      "main": [
+        [
+          {
+            "node": "Reclamar mensaje durable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder evento ignorado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar origen Cita": {
+      "main": [
+        [
+          {
+            "node": "Secret Cita Válido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar ID de cita": {
+      "main": [
+        [
+          {
+            "node": "Consultar cita real",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar cita real": {
+      "main": [
+        [
+          {
+            "node": "Reclamar notificación de cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reclamar notificación de cita": {
+      "main": [
+        [
+          {
+            "node": "¿Notificación de cita adquirida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Notificación de cita adquirida?": {
+      "main": [
+        [
+          {
+            "node": "Cita verificada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder OK Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cita verificada": {
+      "main": [
+        [
+          {
+            "node": "Buscar Instancia para Nueva Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar notificación de cita": {
+      "main": [
+        [
+          {
+            "node": "Responder OK Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
@@ -7509,6 +7773,10 @@
     "timeSavedMode": "fixed",
     "errorWorkflow": "RWgTd6Jx8snoluJc",
     "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
   }
 }
