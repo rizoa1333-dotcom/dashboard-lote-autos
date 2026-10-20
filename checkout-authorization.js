@@ -56,12 +56,13 @@ function createCheckoutLinkHandler({ env = process.env, fetchImpl = (...args) =>
       if (!userResponse.ok) return res.status(401).json({ code: 'SESSION_EXPIRED', message: 'Vuelve a iniciar sesión.' });
       const user = await userResponse.json();
       if (!UUID.test(user.id) || !user.email) return res.status(401).json({ code: 'INVALID_IDENTITY' });
-      const query = new URLSearchParams({ select: 'id,profile_id,email_admin', id: `eq.${req.body.lote_id}`, profile_id: `eq.${user.id}`, limit: '1' });
+      const query = new URLSearchParams({ select: 'id,profile_id,email_admin,stripe_subscription_id', id: `eq.${req.body.lote_id}`, profile_id: `eq.${user.id}`, limit: '1' });
       const response = await fetchImpl(`${origin}/rest/v1/lotes?${query}`, { headers, signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error('LOT_LOOKUP_FAILED');
       const rows = await response.json();
       const lot = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
       if (!lot || lot.id !== req.body.lote_id || lot.profile_id !== user.id) return res.status(403).json({ code: 'LOT_FORBIDDEN' });
+      if (lot.stripe_subscription_id) return res.status(409).json({ code: 'SUBSCRIPTION_ALREADY_LINKED', message: 'Ya tienes una suscripción vinculada. Usa «Gestionar o cancelar plan» para actualizarla.' });
       const email = String(user.email).toLowerCase();
       if (email !== String(lot.email_admin).toLowerCase()) return res.status(403).json({ code: 'OWNER_EMAIL_MISMATCH' });
       const qa = req.body.qa === true;

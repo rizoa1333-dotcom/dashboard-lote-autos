@@ -55,3 +55,30 @@ test('endpoint de enlace exige JWT y resuelve propietario antes de construir la 
   await handler({ body: { lote_id: lotId, qa: true }, get: () => 'Bearer user-jwt' }, forbidden);
   assert.equal(forbidden.code, 403);
 });
+
+test('una cuenta con suscripción vinculada debe usar el portal, sin crear otra compra', async () => {
+  const env = { SUPABASE_URL:'https://supabase.test',SUPABASE_ANON_KEY:'anon',STRIPE_WEBHOOK_SECRET:secret,
+    STRIPE_PRODUCTION_PAYMENT_LINK_ID:'plink_live' };
+  const fetchImpl=async url=>({ok:true,json:async()=>String(url).includes('/auth/v1/user')
+    ? {id:ownerId,email:'owner@example.com'}
+    : [{id:lotId,profile_id:ownerId,email_admin:'owner@example.com',stripe_subscription_id:'sub_existing'}]});
+  const res={code:200,status(n){this.code=n;return this;},json(v){this.body=v;return this;}};
+  await api.createCheckoutLinkHandler({env,fetchImpl})({body:{lote_id:lotId},get:()=> 'Bearer owner-jwt'},res);
+  assert.equal(res.code,409);
+  assert.equal(res.body.code,'SUBSCRIPTION_ALREADY_LINKED');
+  assert.equal(res.body.url,undefined);
+});
+
+test('sesión inválida y respuesta de otro dueño nunca generan un enlace', async () => {
+  for(const scenario of ['invalid-session','other-owner']) {
+    const env={SUPABASE_URL:'https://supabase.test',SUPABASE_ANON_KEY:'anon',STRIPE_WEBHOOK_SECRET:secret,
+      STRIPE_PRODUCTION_PAYMENT_LINK_ID:'plink_live'};
+    const fetchImpl=async url=>String(url).includes('/auth/v1/user')
+      ? {ok:scenario!=='invalid-session',json:async()=>({id:ownerId,email:'owner@example.com'})}
+      : {ok:true,json:async()=>[{id:lotId,profile_id:otherId,email_admin:'owner@example.com'}]};
+    const res={code:200,status(n){this.code=n;return this;},json(v){this.body=v;return this;}};
+    await api.createCheckoutLinkHandler({env,fetchImpl})({body:{lote_id:lotId},get:()=> 'Bearer invalid'},res);
+    assert.equal(res.code,scenario==='invalid-session'?401:403);
+    assert.equal(res.body.url,undefined);
+  }
+});
