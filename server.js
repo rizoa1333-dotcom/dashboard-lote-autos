@@ -18,8 +18,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Límite de peticiones por IP — mitiga scraping/fuerza bruta.
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));
+// Keep payment delivery and health probes independent from browser traffic.
+app.use('/api', rateLimit({
+  windowMs: 15 * 60 * 1000, max: 300,
+  standardHeaders: true, legacyHeaders: false,
+  skip: (req) => req.path === '/stripe-webhook',
+  message: { code: 'RATE_LIMITED', message: 'Demasiadas solicitudes. Intenta más tarde.' }
+}));
 
 const registerRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,

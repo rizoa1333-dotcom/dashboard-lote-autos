@@ -4,7 +4,7 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 
 ## Evidencia actual
 
-- 114/114 pruebas unitarias y 19/19 pruebas Playwright aprobadas. Servicios externos simulados en E2E; no se ejecutaron cargos.
+- 116/116 pruebas unitarias y 19/19 pruebas Playwright aprobadas. Servicios externos simulados en E2E; no se ejecutaron cargos.
 - npm audit --omit=dev: cero vulnerabilidades. No cubre imagenes de n8n/Evolution sin SBOM.
 - Produccion: seis comprobaciones de autenticacion aprobadas; canal WhatsApp conectado despues del reinicio.
 - App c3230c6 desplegada; n8n publicado con 210 nodos y autenticacion separada. Migraciones de facturacion, tenants y trigger de citas aplicadas.
@@ -29,9 +29,9 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 | M07 | Corregido y probado localmente | Catalogo consulta solo columnas comerciales, sin CRM/gastos; respuesta anterior no repuebla costos. Sigue siendo presentacion del propietario, no acceso publico. Despliegue pendiente |
 | M08 | Parcial, publicado | Limite 10 MiB, base64 canonico, firma de formato y validacion posterior a descarga; buffer fuera de JSON. No incluye antivirus ni limite de streaming de la respuesta HTTP de Evolution |
 | M09 | Pendiente | CSP y fijacion de scripts externos |
-| M10 | Pendiente | Limites por ruta y almacenamiento distribuido; no limitar webhooks como trafico interactivo |
+| M10 | Parcial, probado localmente | API interactiva conserva limite; health y Stripe quedan fuera del cupo. Pruebas de 305 health y 301 API. Falta despliegue y almacenamiento compartido/concurrencia n8n |
 | M11 | Pendiente | Restringir CORS de Evolution y credenciales a origenes necesarios |
-| M12 | Pendiente | FK compuesta que vincule gasto, vehiculo y lote |
+| M12 | Corregido en produccion | FK compuesta validada; cero incoherencias previas. Prueba service_role RED antes y GREEN despues, con ROLLBACK: rechaza insercion cruzada/reasignacion y conserva cascada original |
 | L01 | Corregido en funciones identificadas | search_path fijo y permisos de ejecucion restringidos; trigger de citas usa Vault |
 | L02 | Pendiente | Fijar digests y escanear imagenes de n8n/Evolution |
 
@@ -46,3 +46,11 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 ## Orden siguiente
 
 Revocar y verificar clave antigua; atribuir entradas heredadas; respaldar rama remota; cerrar M06/M07/M08 y luego configuracion de infraestructura y dependencias de contenedor. Mantener pruebas de aislamiento por operacion y pruebas reales sin documentos personales.
+
+## Bloqueo de despliegue del panel
+
+Railway rechazo railway up con UPLOAD_FAILED: Deploys have been paused temporarily. La pagina oficial https://status.railway.com confirma pausa global de nuevos builds el 20-10-2026 y que los servicios existentes siguen operativos. El intento no genero deployment nuevo; la app sigue en c3230c6. No presentar M06/M07/M10 como aplicados hasta desplegar y verificar los hashes de dashboard.js/ui-feedback.js y el comportamiento HTTP. n8n y la migracion M12 si estan publicados/aplicados.
+
+## Costos de ejecucion
+
+Invalidacion de solicitudes O(1); limpieza/proyeccion del catalogo O(n) en vehiculos con numero fijo de columnas. Validacion documental O(n) en bytes, con limite 10 MiB y rechazo por longitud antes de decodificar. La validacion de firma de formato no sustituye analisis antivirus ni impone un limite de streaming a la respuesta upstream de Evolution.
