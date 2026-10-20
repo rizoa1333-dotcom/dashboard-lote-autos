@@ -66,5 +66,34 @@
     };
   }
 
-  return { beginSubmit, createTenantWebhookClient };
+  /** @param {typeof fetch} transport */
+  function createRequestScope(transport) {
+    let controller = new AbortController();
+    let generation = 0;
+    const assertCurrent = (version) => {
+      if (version !== generation) throw new DOMException('El contexto de la solicitud cambió.', 'AbortError');
+    };
+    return {
+      reset() { generation += 1; controller.abort(); controller = new AbortController(); },
+      async fetch(input, options = {}) {
+        const version = generation;
+        const inheritedSignal = options.signal || (typeof Request !== 'undefined' && input instanceof Request ? input.signal : null);
+        const signal = inheritedSignal ? AbortSignal.any([controller.signal, inheritedSignal]) : controller.signal;
+        signal.throwIfAborted();
+        const response = await transport(input, { ...options, signal });
+        assertCurrent(version);
+        return new Proxy(response, {
+          get(target, property) {
+            const value = Reflect.get(target, property, target);
+            if (['json', 'text', 'arrayBuffer', 'blob', 'formData', 'bytes'].includes(property) && typeof value === 'function') {
+              return async (...args) => { assertCurrent(version); const result = await value.apply(target, args); assertCurrent(version); return result; };
+            }
+            return typeof value === 'function' ? value.bind(target) : value;
+          }
+        });
+      }
+    };
+  }
+
+  return { beginSubmit, createTenantWebhookClient, createRequestScope };
 });

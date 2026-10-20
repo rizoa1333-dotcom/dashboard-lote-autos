@@ -61,7 +61,7 @@ async function redirigirAStripeCheckout(lote) {
     const { data } = await supabaseClient.auth.getSession();
     const token = data?.session?.access_token;
     if (!token) throw new Error('La cuenta está creada. Inicia sesión para continuar con el pago.');
-    const response = await fetch('/api/stripe-checkout-link', {
+    const response = await sessionRequests.fetch('/api/stripe-checkout-link', {
       method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ lote_id: lote.id, qa: STRIPE_LIVE_QA_MODE, test: STRIPE_TEST_MODE }),
       signal: AbortSignal.timeout(15000)
@@ -102,8 +102,42 @@ let marketingSelectedCarId = null;
 let marketingImageUrls = [];
 
 let catalogModeActive = false;
+let tenantContextVersion = 0;
+const sessionRequests = window.VeloDriveUI.createRequestScope(window.fetch.bind(window));
+const privateReads = window.VeloDriveUI.createRequestScope((input, options) => sessionRequests.fetch(input, options));
+const CATALOG_CAR_COLUMNS = 'id,lote_id,brand,model,year,price,status,image_url,image_urls,caracteristicas,enganche_minimo,kilometraje,transmision';
+function captureTenantContext() { return { version: tenantContextVersion, loteId: currentLote?.id, catalog: catalogModeActive }; }
+function isCurrentTenantContext(context) {
+  return context.version === tenantContextVersion && context.loteId === currentLote?.id && context.catalog === catalogModeActive;
+}
+function clearTenantContext() {
+  tenantContextVersion += 1;
+  sessionRequests.reset();
+  privateReads.reset();
+  stopSync();
+  detenerEsperaWhatsapp();
+  currentUser = null; currentLote = null;
+  leadsCache = []; carsCache = []; carExpensesCache = []; citasCache = [];
+  activeCostCarId = null; activeLeadId = null; editingCarId = null;
+  carImageUrls = []; marketingSelectedCarId = null; marketingImageUrls = [];
+  whatsappQrExpires = 0; whatsappQrLoteId = null;
+  catalogModeActive = false;
+  document.body.classList.remove('catalog-mode');
+  showView('view-login');
+  document.getElementById('view-dashboard')?.replaceChildren();
+}
+function leaveTenantSession() {
+  clearTenantContext();
+  // A new document discards old event closures, DOM, widgets and credentials.
+  window.location.replace(window.location.pathname);
+}
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  global: { fetch: (input, options = {}) => {
+    const url = typeof input === 'string' ? input : input.url || String(input);
+    if (url.includes('/auth/v1/')) return window.fetch(input, options);
+    return (String(options.method || (typeof Request !== 'undefined' && input instanceof Request ? input.method : 'GET')).toUpperCase() === 'GET' ? privateReads : sessionRequests).fetch(input, options);
+  } },
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -120,10 +154,11 @@ const fetchTenantWebhook = window.VeloDriveUI.createTenantWebhookClient({
     if (error || !data?.webhook_token) throw new Error('No se pudo renovar la conexión. Revisa tu sesión e inténtalo de nuevo.');
     return data.webhook_token;
   },
-  fetch: (url, options) => fetch(url, options)
+  fetch: (url, options) => sessionRequests.fetch(url, options)
 });
 
 supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (session?.user?.id && currentUser?.id && session.user.id !== currentUser.id) { leaveTenantSession(); return; }
   if (event === 'PASSWORD_RECOVERY') {
     passwordRecoveryActive = true;
     directPasswordChange = false;
@@ -131,14 +166,7 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     showView('view-password-recovery');
     return;
   }
-  if (event === 'SIGNED_OUT' || (!session && currentUser)) {
-    stopSync();
-    currentUser = null;
-    currentLote = null;
-    carExpensesCache = [];
-    activeCostCarId = null;
-    showView('view-login');
-  }
+  if (event === 'SIGNED_OUT' || (!session && currentUser)) leaveTenantSession();
 });
 
 function showView(viewId) {
@@ -183,7 +211,7 @@ async function fetchAndRenderAll() {
     return;
   }
   try {
-    await Promise.all([fetchLeads(), fetchCars(), fetchCitasReal()]);
+    await Promise.all(catalogModeActive ? [fetchCars()] : [fetchLeads(), fetchCars(), fetchCitasReal()]);
     if (activeLeadId && !catalogModeActive) {
       await refreshChatLive(activeLeadId);
     }
@@ -196,12 +224,15 @@ async function fetchAndRenderAll() {
 // SECCIÓN LEADS
 // ------------------------------------------------------------
 async function fetchLeads() {
+  if (!currentLote || catalogModeActive) return;
+  const context = captureTenantContext();
   const { data, error } = await supabaseClient
     .from('leads')
     .select('*')
     .eq('lote_id', currentLote.id)
     .order('created_at', { ascending: false });
 
+  if (!isCurrentTenantContext(context)) return;
   if (error) {
     console.error('[Leads Engine] Error de consulta:', error);
     return;
@@ -247,6 +278,8 @@ function calcularOportunidadesRescatadas() {
 // SECCIÓN CITAS
 // ------------------------------------------------------------
 async function fetchCitasReal() {
+  if (!currentLote || catalogModeActive) return;
+  const context = captureTenantContext();
   // FIX: solo traer citas de hoy en adelante — las pasadas no deben aparecer
   const hoy = claveDiaMx(new Date());
   const { data, error } = await supabaseClient
@@ -256,6 +289,7 @@ async function fetchCitasReal() {
     .gte('fecha_cita', hoy)
     .order('fecha_cita', { ascending: true });
 
+  if (!isCurrentTenantContext(context)) return;
   if (error) {
     console.error('[Citas Engine] Error de consulta a tabla citas:', error);
     return;
@@ -771,34 +805,26 @@ function statusBadgeClass(status) {
 // SECCIÓN INVENTARIO
 // ------------------------------------------------------------
 async function fetchCars() {
-  const { data, error } = await supabaseClient
-    .from('cars')
-    .select('*')
-    .eq('lote_id', currentLote.id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('[Inventory Engine] Fallo:', error);
-    return;
-  }
-  carsCache = data || [];
-  const expensesResult = await supabaseClient
-    .from('car_expenses')
-    .select('*')
-    .eq('lote_id', currentLote.id)
-    .order('created_at', { ascending: false });
-  if (expensesResult.error) {
+  if (!currentLote) return;
+  const context = captureTenantContext();
+  const { data, error } = await supabaseClient.from('cars')
+    .select(context.catalog ? CATALOG_CAR_COLUMNS : '*')
+    .eq('lote_id', context.loteId).order('created_at', { ascending: false });
+  if (!isCurrentTenantContext(context)) return;
+  if (error) { console.error('[Inventory Engine] Fallo:', error); return; }
+  if (context.catalog) {
+    const allowed = CATALOG_CAR_COLUMNS.split(',');
+    carsCache = (data || []).map(car => Object.fromEntries(allowed.filter(key => key in car).map(key => [key, car[key]])));
     carExpensesCache = [];
-    console.warn('[Utilidad] No se pudieron cargar los gastos. Revisa la migración SQL y RLS:', expensesResult.error.message);
   } else {
-    carExpensesCache = expensesResult.data || [];
+    const expenses = await supabaseClient.from('car_expenses').select('*')
+      .eq('lote_id', context.loteId).order('created_at', { ascending: false });
+    if (!isCurrentTenantContext(context)) return;
+    carsCache = data || [];
+    carExpensesCache = expenses.error ? [] : expenses.data || [];
   }
-  renderCars();
-  renderCarsCounter();
-  calcularMetricasInventario();
-  renderControlUtilidad();
-  populateMarketingCarSelect();
-  calcularOportunidadesRescatadas();
+  renderCars(); renderCarsCounter(); calcularMetricasInventario();
+  renderControlUtilidad(); populateMarketingCarSelect(); calcularOportunidadesRescatadas();
 }
 
 // FIX #2: fetchInventario no existía — se reemplaza por fetchCars en todos los
@@ -1586,6 +1612,8 @@ function normalizarTelefonoChat(value) {
 }
 
 async function refreshAiHandoffControls(lead) {
+  if (!currentLote || catalogModeActive) return;
+  const context = captureTenantContext();
   const status = document.getElementById('crmAiHandoffStatus');
   const pauseButton = document.getElementById('btnPauseAiChat');
   const resumeButton = document.getElementById('btnResumeAiChat');
@@ -1596,6 +1624,7 @@ async function refreshAiHandoffControls(lead) {
     .eq('lote_id', currentLote.id)
     .eq('phone_number', phone)
     .maybeSingle();
+  if (!isCurrentTenantContext(context)) return;
   if (error) {
     status.textContent = 'Aplica la configuración SQL';
     status.className = 'text-[10px] font-bold text-amber-400';
@@ -1632,6 +1661,7 @@ async function pauseAiForActiveChat() {
   }, { onConflict: 'lote_id,phone_number' });
   if (error) { alert('No se pudo pausar la IA. Confirma que aplicaste el SQL de intervención.'); return; }
   await refreshAiHandoffControls(lead);
+  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
 }
 
 async function resumeAiForActiveChat() {
@@ -1643,15 +1673,19 @@ async function resumeAiForActiveChat() {
   }).eq('lote_id', currentLote.id).eq('phone_number', phone);
   if (error) { alert('No se pudo reactivar la IA para esta conversación.'); return; }
   await refreshAiHandoffControls(lead);
+  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
 }
 
 async function refreshChatLive(leadId) {
+  if (!currentLote || catalogModeActive) return;
+  const context = captureTenantContext();
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
   const chatContainer = document.getElementById('crmChatHistoryContainer');
   if (!chatContainer) return;
   await refreshAiHandoffControls(lead);
+  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
 
   const phoneFilter = normalizarTelefonoChat(lead.phone_number || lead.telefono);
   const { data: messages, error: chatErr } = await supabaseClient
@@ -1661,6 +1695,7 @@ async function refreshChatLive(leadId) {
     .eq('lote_id', currentLote.id)
     .order('created_at', { ascending: true });
 
+  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
   if (chatErr) {
     console.error('[CRM Live Chat Error]:', chatErr);
     return;
@@ -1766,6 +1801,8 @@ function initCatalogMode() {
   if (!toggle) return;
 
   toggle.addEventListener('click', () => {
+    tenantContextVersion += 1;
+    privateReads.reset();
     catalogModeActive = !catalogModeActive;
     document.body.classList.toggle('catalog-mode', catalogModeActive);
     toggle.classList.toggle('active', catalogModeActive);
@@ -1779,13 +1816,12 @@ function initCatalogMode() {
       activeCostCarId = null;
       activeLeadId = null;
 
-      // FIX #8: vaciar caché sensible en memoria para que F12 no exponga datos
+      // Presentation mode requests only the retail projection; it is not public authorization.
       leadsCache = [];
       citasCache = [];
       carExpensesCache = [];
       carsCache = carsCache.map(car => {
-        const { purchase_cost, sold_price, ...catalogCar } = car;
-        return catalogCar;
+        return Object.fromEntries(CATALOG_CAR_COLUMNS.split(',').filter(key => key in car).map(key => [key, car[key]]));
       });
 
       const inventarioBtn = document.querySelector('[data-section="section-inventario"]');
@@ -2088,9 +2124,11 @@ async function verificarRedesSociales() {
 // ROUTE GUARD
 // ------------------------------------------------------------
 async function checkSessionAndLote() {
+  const routeVersion = tenantContextVersion;
   if (passwordRecoveryActive) return false;
   try {
     const { data: sessionData, error: sessionErr } = await supabaseClient.auth.getSession();
+    if (routeVersion !== tenantContextVersion) return false;
     if (sessionErr || !sessionData || !sessionData.session) {
       currentUser = null;
       currentLote = null;
@@ -2098,6 +2136,7 @@ async function checkSessionAndLote() {
       return false;
     }
 
+    if (currentUser?.id && currentUser.id !== sessionData.session.user.id) { leaveTenantSession(); return false; }
     currentUser = sessionData.session.user;
     console.log('[Route Guard] Usuario autenticado.');
 
@@ -2105,6 +2144,7 @@ async function checkSessionAndLote() {
       .from('lotes')
       .select('*')
       .eq('profile_id', currentUser.id);
+    if (routeVersion !== tenantContextVersion) return false;
 
     if (loteError) {
       console.error('[Route Guard] Error consultando lote:', loteError);
@@ -2380,7 +2420,7 @@ async function handleManageSubscription() {
   try {
     const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
     if (sessionError || !sessionData?.session?.access_token) throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
-    const response = await fetch('/api/stripe-portal', {
+    const response = await sessionRequests.fetch('/api/stripe-portal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionData.session.access_token}` },
       body: JSON.stringify({ lote_id: currentLote?.id })
@@ -2515,11 +2555,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   on('btnConectarRedes',  'click', conectarRedesSociales);
   on('btnVerificarRedes', 'click', verificarRedesSociales);
   on('logoutBtn', 'click', async () => {
-    stopSync();
-    await supabaseClient.auth.signOut();
-    currentUser = null;
-    currentLote = null;
-    showView('view-login');
+    clearTenantContext();
+    try { await supabaseClient.auth.signOut({ scope: 'local' }); }
+    finally { window.sessionStorage.removeItem('p360-auth-session'); window.location.replace(window.location.pathname); }
   });
   on('closeDrawerBtn',  'click', closeDrawer);
   on('drawerOverlay',   'click', closeDrawer);

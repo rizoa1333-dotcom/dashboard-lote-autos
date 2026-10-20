@@ -4,7 +4,7 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 
 ## Evidencia actual
 
-- 105/105 pruebas unitarias y 14/14 pruebas Playwright aprobadas. Servicios externos simulados en E2E; no se ejecutaron cargos.
+- 114/114 pruebas unitarias y 19/19 pruebas Playwright aprobadas. Servicios externos simulados en E2E; no se ejecutaron cargos.
 - npm audit --omit=dev: cero vulnerabilidades. No cubre imagenes de n8n/Evolution sin SBOM.
 - Produccion: seis comprobaciones de autenticacion aprobadas; canal WhatsApp conectado despues del reinicio.
 - App c3230c6 desplegada; n8n publicado con 210 nodos y autenticacion separada. Migraciones de facturacion, tenants y trigger de citas aplicadas.
@@ -14,7 +14,7 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 | ID | Estado | Evidencia o condicion pendiente |
 |---|---|---|
 | C01 | Corregido en app | proxy-addr 2.0.8; audit limpio; imagenes externas fuera de alcance |
-| H01 | Corregido en flujo actual | Stripe Trigger de n8n desactivado y desconectado; backend es escritor del flujo actual; dos destinos antiguos deshabilitados. Otro destino de instalacion 7c40 pendiente de atribucion |
+| H01 | Corregido en flujo actual | Stripe Trigger de n8n desactivado y desconectado; backend es escritor del flujo actual; dos destinos antiguos deshabilitados. Destino restante 7c40 identificado por el usuario como prueba de VeloDrive y deshabilitado; solo el destino actual queda activo |
 | H02 | Corregido en rutas actuales | Firma/referencia/precio validados; reconciliacion contra estado actual con claim y commit fenced en DB. No probado mediante un nuevo cobro real |
 | H03 | Corregido en canales principales | Secretos separados de citas y Evolution; headers verificados antes de procesar; query secret retirada y variable compartida eliminada. Trigger opaco notificacion_auto_nuevo requiere inventario |
 | H04 | Corregido y verificado | Usuario revoco default secreta; comprobacion directa: clave anterior HTTP 401, nueva HTTP 200; WhatsApp sigue conectado. Workflow legado despublicado y saneado |
@@ -25,9 +25,9 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 | M03 | Corregido | chat_history modificable solo por servidor; cliente conserva lectura autorizada |
 | M04 | Corregido | Restriccion de rol admite user/model/human |
 | M05 | Parcial | Contrato REST y duplicados corregidos y probados; compensacion sigue siendo saga, sin recuperacion durable de huerfanos |
-| M06 | Pendiente | Cancelar peticiones y limpiar caches al cerrar/cambiar cuenta |
-| M07 | Pendiente | Modo catalogo no es una frontera de seguridad; evitar descargar campos privados |
-| M08 | Pendiente | Limites de documentos, MIME real y consumo de memoria de base64 |
+| M06 | Corregido y probado localmente | AbortController y generaciones invalidan respuestas; salida/cambio de usuario destruye datos y documento; pruebas de logout y cambio Auth. Despliegue del panel pendiente |
+| M07 | Corregido y probado localmente | Catalogo consulta solo columnas comerciales, sin CRM/gastos; respuesta anterior no repuebla costos. Sigue siendo presentacion del propietario, no acceso publico. Despliegue pendiente |
+| M08 | Parcial, publicado | Limite 10 MiB, base64 canonico, firma de formato y validacion posterior a descarga; buffer fuera de JSON. No incluye antivirus ni limite de streaming de la respuesta HTTP de Evolution |
 | M09 | Pendiente | CSP y fijacion de scripts externos |
 | M10 | Pendiente | Limites por ruta y almacenamiento distribuido; no limitar webhooks como trafico interactivo |
 | M11 | Pendiente | Restringir CORS de Evolution y credenciales a origenes necesarios |
@@ -38,7 +38,7 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 ## Riesgos residuales que impiden afirmar cierre total
 
 1. Rotacion cerrada: anterior HTTP 401 y nueva HTTP 200; mantener inventario de consumidores para siguientes rotaciones.
-2. Destino Stripe de otro n8n no atribuido; no se desactiva sin identificar su servicio.
+2. Destinos Stripe antiguos deshabilitados por autorizacion expresa del propietario; solo servidor actual recibe eventos.
 3. Payment Links reutilizables: dos compras abiertas antes de asociar la suscripcion aun pueden generar doble cobro. El bloqueo de cuenta vinculada reduce el riesgo pero no sustituye Checkout Sessions idempotentes.
 4. notificacion_auto_nuevo requiere identificar consumidor, autenticacion y utilidad antes de retirarlo o corregirlo.
 5. Cambios productivos desplegados por CLI aun no respaldados en GitHub: integrar esta rama antes del siguiente despliegue desde main.

@@ -72,4 +72,39 @@ connect(accepted.name, [confirmed.name]);
 connect(confirmed.name, ['Completar mensaje durable'], ['Detener confirmación inconsistente']);
 connect('Líder de Actualizar1', ['Autorizar documento']);
 connect('Continuar1', ['Base64 y binario1'], ['Autorizar solicitud documental']);
+const { validateDocument } = require('../document-validation');
+const validatorCode = validateDocument.toString();
+const guardMarker = '// DOCUMENT_SECURITY_GUARD';
+// Regeneration replaces its own guard instead of adding multiple validators.
+const alreadyGuarded = documentation.parameters.jsCode.includes(guardMarker);
+documentation.parameters.jsCode = documentation.parameters.jsCode.split(guardMarker)[0];
+const resultStart = documentation.parameters.jsCode.indexOf('return [{ json: {\n  continuar, necesitaDescarga');
+if (resultStart < 0 && !alreadyGuarded) throw new Error('Documentation return contract changed');
+documentation.parameters.jsCode = (resultStart < 0 ? documentation.parameters.jsCode : documentation.parameters.jsCode.slice(0, resultStart)) + guardMarker + '\n' + validatorCode + `
+const media = msg.imageMessage || msg.documentMessage || {};
+const validation = validateDocument(base64, mimetype, media.fileLength);
+return [{ json: {
+  continuar: validation.ok && continuar,
+  necesitaDescarga: validation.ok && necesitaDescarga,
+  lead_id: leadId, lote_id: loteId, step: Number(lead.encuesta_step), phone,
+  base64: validation.ok ? base64 : null, mimetype, ext: validation.ext || null,
+  messageId, mensajeFaltante: validation.ok || (!isImage && !isDoc) ? mensajeFaltante : validation.message
+} }];`;
+get('Combinar Base64 Descargado').parameters.jsCode = validatorCode + `
+const prev = $('Documentación de fase de validación1').item.json;
+const base64 = $json.base64 || $json.data || null;
+const validation = validateDocument(base64, prev.mimetype);
+return [{ json: { ...prev, base64: validation.ok ? base64 : null,
+  continuar: !!base64 && validation.ok, necesitaDescarga: false,
+  mensajeFaltante: validation.ok ? prev.mensajeFaltante : validation.message } }];`;
+get('Base64 y binario1').parameters.jsCode = validatorCode + `
+const { base64, ...item } = $json;
+const validation = validateDocument(base64, item.mimetype);
+if (!validation.ok || !validation.buffer) throw new Error('DOCUMENT_VALIDATION_FAILED');
+const filename = item.step + '_' + Date.now() + '.' + validation.ext;
+const binary = await this.helpers.prepareBinaryData(validation.buffer, filename, item.mimetype);
+return [{ json: { ...item, filename }, binary: { data: binary } }];`;
+get('Responder Sin Adjunto1').parameters.jsonBody = "={{ JSON.stringify({ number: $('Continuar1').first().json.phone, text: $('Continuar1').first().json.mensajeFaltante }) }}";
+get('Obtener Base64 de Media').parameters.options = { ...get('Obtener Base64 de Media').parameters.options, timeout: 15000 };
+
 fs.writeFileSync(file, JSON.stringify(workflow, null, 2) + '\n');

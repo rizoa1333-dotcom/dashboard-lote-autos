@@ -40,7 +40,7 @@ test('documentación rechaza IDs inválidos y leads de otro lote', () => {
 test('una imagen válida conserva el paso y puede continuar al almacenamiento privado', () => {
   const { lead, context } = documentInput();
   lead.encuesta_step = 2;
-  context['Webhook WhatsApp1'].body.data.base64 = 'UVAgZG9jdW1lbnRv';
+  context['Webhook WhatsApp1'].body.data.base64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x00, 0xff, 0xd9]).toString('base64');
   context['Webhook WhatsApp1'].body.data.message = { imageMessage: { mimetype: 'image/jpeg' } };
   const result = run('Documentación de fase de validación1', lead, context)[0].json;
   assert.equal(result.continuar, true);
@@ -92,4 +92,35 @@ test('las respuestas de documentación autorizan el envío y cierran el registro
     assert.ok(names.includes(send));
     assert.ok(names.includes('Completar mensaje durable'));
   }
+});
+
+
+test('documentos con MIME falso o base64 malformado no avanzan al almacenamiento', () => {
+  for (const base64 of ['!!!!', Buffer.from('%PDF-1.7\n%%EOF').toString('base64')]) {
+    const { lead, context } = documentInput();
+    const data = context['Webhook WhatsApp1'].body.data;
+    data.base64 = base64; data.message = { imageMessage: { mimetype: 'image/jpeg' } };
+    const result = run('Documentación de fase de validación1', lead, context)[0].json;
+    assert.equal(result.continuar, false);
+    assert.equal(result.necesitaDescarga, false);
+    assert.match(result.mensajeFaltante, /archivo|formato/i);
+    assert.equal(result.base64, null);
+  }
+});
+
+test('metadatos mayores a 10 MiB rechazan el documento antes de solicitar descarga', () => {
+  const { lead, context } = documentInput();
+  context['Webhook WhatsApp1'].body.data.message = { documentMessage: { mimetype: 'application/pdf', fileLength: { low: 10485761, high: 0, unsigned: true } } };
+  const result = run('Documentación de fase de validación1', lead, context)[0].json;
+  assert.equal(result.continuar, false);
+  assert.equal(result.necesitaDescarga, false);
+  assert.match(result.mensajeFaltante, /10 MB/);
+});
+
+test('un adjunto descargado tambien debe validar su firma antes de continuar', () => {
+  const result = run('Combinar Base64 Descargado', { base64: Buffer.from('<html>no es imagen</html>').toString('base64') }, {
+    'Documentación de fase de validación1': { mimetype: 'image/png', ext: 'png', phone: '523121234567', step: 1, necesitaDescarga: true }
+  })[0].json;
+  assert.equal(result.continuar, false);
+  assert.equal(result.base64, null);
 });

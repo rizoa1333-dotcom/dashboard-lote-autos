@@ -49,7 +49,7 @@ if(!options.systemMessage.includes('\n\nMEMORIA PERSISTENTE\n'))options.systemMe
 get('Simple Memory1').disabled=true;
 delete workflow.connections['Simple Memory1'];
 append('Guardar Respuesta IA1','model','agent',"$('Fusionar Datos del Lead1').first().json.mensaje_cliente",[37616,18096]);
-const documentText="(() => { try { return $('Mapear Columna / Siguiente Paso1').first().json.mensaje; } catch { return $('Documentación de fase de validación1').first().json.mensajeFaltante; } })()";
+const documentText="(() => { try { return $('Mapear Columna / Siguiente Paso1').first().json.mensaje; } catch { return $('Continuar1').first().json.mensajeFaltante; } })()";
 append('Guardar respuesta documental','model','documents',documentText,[38820,17600]);
 connect('¿Respuesta documental confirmada?',['Guardar respuesta documental'],['Detener confirmación inconsistente']);
 connect('Guardar respuesta documental',['Completar mensaje durable']);

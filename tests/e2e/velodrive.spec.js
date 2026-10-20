@@ -98,14 +98,14 @@ test.describe('redes sociales', () => {
 const supabaseMock = String.raw`(() => {
   const state = window.__fakeState = {
     lote: { id: 'lote-qa-001', profile_id: 'user-qa-001', nombre: 'Lote QA', stripe_customer_id: 'cus_qa', plan_activo: true },
-    cars: (window.__testSession?.seedCars || []).map((car) => ({ ...car })), expenses: [],
+    cars: (window.__testSession?.seedCars || []).map((car) => ({ ...car })), expenses: [], queries: [],
     inserts: { cars: 0, car_expenses: 0 },
     updates: { cars: 0 }, deletes: { cars: 0 }
   };
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   class Query {
     constructor(table) { this.table = table; this.op = 'select'; this.filters = []; this.payload = null; }
-    select() { return this; }
+    select(columns = '*') { this.columns = columns; return this; }
     eq(key, value) { this.filters.push([key, String(value)]); return this; }
     order() { return this; }
     limit() { return this; }
@@ -114,6 +114,8 @@ const supabaseMock = String.raw`(() => {
     update(payload) { this.op = 'update'; this.payload = payload; return this; }
     delete() { this.op = 'delete'; return this; }
     async run() {
+      state.queries.push({ table: this.table, op: this.op, columns: this.columns });
+      if (state.holdReads && this.op === 'select' && this.table === 'cars') await new Promise(resolve => { state.releaseRead = resolve; });
       if (this.op !== 'select' && !navigator.onLine) return { data: null, error: { message: 'Failed to fetch: offline' } };
       if (this.op === 'insert' || this.op === 'update') await delay(450);
       const key = this.table === 'cars' ? 'cars' : this.table === 'car_expenses' ? 'expenses' : null;
@@ -138,7 +140,8 @@ const supabaseMock = String.raw`(() => {
         if (state.deletes[key] !== undefined) state.deletes[key] += matches.length;
         return { data: null, error: null };
       }
-      const data = this.table === 'lotes' ? matches : rows;
+      const selected = this.table === 'lotes' ? matches : rows;
+      const data = this.columns && this.columns !== '*' ? selected.map(row => Object.fromEntries(this.columns.split(',').map(column => [column, row[column]]))) : selected;
       return { data: this.one ? (data[0] || null) : data, error: null };
     }
     then(resolve, reject) { return this.run().then(resolve, reject); }
@@ -146,12 +149,12 @@ const supabaseMock = String.raw`(() => {
   const client = {
     auth: {
       getSession: async () => ({ data: { session: window.__testSession || null }, error: null }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      onAuthStateChange: (callback) => { window.__authCallback = callback; return { data: { subscription: { unsubscribe() {} } } }; },
       setSession: async (tokens) => {
         window.__testSession = { ...tokens, user: window.__registerResponse?.body?.user || window.__testSession?.user };
         return { data: { session: window.__testSession }, error: null };
       },
-      signOut: async () => ({ error: null }),
+      signOut: async () => { sessionStorage.setItem('qa-signed-out','1'); window.__testSession = null; return { error: null }; },
       signInWithPassword: async () => ({ data: {}, error: null }),
       updateUser: async () => ({ error: null }),
       resetPasswordForEmail: async () => ({ error: null })
@@ -166,7 +169,7 @@ const supabaseMock = String.raw`(() => {
 })();`;
 
 async function setupPage(page, session = null, registerResponse = null, search = '') {
-  const bootstrap = `window.__testSession=${JSON.stringify(session)};window.__registerResponse=${JSON.stringify(registerResponse)};window.__checkoutRequests=[];const realFetch=window.fetch.bind(window);window.fetch=async(input,options)=>{if(String(input).includes('/api/stripe-checkout-link')){window.__checkoutRequests.push(JSON.parse(options.body));const slug=window.VELODRIVE_STRIPE_TEST_MODE?'test_6oU5kFft7f452Bw0x73oA00':window.VELODRIVE_STRIPE_LIVE_QA_MODE?'fZu8wRbcR09b0to93D3oA07':'9B614p0ydcVXa3Y1Bb3oA06';return new Response(JSON.stringify({url:'https://buy.stripe.com/'+slug+'?client_reference_id=server_signed_reference'}),{status:200,headers:{'Content-Type':'application/json'}})}if(String(input).includes('/api/register-lote')){const r=window.__registerResponse||{status:201,body:{}};return new Response(JSON.stringify(r.body),{status:r.status,headers:{'Content-Type':'application/json'}})}return realFetch(input,options)};`;
+  const bootstrap = `window.__testSession=sessionStorage.getItem('qa-signed-out')?null:${JSON.stringify(session)};window.__registerResponse=${JSON.stringify(registerResponse)};window.__checkoutRequests=[];const realFetch=window.fetch.bind(window);window.fetch=async(input,options)=>{if(String(input).includes('/api/stripe-checkout-link')){window.__checkoutRequests.push(JSON.parse(options.body));const slug=window.VELODRIVE_STRIPE_TEST_MODE?'test_6oU5kFft7f452Bw0x73oA00':window.VELODRIVE_STRIPE_LIVE_QA_MODE?'fZu8wRbcR09b0to93D3oA07':'9B614p0ydcVXa3Y1Bb3oA06';return new Response(JSON.stringify({url:'https://buy.stripe.com/'+slug+'?client_reference_id=server_signed_reference'}),{status:200,headers:{'Content-Type':'application/json'}})}if(String(input).includes('/api/register-lote')){const r=window.__registerResponse||{status:201,body:{}};return new Response(JSON.stringify(r.body),{status:r.status,headers:{'Content-Type':'application/json'}})}return realFetch(input,options)};`;
   await page.addInitScript({ content: bootstrap + supabaseMock });
   await page.route('https://storage.test/**', route => route.fulfill({ contentType:'image/svg+xml', body:'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>' }));
   await page.route('https://cdn.tailwindcss.com/**', (route) => route.abort());
@@ -424,4 +427,67 @@ test.describe('conexión WhatsApp',()=>{
     await expect(page.locator('#whatsappQrLoading')).toHaveAttribute('role','alert');
     await expect(page.locator('#btnRefrescarQr')).toBeEnabled();
   });
+});
+
+
+test.describe('aislamiento del panel', () => {
+  const session = { user: { id: 'user-qa-001' }, access_token: 'mock', seedCars: [
+    { id: 31, lote_id: 'lote-qa-001', brand: 'Honda', model: 'Civic', status: 'Disponible', purchase_cost: 123456, sold_price: 150000 },
+  ] };
+
+  test('catalogo no consulta leads, citas, gastos ni costos aunque se sincronice de nuevo', async ({ page }) => {
+    await setupPage(page, session);
+    await page.evaluate(() => stopSync());
+    await page.locator('#catalogModeToggle').click();
+    await page.evaluate(async () => { window.__fakeState.queries = []; await fetchAndRenderAll(); });
+    const result = await page.evaluate(() => ({ queries: window.__fakeState.queries, cars: carsCache, leads: leadsCache, citas: citasCache, expenses: carExpensesCache }));
+    expect(result.queries.map(q => q.table)).toEqual(['cars']);
+    expect(result.queries[0].columns).not.toBe('*');
+    expect(result.queries[0].columns).not.toMatch(/purchase_cost|sold_price/);
+    expect(result.cars[0]).not.toHaveProperty('purchase_cost');
+    expect(result.cars[0]).not.toHaveProperty('sold_price');
+    expect(result.leads).toEqual([]);
+    expect(result.citas).toEqual([]);
+    expect(result.expenses).toEqual([]);
+  });
+
+  test('una lectura privada pendiente no repuebla caches al entrar en catalogo', async ({ page }) => {
+    await setupPage(page, session);
+    await page.evaluate(() => { stopSync(); window.__fakeState.holdReads = true; window.__oldRead = fetchCars(); });
+    await page.locator('#catalogModeToggle').click();
+    await page.evaluate(async () => { window.__fakeState.holdReads = false; window.__fakeState.releaseRead(); await window.__oldRead; });
+    const cars = await page.evaluate(() => carsCache);
+    expect(cars[0]).not.toHaveProperty('purchase_cost');
+  });
+  test('cerrar el contexto limpia datos y una lectura vieja no puede restaurarlos', async ({ page }) => {
+    await setupPage(page, session);
+    await page.evaluate(() => {
+      stopSync(); window.__fakeState.holdReads = true;
+      leadsCache = [{ nombre: 'Cliente privado' }]; citasCache = [{ telefono: '123' }];
+      marketingImageUrls = ['https://privado.test/imagen']; carExpensesCache = [{ amount: 10 }];
+      window.__oldRead = fetchCars();
+      clearTenantContext();
+    });
+    await page.evaluate(async () => { window.__fakeState.holdReads = false; window.__fakeState.releaseRead(); await window.__oldRead; });
+    const state = await page.evaluate(() => ({ user: currentUser, lote: currentLote, cars: carsCache, leads: leadsCache, citas: citasCache, gastos: carExpensesCache, fotos: marketingImageUrls }));
+    expect(state).toEqual({ user: null, lote: null, cars: [], leads: [], citas: [], gastos: [], fotos: [] });
+    await expect(page.locator('#view-login')).toBeVisible();
+    await expect(page.locator('#view-dashboard')).toBeEmpty();
+  });
+
+  test('logout visible destruye el documento privado y vuelve a inicio de sesion', async ({ page }) => {
+    await setupPage(page, session);
+    await page.locator('#logoutBtn').click();
+    await expect(page.locator('#view-login')).toBeVisible();
+    await expect(page.locator('#view-dashboard')).toBeHidden();
+    expect(await page.evaluate(() => ({ user: currentUser, lote: currentLote, cars: carsCache }))).toEqual({ user: null, lote: null, cars: [] });
+  });
+
+  test('un cambio de usuario emitido por Auth descarta el contexto anterior', async ({ page }) => {
+    await setupPage(page, session);
+    await page.evaluate(() => { sessionStorage.setItem('qa-signed-out','1'); window.__authCallback('SIGNED_IN', { user: { id: 'otro-dueno' } }); });
+    await expect(page.locator('#view-login')).toBeVisible();
+    expect(await page.evaluate(() => ({ user: currentUser, lote: currentLote, leads: leadsCache }))).toEqual({ user: null, lote: null, leads: [] });
+  });
+
 });
