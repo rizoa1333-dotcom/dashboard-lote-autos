@@ -2906,10 +2906,14 @@ function renderDocPreview(rawUrl, emoji, label, noDisponible = false) {
   return `<div class="w-full p-2.5 rounded-lg text-xs mt-2" style="background: var(--surface-2);">
     <span class="font-bold flex items-center gap-1.5 text-[#F5F5F4] mb-2"><span class="status-dot"></span>${emoji} ${escapeHtml(label)}</span>
     <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-[#272A30]">
-      <img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="w-full max-h-40 object-cover" loading="lazy" data-url="${escapeHtml(url)}" data-label="${escapeHtml(label)}" onerror="handleDocPreviewError(this)">
+      <img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="w-full max-h-40 object-cover" loading="lazy" data-url="${escapeHtml(url)}" data-label="${escapeHtml(label)}" data-doc-preview>
     </a>
   </div>`;
 }
+
+document.addEventListener('error', event => {
+  if (event.target instanceof HTMLImageElement && event.target.matches('[data-doc-preview]')) handleDocPreviewError(event.target);
+}, true);
 
 function handleDocPreviewError(imgEl) {
   const url = imgEl.dataset.url || '';

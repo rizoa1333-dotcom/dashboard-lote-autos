@@ -1,0 +1,4 @@
+@import "tailwindcss" source(none);
+@source "../dashboard.html";
+@source "../dashboard.js";
+@source "../registration-wizard.js";

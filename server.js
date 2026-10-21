@@ -9,10 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 
-// Helmet aplica HSTS, protección contra iframes, MIME sniffing y otras
-// cabeceras. CSP queda desactivada hasta retirar los scripts/estilos inline
-// y fijar una política compatible con los proveedores externos usados.
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({ contentSecurityPolicy: require('./browser-security-policy') }));
 app.use((req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
@@ -264,6 +261,13 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
 // Publica solo los recursos que necesita el navegador. No expongas por error
 // server.js, package.json, archivos de configuración ni flujos de n8n.
+for (const [url, relativeFile, mime] of [
+  ['/assets/utilities.css', 'public/assets/utilities.css', 'text/css'],
+  ['/vendor/supabase-2.118.0.js', 'public/vendor/supabase-2.118.0.js', 'application/javascript'],
+  ['/app-config.js', 'app-config.js', 'application/javascript'],
+  ['/registration-wizard.js', 'registration-wizard.js', 'application/javascript']
+]) app.get(url, (req, res) => { res.type(mime).sendFile(path.join(__dirname, relativeFile)); });
+
 app.get('/styles.css', (req, res) => res.sendFile(path.join(__dirname, 'styles.css')));
 app.get('/ui-feedback.js', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');

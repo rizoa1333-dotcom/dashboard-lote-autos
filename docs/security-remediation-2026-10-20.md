@@ -4,7 +4,7 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 
 ## Evidencia actual
 
-- 116/116 pruebas unitarias y 19/19 pruebas Playwright aprobadas. Servicios externos simulados en E2E; no se ejecutaron cargos.
+- 118/118 pruebas unitarias y 22/22 pruebas Playwright aprobadas. Servicios externos simulados en E2E; no se ejecutaron cargos.
 - npm audit --omit=dev: cero vulnerabilidades. No cubre imagenes de n8n/Evolution sin SBOM.
 - Produccion: seis comprobaciones de autenticacion aprobadas; canal WhatsApp conectado despues del reinicio.
 - App c3230c6 desplegada; n8n publicado con 210 nodos y autenticacion separada. Migraciones de facturacion, tenants y trigger de citas aplicadas.
@@ -28,7 +28,7 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 | M06 | Corregido y probado localmente | AbortController y generaciones invalidan respuestas; salida/cambio de usuario destruye datos y documento; pruebas de logout y cambio Auth. Despliegue del panel pendiente |
 | M07 | Corregido y probado localmente | Catalogo consulta solo columnas comerciales, sin CRM/gastos; respuesta anterior no repuebla costos. Sigue siendo presentacion del propietario, no acceso publico. Despliegue pendiente |
 | M08 | Parcial, publicado | Limite 10 MiB, base64 canonico, firma de formato y validacion posterior a descarga; buffer fuera de JSON. No incluye antivirus ni limite de streaming de la respuesta HTTP de Evolution |
-| M09 | Pendiente | CSP y fijacion de scripts externos |
+| M09 | Corregido y probado localmente | CSP bloquea scripts inline/eval; SDK Supabase 2.118.0 local con integridad verificada; Tailwind compilado localmente. 3 regresiones HTTP reales prueban CSP, wizard, PDF y movil. Despliegue pendiente; estilos inline heredados aun permitidos |
 | M10 | Parcial, probado localmente | API interactiva conserva limite; health y Stripe quedan fuera del cupo. Pruebas de 305 health y 301 API. Falta despliegue y almacenamiento compartido/concurrencia n8n |
 | M11 | Pendiente | Restringir CORS de Evolution y credenciales a origenes necesarios |
 | M12 | Corregido en produccion | FK compuesta validada; cero incoherencias previas. Prueba service_role RED antes y GREEN despues, con ROLLBACK: rechaza insercion cruzada/reasignacion y conserva cascada original |
@@ -54,3 +54,7 @@ Railway rechazo railway up con UPLOAD_FAILED: Deploys have been paused temporari
 ## Costos de ejecucion
 
 Invalidacion de solicitudes O(1); limpieza/proyeccion del catalogo O(n) en vehiculos con numero fijo de columnas. Validacion documental O(n) en bytes, con limite 10 MiB y rechazo por longitud antes de decodificar. La validacion de firma de formato no sustituye analisis antivirus ni impone un limite de streaming a la respuesta upstream de Evolution.
+
+## M09: navegador y recursos locales
+
+Revision independiente sin hallazgos importantes pendientes. Se conservaron la cascada y especificidad del CSS; el fallback de PDF usa un listener delegado en lugar de onerror inline. npm audit completo: cero vulnerabilidades (incluido desarrollo). No se afirma despliegue hasta comprobar CSP y hashes en produccion.

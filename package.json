@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test tests/unit/*.test.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:css": "node scripts/build-css.cjs"
   },
   "dependencies": {
     "express": "^4.22.2",
@@ -17,6 +18,9 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/cli": "4.3.0",
+    "postcss": "8.5.31",
+    "tailwindcss": "4.3.0"
   }
 }

@@ -174,6 +174,7 @@ async function setupPage(page, session = null, registerResponse = null, search =
   await page.route('https://storage.test/**', route => route.fulfill({ contentType:'image/svg+xml', body:'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>' }));
   await page.route('https://cdn.tailwindcss.com/**', (route) => route.abort());
   await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2**', (route) => route.abort());
+  await page.route('**/vendor/supabase-2.118.0.js', route => route.abort());
   await page.goto(pathToFileURL(path.resolve(__dirname, '../../dashboard.html')).href + search, { waitUntil: 'load' });
   // The production Tailwind CDN is intentionally not loaded in this offline
   // test; preserve its visibility utility so the screen flow behaves normally.
