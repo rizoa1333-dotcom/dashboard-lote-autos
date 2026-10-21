@@ -58,3 +58,13 @@ Invalidacion de solicitudes O(1); limpieza/proyeccion del catalogo O(n) en vehic
 ## M09: navegador y recursos locales
 
 Revision independiente sin hallazgos importantes pendientes. Se conservaron la cascada y especificidad del CSS; el fallback de PDF usa un listener delegado en lugar de onerror inline. npm audit completo: cero vulnerabilidades (incluido desarrollo). No se afirma despliegue hasta comprobar CSP y hashes en produccion.
+
+## Despliegue verificado 2026-10-21
+
+Railway deployment 87e18257-61d0-41aa-abee-9168c5e31e1c SUCCESS, codigo 69d90e8. dashboard.js, ui-feedback.js, utilities.css y SDK local: HTTP 200, MIME correcto y SHA-256 identico al checkout. HTML HTTP 200 con CSP aplicada, sin CDN Tailwind. M06/M07/M09 y limitacion local M10 ya desplegados; alcance residual de cada hallazgo permanece.
+
+Diagnostico pendiente: credencial nativa Supabase account 2 muestra fallo de conexion; usuario debe actualizar referencia a la variable vigente y guardar. No afirmar agente/marketing aceptados hasta repetir verificaciones. Upload-Post responde HTTP 200 con perfiles IG/FB configurados sin reautenticacion, historial vacio; aun no atribuida la causa del error al publicar.
+
+## M11: configuracion pendiente de reinicio
+
+Railway guarda CORS_ORIGIN=https://evolution-api-production-3652.up.railway.app y CORS_CREDENTIALS=false. La prueba real aun refleja origen arbitrario y credentials=true: NO cerrado. railway redeploy rechazo el reinicio con Deploys have been paused temporarily. Canal WhatsApp sigue conectado. Reintentar reinicio autorizado y comprobar preflight permitido/no permitido antes de marcar aplicado.
