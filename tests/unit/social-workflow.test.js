@@ -165,3 +165,21 @@ test('la renovación procesa cada lote y actualiza solo el token que leyó',()=>
   const url=node('Notificar Token Rotado1').parameters.url.slice(1).replace(/{{([\s\S]*?)}}/g,(_,expr)=>vm.runInNewContext(expr,{$json:{instance_name:'instance-a'}}));
   assert.equal(new URL(url).pathname,'/message/sendText/instance-a');
 });
+
+
+test('publicacion distingue cuota, credenciales y datos rechazados sin filtrar errores del proveedor', () => {
+  for (const [status, code] of [[401,'UPLOAD_POST_AUTH_FAILED'],[403,'UPLOAD_POST_PLAN_RESTRICTED'],[429,'UPLOAD_POST_LIMIT_REACHED'],[400,'UPLOAD_POST_INVALID_REQUEST'],[404,'UPLOAD_POST_PROFILE_NOT_FOUND']]) {
+    const result = runNode('Evaluar Envío de Publicación', {statusCode:status,body:{success:false,message:'private-token-example'}}, {'Validar Datos de Publicación':{requestId:publication.request_id}});
+    assert.equal(result.accepted,false); assert.equal(result.code,code); assert.ok(!result.error.includes('private-token-example'));
+  }
+});
+
+test('publicacion aceptada exige el identificador esperado y conserva una respuesta incierta para consultar antes de reintentar', () => {
+  const refs={'Validar Datos de Publicación':{requestId:publication.request_id}};
+  const accepted=runNode('Evaluar Envío de Publicación',{statusCode:200,body:{success:true,request_id:publication.request_id}},refs);
+  assert.equal(accepted.accepted,true);
+  for (const body of [{success:true,request_id:'different-request'},{success:false},'unexpected html']) {
+    const result=runNode('Evaluar Envío de Publicación',{statusCode:200,body},refs);
+    assert.equal(result.accepted,false); assert.equal(result.code,'UPLOAD_POST_UNCONFIRMED'); assert.equal(result.request_id,publication.request_id);
+  }
+});

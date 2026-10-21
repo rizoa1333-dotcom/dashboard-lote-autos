@@ -68,3 +68,9 @@ Diagnostico pendiente: credencial nativa Supabase account 2 muestra fallo de con
 ## M11: configuracion pendiente de reinicio
 
 Railway guarda CORS_ORIGIN=https://evolution-api-production-3652.up.railway.app y CORS_CREDENTIALS=false. La prueba real aun refleja origen arbitrario y credentials=true: NO cerrado. railway redeploy rechazo el reinicio con Deploys have been paused temporarily. Canal WhatsApp sigue conectado. Reintentar reinicio autorizado y comprobar preflight permitido/no permitido antes de marcar aplicado.
+
+## Publicacion: diagnostico seguro 2026-10-21
+
+La captura del usuario del 19-10 muestra el mensaje estatico del evaluador posterior al HTTP Upload-Post, no un error de carga local ni prueba de fallo Supabase. Se publico solo el cambio de Evaluar Envio de Publicacion (version 7d1065b2): clasifica 400/401/403/404/429, conserva request_id y respuesta incierta, no propaga payload sensible. Revision independiente sin hallazgos importantes; 120 unitarias y 22 E2E aprobadas.
+
+Validacion real sin posibilidad de publicar: multipart con plataforma deliberadamente invalida devuelve HTTP 400 Invalid platforms; confirma autenticacion y lectura de multipart por proveedor, sin request_id aceptado. No demuestra causa del fallo original ni publicacion exitosa. Historial del proveedor vacio; requiere nuevo intento autorizado y lectura del resultado.
