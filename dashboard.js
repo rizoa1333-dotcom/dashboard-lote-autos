@@ -1017,8 +1017,9 @@ async function verificarPublicacionReal(carId, requestId, plataforma, btnEl) {
       btnEl.classList.add('opacity-60');
       btnEl.disabled = true;
     } else if (data.fallo) {
-      btnEl.textContent = '❌ Falló en la plataforma';
+      btnEl.textContent = data.parcial ? '⚠️ Publicación parcial' : '❌ Falló en la plataforma';
       btnEl.disabled = false;
+      alert(data.mensaje || 'La publicación falló en una plataforma. Revisa la conexión antes de reintentar.');
     } else {
       btnEl.textContent = `⏳ ${data.status || 'procesando'}`;
       btnEl.disabled = false;

@@ -200,3 +200,18 @@ test('el formulario nativo conserva diez fotos, unicode y una sola plataforma si
   assert.equal(form.get('request_id'),publication.request_id);
   assert.equal(node.parameters.rawContentType,undefined);
 });
+
+test('un fallo parcial informa la red exitosa y la Pagina faltante sin filtrar payload del proveedor', () => {
+  const result = runNode('Evaluar Resultado1', {
+    status: 'completed', total: 2,
+    results: [
+      {platform:'facebook',success:false,error_code:'config_target_missing',error_message:'provider secret',user_email:'private@example.test'},
+      {platform:'instagram',success:true,post_caption:'private caption',access_token:'secret-token'},
+    ],
+  });
+  assert.equal(result.parcial,true);
+  assert.equal(result.publicado,false);
+  assert.match(result.mensaje,/Instagram: publicado/);
+  assert.match(result.mensaje,/Facebook:.*Página/);
+  assert.doesNotMatch(JSON.stringify(result),/private|secret-token|provider secret/);
+});

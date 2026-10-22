@@ -94,3 +94,15 @@ Consulta de solo lectura limitada al lote QA: proveedor HTTP 200, status complet
 Credencial nativa Supabase account 2 validada en ejecucion real mediante getAll con instance_name de prueba inexistente. Operacion exitosa sin recuperar registros. La vista previa roja por acceso UI a variables no representaba fallo de ejecucion. Flujo QA manual sin webhook publico ni retencion de ejecuciones; debe archivarse al cerrar el diagnostico.
 
 Limpieza QA: archivados recuperablemente ambos flujos temporales (transporte y estado/credencial), sin publicar webhooks de prueba. Upload-Post UI confirma que Choose Facebook Page solo ofrece Default (auto), sin Paginas disponibles. Pendiente respuesta del propietario con la Pagina que debe autorizarse; no se desconecto Instagram ni se republico contenido.
+
+## Facebook y respuesta de estado 2026-10-22
+
+Con autorizacion expresa para las condiciones de Meta, creada la Pagina de prueba Angel Rizo (perfil publico 61595772989852, asset 1322392660965777), categoria Producto/servicio y descripcion de prueba. Sin publicar datos personales de contacto. Upload-Post encontro la nueva Pagina con los permisos existentes y se selecciono Angel Rizo; Instagram permanecio conectado.
+
+El usuario envio una publicacion nueva solo a Facebook. Verificacion directa en la Pagina: Nissan Versa Advance DEMO 2022, Publicado por upload-post, visibilidad Publico. Esto confirma el transporte y destino de Facebook; Instagram ya estaba confirmado por la prueba previa. No se republico desde el agente ni se repitio el envio anterior.
+
+Se publico en n8n un cambio limitado a Evaluar Resultado1: devuelve resultado parcial por red y un mensaje concreto de Pagina faltante; lista permitida de campos excluye email, captions, tokens y errores crudos. Comparacion entre exportaciones (23) y (24): 210 nodos, solo parametros del evaluador cambiados; credenciales, conexiones y settings conservados. Indentacion del editor normalizada para cotejar codigo local. Version Estado de publicacion por red sin payload sensible - 2026-10-22, UI Published.
+
+Panel local: muestra Publicacion parcial y el mensaje por red, sin reenviar fotos al consultar. 122 pruebas unitarias y 23 E2E aprobadas; nueva regresion comprueba cero POST de publicacion durante consulta. El cambio de dashboard.js todavia NO desplegado. Railway muestra incidente de plataforma y Redeploy deshabilitado. Preflight actual Evolution continua reflejando origen externo con credentials=true: M11 sigue abierto. No se reinicio innecesariamente el servicio activo.
+
+Normalizacion del estado O(n) en resultados del proveedor y O(n) de memoria; el servicio admite dos plataformas. Pruebas temporales anteriores permanecen archivadas. Evidencia actual en .qa/evidence (ignorada por Git).

@@ -52,6 +52,26 @@ test.describe('redes sociales', () => {
     await expect(page.locator('#btnConectarRedes')).toBeEnabled();
   });
 
+  test('verificar una publicacion parcial identifica la Pagina faltante y no reenvia fotos', async ({page}) => {
+    let publications = 0;
+    await page.route('**/webhook/publicar-redes', route => { publications++; return route.fulfill({json:{}}); });
+    const message = 'Facebook: selecciona o autoriza una Página del negocio. Instagram: publicado';
+    await page.route('**/webhook/verificar-publicacion', route => route.fulfill({json:{publicado:false,fallo:true,parcial:true,mensaje:message}}));
+    await setupPage(page, session);
+    const dialogPromise = page.waitForEvent('dialog');
+    const verification = page.evaluate(() => {
+      const button = document.createElement('button');
+      button.textContent = 'Verificar Meta';
+      document.body.appendChild(button);
+      return verificarPublicacionReal(21, 'qa-publication-reference', 'meta', button);
+    });
+    const dialog = await dialogPromise;
+    expect(dialog.message()).toBe(message);
+    await dialog.accept();
+    await verification;
+    expect(publications).toBe(0);
+  });
+
   test('una sesión abierta recupera el acceso después de rotar el token del lote',async ({page})=>{
     const headers=[];
     await page.route('**/webhook/redes-conectar',route=>{
