@@ -359,19 +359,101 @@
           ]
         },
         "sendBody": true,
-        "contentType": "raw",
+        "contentType": "multipart-form-data",
         "options": {
           "timeout": 30000,
           "response": {
             "response": {
               "neverError": true,
               "fullResponse": true,
-              "responseFormat": "json"
+              "responseFormat": "autodetect"
             }
           }
         },
-        "rawContentType": "={{ 'multipart/form-data; boundary=' + $('Validar Datos de Publicación').item.json.boundary }}",
-        "body": "={{ $('Validar Datos de Publicación').item.json.multipartBody }}"
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formData",
+              "name": "user",
+              "value": "={{ $('Normalizar Verificación Token2').item.json.loteId }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "title",
+              "value": "={{ $('Validar Datos de Publicación').item.json.copy }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "async_upload",
+              "value": "true"
+            },
+            {
+              "parameterType": "formData",
+              "name": "request_id",
+              "value": "={{ $('Validar Datos de Publicación').item.json.requestId }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.platforms[0] ? 'platform[]' : 'velodrive_unused_platform_0' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.platforms[0] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.platforms[1] ? 'platform[]' : 'velodrive_unused_platform_1' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.platforms[1] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[0] ? 'photos[]' : 'velodrive_unused_photo_0' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[0] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[1] ? 'photos[]' : 'velodrive_unused_photo_1' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[1] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[2] ? 'photos[]' : 'velodrive_unused_photo_2' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[2] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[3] ? 'photos[]' : 'velodrive_unused_photo_3' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[3] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[4] ? 'photos[]' : 'velodrive_unused_photo_4' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[4] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[5] ? 'photos[]' : 'velodrive_unused_photo_5' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[5] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[6] ? 'photos[]' : 'velodrive_unused_photo_6' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[6] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[7] ? 'photos[]' : 'velodrive_unused_photo_7' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[7] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[8] ? 'photos[]' : 'velodrive_unused_photo_8' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[8] || '' }}"
+            },
+            {
+              "parameterType": "formData",
+              "name": "={{ $('Validar Datos de Publicación').item.json.urls[9] ? 'photos[]' : 'velodrive_unused_photo_9' }}",
+              "value": "={{ $('Validar Datos de Publicación').item.json.urls[9] || '' }}"
+            }
+          ]
+        }
       },
       "id": "8cdd09dd-6ec3-4b8c-af11-78c86051a9b5",
       "name": "Publicar Upload-Post (Fotos)1",

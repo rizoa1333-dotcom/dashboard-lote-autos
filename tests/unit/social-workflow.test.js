@@ -111,10 +111,12 @@ test('el enlace de conexión rechaza dominios ajenos a Upload-Post', () => {
 test('multipart envía dos fotos separadas y solamente Facebook', async () => {
   const node = workflow.nodes.find(n => n.name === 'Publicar Upload-Post (Fotos)1');
   const result = runNode('Validar Datos de Publicación', {}, { 'Webhook Publicar Redes1': { body: publication } });
-  assert.equal(node.parameters.contentType, 'raw');
-  const form = await new Response(result.multipartBody, { headers: {
-    'Content-Type': 'multipart/form-data; boundary=' + result.boundary,
-  } }).formData();
+  assert.equal(node.parameters.contentType, 'multipart-form-data');
+  assert.equal(node.parameters.options.response.response.responseFormat, 'autodetect');
+  const form = new FormData();
+  const refs={'Validar Datos de Publicación':result,'Normalizar Verificación Token2':{loteId:'tenant-a'}};
+  const resolve=value=>typeof value==='string' && value.startsWith('={{') ? vm.runInNewContext(value.slice(3,-2),{$:key=>({item:{json:refs[key]}})}) : value;
+  for(const field of node.parameters.bodyParameters.parameters)form.append(resolve(field.name),resolve(field.value));
   assert.deepEqual(form.getAll('platform[]'), ['facebook']);
   assert.deepEqual(form.getAll('photos[]'), publication.image_urls);
   assert.equal(form.get('user'), 'tenant-a');
@@ -182,4 +184,19 @@ test('publicacion aceptada exige el identificador esperado y conserva una respue
     const result=runNode('Evaluar Envío de Publicación',{statusCode:200,body},refs);
     assert.equal(result.accepted,false); assert.equal(result.code,'UPLOAD_POST_UNCONFIRMED'); assert.equal(result.request_id,publication.request_id);
   }
+});
+
+
+test('el formulario nativo conserva diez fotos, unicode y una sola plataforma sin serializar arrays',()=>{
+  const node=workflow.nodes.find(n=>n.name==='Publicar Upload-Post (Fotos)1');
+  const urls=Array.from({length:10},(_,i)=>'https://storage.test/'+i+'.jpg');
+  const refs={'Validar Datos de Publicación':{urls,platforms:['instagram'],copy:'🚗 Automóvil en Colima',requestId:publication.request_id},'Normalizar Verificación Token2':{loteId:'tenant-a'}};
+  const resolve=value=>typeof value==='string' && value.startsWith('={{') ? vm.runInNewContext(value.slice(3,-2),{$:key=>({item:{json:refs[key]}})}) : value;
+  const form=new FormData();
+  for(const field of node.parameters.bodyParameters?.parameters||[])form.append(resolve(field.name),resolve(field.value));
+  assert.deepEqual(form.getAll('photos[]'),urls);
+  assert.deepEqual(form.getAll('platform[]'),['instagram']);
+  assert.equal(form.get('title'),'🚗 Automóvil en Colima');
+  assert.equal(form.get('request_id'),publication.request_id);
+  assert.equal(node.parameters.rawContentType,undefined);
 });

@@ -74,3 +74,21 @@ Railway guarda CORS_ORIGIN=https://evolution-api-production-3652.up.railway.app 
 La captura del usuario del 19-10 muestra el mensaje estatico del evaluador posterior al HTTP Upload-Post, no un error de carga local ni prueba de fallo Supabase. Se publico solo el cambio de Evaluar Envio de Publicacion (version 7d1065b2): clasifica 400/401/403/404/429, conserva request_id y respuesta incierta, no propaga payload sensible. Revision independiente sin hallazgos importantes; 120 unitarias y 22 E2E aprobadas.
 
 Validacion real sin posibilidad de publicar: multipart con plataforma deliberadamente invalida devuelve HTTP 400 Invalid platforms; confirma autenticacion y lectura de multipart por proveedor, sin request_id aceptado. No demuestra causa del fallo original ni publicacion exitosa. Historial del proveedor vacio; requiere nuevo intento autorizado y lectura del resultado.
+
+## Transporte de publicaciones corregido y publicado 2026-10-21
+
+Causa reproducida en el nodo HTTP: Upload-Post devolvia HTTP 400 `Username required in form data` con el cuerpo multipart raw. Anadir Content-Length o enviar el mismo cuerpo como binario no resolvio el rechazo. El formulario multipart nativo de n8n si fue interpretado correctamente. Se sustituyo solo `Publicar Upload-Post (Fotos)1`, conservando autenticacion, identidad de lote validada, plataformas seleccionadas, fotos separadas, request_id e idempotencia.
+
+El formulario conserva una coleccion estatica de 16 campos para evitar la incompatibilidad del editor con colecciones expresadas dinamicamente. Los campos de fotos/plataformas no utilizados reciben nombres propios vacios; la prueba real con la plantilla completa, Unicode y dos fotos fue rechazada unicamente por la plataforma deliberadamente invalida. No publico contenido ni obtuvo request_id aceptado.
+
+Respaldo antes de importar: exportacion (22), copia ignorada .qa/main-before-native-publication.json. Exportacion posterior (23) comparada por nombre: 210 nodos, conexiones, credenciales, estados disabled y settings conservados; unicamente se normalizaron los defaults formData/autodetect del nodo modificado. Version `Publicaciones: formulario multipart nativo - 2026-10-21` activada; UI confirma Published.
+
+Validacion actual: 121 unitarias y 22 E2E aprobadas. El usuario hizo un solo intento real y recibio `En proceso`; la publicacion final por plataforma todavia requiere Verificar Meta. No equivale a publicacion confirmada. La sesion Railway CLI vencio al repetir las pruebas autenticadas de webhooks; esa comprobacion no se completo y no invalida ni reemplaza evidencia previa.
+
+Complejidad del constructor O(1) por limites fijos de 2 plataformas y 10 fotos; transferencia O(B) en los bytes enviados. La confirmacion asincrona debe mantener request_id y verificar resultados individuales antes de marcar publicado_meta.
+
+## Aceptacion real por plataforma y credencial 2026-10-21
+
+Consulta de solo lectura limitada al lote QA: proveedor HTTP 200, status completed, total 2; Instagram success=true y Facebook success=false. Facebook devuelve config_target_missing / platform_api: no hay Facebook Pages asociadas o seleccionadas; perfiles personales no admitidos. El transporte ya funciona y no debe repetirse el envio a Instagram. Falta seleccionar/reconectar una Pagina autorizada y probar solo Facebook.
+
+Credencial nativa Supabase account 2 validada en ejecucion real mediante getAll con instance_name de prueba inexistente. Operacion exitosa sin recuperar registros. La vista previa roja por acceso UI a variables no representaba fallo de ejecucion. Flujo QA manual sin webhook publico ni retencion de ejecuciones; debe archivarse al cerrar el diagnostico.
