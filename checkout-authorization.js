@@ -46,7 +46,9 @@ function createCheckoutLinkHandler({ env = process.env, fetchImpl = (...args) =>
     const allowed = (env.STRIPE_ALLOWED_PAYMENT_LINK_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
     const candidates = allowed.filter(id => id !== env.STRIPE_QA_PAYMENT_LINK_ID);
     const productionId = env.STRIPE_PRODUCTION_PAYMENT_LINK_ID || (candidates.length === 1 ? candidates[0] : '');
-    if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.STRIPE_WEBHOOK_SECRET || !productionId) {
+    const useDurableCheckout = env.STRIPE_CHECKOUT_SESSIONS_ENABLED === 'true' && req.body.test !== true;
+    if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY
+      || (!useDurableCheckout && (!env.STRIPE_WEBHOOK_SECRET || !productionId))) {
       return res.status(503).json({ code: 'CHECKOUT_NOT_CONFIGURED', message: 'El pago no está configurado. Contacta soporte.' });
     }
     const headers = { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` };
@@ -73,7 +75,7 @@ function createCheckoutLinkHandler({ env = process.env, fetchImpl = (...args) =>
       if (qa && (!env.STRIPE_QA_EMAIL || email !== env.STRIPE_QA_EMAIL.toLowerCase())) {
         return res.status(403).json({ code: 'QA_FORBIDDEN', message: 'La tarifa de prueba está restringida a la cuenta interna.' });
       }
-      if (env.STRIPE_CHECKOUT_SESSIONS_ENABLED === 'true' && !testMode) {
+      if (useDurableCheckout) {
         const {createDurableCheckout} = require('./checkout-session');
         res.setHeader?.('Cache-Control', 'no-store');
         return res.json(await createDurableCheckout({lot,user,qa,testMode,env,fetchImpl}));

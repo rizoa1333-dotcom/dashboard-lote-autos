@@ -124,3 +124,32 @@ Usuario completo el guardado de Stripe. Lectura posterior confirma Checkout Sess
 Registro: supabase_registration_atomic.sql instalado tras regresion SQL real con ROLLBACK. Auth y lote se crean en la misma transaccion; falla de lote u operation_id repetido no deja usuario. Metadata no puede imponer profile_id, plan activo, suscripcion ni webhook_token. Identidad del lote siempre NEW.id, plan inicial past_due. Tabla de operaciones con RLS y acceso solo servidor. readiness=true comprobado en Supabase.
 
 La revision encontro P1 en el codigo nuevo, antes de activarlo: Supabase puede devolver usuario no confirmado existente con identities no vacio. Corregido exigiendo la operacion aleatoria actual en registration_security_operations antes de leer cualquier lote con service role. Prueba de regresion aprobada; re-revision sin bloqueos importantes. Suite: 142 unitarias y 24 E2E aprobadas. Backend nuevo y ATOMIC_REGISTRATION_ENABLED pendientes de despliegue; no declarar M05 cerrado hasta verificar ruta efectiva.
+
+## Activacion efectiva y evidencia de cierre parcial 2026-10-23
+
+Este apartado sustituye los estados pendientes de activacion de las secciones anteriores. Backend 14b9b90 desplegado; registro atomico y Checkout durable habilitados. Prueba real temporal: registro 201, Checkout concurrente 502/200, reintento con la misma URL y un solo registro durable. El 502 procede de la contencion idempotente del proveedor; mejora UX pendiente para ese caso, sin duplicacion observada. Stripe confirmo sesion open; se expiro y se retiraron exclusivamente Auth/lote temporales identificados por nonce. No se pago ninguna sesion. Evidencia privada ignorada: `.qa/evidence/live-registration-checkout-20261023.json`.
+
+Los cuatro Payment Links Live reutilizables que seguian activos fueron desactivados recuperablemente en Stripe. No se cancelaron suscripciones. Se conserva la validacion de callbacks anteriores y se normaliza su allowlist. La ruta nueva no depende de Payment Links ni del secreto usado para firmar referencias antiguas; sigue validando JWT, propietario, correo y acceso QA antes de crear Checkout. Dos regresiones nuevas cubren ausencia de configuracion heredada y creacion efectiva simulada para produccion/QA. Revision independiente sin hallazgos importantes.
+
+Flujos principal, incidentes y correo: lectura READ ONLY de la BD confirma activos con saveDataErrorExecution=none, saveDataSuccessExecution=none, saveManualExecutions=false, saveExecutionProgress=false. Cambios auxiliares limitados a esas cuatro opciones, sin alterar nodos, conexiones, horarios ni credenciales. El generador preserva esta politica y hay regresion automatizada. No se borraron ejecuciones historicas. La vigilancia conserva incidentes saneados en Supabase y el envio por Resend.
+
+Inventario: notificacion_auto_nuevo enviaba filas cars al webhook b171893b-1b1c-4ee6-9b92-970a1a849b7c, sin consumidor registrado en la instancia n8n actual. Migracion supabase_disable_legacy_inventory_webhook.sql revisada y probada con ROLLBACK, despues aplicada: tgenabled=D confirmado. Guarda estricta de tabla/nombre/funcion/destino base; conserva definicion, vehiculos y demas triggers. Reversion posible con ALTER TABLE public.cars ENABLE TRIGGER notificacion_auto_nuevo solo despues de autorizar y autenticar un consumidor. Pruebas actuales: 145 unitarias y 24 E2E, sin fallos.
+
+## Inventario real de contenedores 2026-10-23: riesgo abierto
+
+Trivy oficial 0.76.1 verificado contra digest SHA-256 del release. SBOM de n8n generado dentro del contenedor excluyendo /home, /data, /root y otros volumenes/directorios operativos; solo scanner de vulnerabilidades, sin extraccion de secretos. Analisis local contra base descargada. Una advertencia de la base sobre CVE-2026-107891 sin detalles limita la cobertura; no se interpreta como ausencia de riesgo.
+
+| Objetivo | Referencia/estado | Coincidencias criticas | Altas |
+|---|---|---:|---:|
+| Evolution desplegado 2.3.7 | sha256:966625532d9076a2381e973a271307d107e6f070450de3abeeea8bd18be07252 | 8 | 208 |
+| Evolution homolog candidato, NO desplegado | sha256:1e656f95aa1a2b7c2455a6a36d654637ddc2658c263794a5074ada798412a549 | 2 | 117 |
+| n8n real 2.44.4 / Node 26.10.0 | Imagen construida por Railway, UID 0, SBOM 1853 componentes | 4 | 22 |
+| n8n oficial 2.44.6 candidato, NO desplegado | sha256:d02752c6ab446ae9db8deec2f9cc887c378f77cdcad31650814df936b7386dfb | 4 | 20 |
+
+Son coincidencias paquete/version/aviso, no necesariamente CVEs unicas ni prueba de explotacion. Requieren revisar alcance, dependencia utilizada y mitigaciones; no se declaran corregidas por fijar un digest.
+
+Criticas Evolution desplegado: baileys 7.0.0-rc.9 (CVE-2026-48063, corregido en 6.7.22/7.0.0-rc12); fast-xml-parser 4.5.3/5.2.5 (CVE-2026-25896); protobufjs 6.8.8/7.5.4 (CVE-2026-41242); proxy-addr 2.0.7 (CVE-2026-90711); tar 7.5.11 (CVE-2026-59873); stdlib Go 1.23.12 en herramienta empaquetada (CVE-2025-68121). Protobuf requiere control del esquema/descriptor: no equivale a ejecucion remota por cualquier mensaje normal. Candidato homolog conserva proxy-addr/tar; no se desplego una version no estable como arreglo supuesto.
+
+Criticas n8n actual y candidato: @simple-git/argv-parser 1.1.1 (CVE-2026-102829, fix 2.0.1), simple-git 3.36.0 (CVE-2026-102828, fix 4.0.1), handlebars 4.7.9 (CVE-2026-106445 y CVE-2026-106446, fix 4.7.10). La actualizacion oficial por si sola no elimina esas coincidencias. Fuente del contenedor actual usa FROM n8nio/n8n:latest y USER root; pendiente sustituirla por build controlado sin root tras respaldo/restauracion y pruebas de compatibilidad.
+
+Fuentes primarias: [Baileys advisory](https://github.com/WhiskeySockets/Baileys/security/advisories/GHSA-qvv5-jq5g-4cgg), [protobuf advisory](https://github.com/advisories/GHSA-xq3m-2v4x-88gg), [n8n 2.44.6](https://github.com/n8n-io/n8n/releases/tag/n8n%402.44.6). Reportes completos privados en `.qa/evidence/*scan-20261023.json`. Pendientes de cierre: remediacion/triage de contenedores, limite de descarga upstream previo a acumular documentos, restauracion aislada comprobada y nueva aceptacion real tras actualizar infraestructura.

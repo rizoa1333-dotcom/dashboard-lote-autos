@@ -3,6 +3,15 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const read=name=>JSON.parse(fs.readFileSync(path.join(__dirname,'../..',name),'utf8'));
+test('los flujos auxiliares conservan alertas sin almacenar cargas completas de ejecucion',()=>{
+  for(const name of ['VeloDrive-n8n-incidentes.json','VeloDrive-n8n-alertas-correo.json']){
+    const w=read(name);
+    assert.equal(w.settings.saveDataErrorExecution,'none');
+    assert.equal(w.settings.saveDataSuccessExecution,'none');
+    assert.equal(w.settings.saveManualExecutions,false);
+    assert.equal(w.settings.saveExecutionProgress,false);
+  }
+});
 test('el flujo de incidentes registra fallos y revisa mensajes atascados cada cinco minutos',()=>{
   const w=read('VeloDrive-n8n-incidentes.json');
   assert.ok(w.nodes.some(n=>n.type==='n8n-nodes-base.errorTrigger'));

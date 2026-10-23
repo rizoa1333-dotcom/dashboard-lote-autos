@@ -13,6 +13,8 @@ const add=(w,name,type,parameters,position,extra={})=>w.nodes.push({id:uid(name)
 const http=(w,name,endpoint,body,position)=>add(w,name,'n8n-nodes-base.httpRequest',{method:'POST',url:url+'rpc/'+endpoint,sendHeaders:true,headerParameters:headers,sendBody:true,specifyBody:'json',jsonBody:body,options:{timeout:15000}},position);
 const schedule={rule:{interval:[{field:'minutes',minutesInterval:5}]}};
 const incidents=JSON.parse(fs.readFileSync(path.join(root,'VeloDrive-n8n-incidentes.json'),'utf8'));
+const privateExecutionSettings={saveDataErrorExecution:'none',saveDataSuccessExecution:'none',saveManualExecutions:false,saveExecutionProgress:false};
+incidents.settings={...incidents.settings,...privateExecutionSettings};
 incidents.nodes=incidents.nodes.filter(n=>!['Revisar cada cinco minutos','Detectar mensajes atascados'].includes(n.name));
 add(incidents,'Revisar cada cinco minutos','n8n-nodes-base.scheduleTrigger',schedule,[0,300]);
 http(incidents,'Detectar mensajes atascados','collect_stale_whatsapp_events','={{ {} }}',[240,300]);
@@ -48,4 +50,5 @@ link(w,'Marcar alerta incierta',['Por incidente']);
 const previousCredentials=previousMail?.nodes.find(n=>n.name==='Enviar alerta de soporte'&&n.type==='n8n-nodes-base.httpRequest')?.credentials;
 if(previousCredentials)w.nodes.find(n=>n.name==='Enviar alerta de soporte').credentials=previousCredentials;
 if(previousMail?.settings)w.settings=previousMail.settings;
+w.settings={...w.settings,...privateExecutionSettings};
 fs.writeFileSync(mailFile,JSON.stringify(w,null,2)+'\n');
