@@ -82,6 +82,13 @@ app.post('/api/register-lote', registerRateLimit, express.json({ limit: '20kb' }
   lote.nombre = String(lote.nombre).trim();
   lote.email_admin = email.trim().toLowerCase();
 
+  if (process.env.ATOMIC_REGISTRATION_ENABLED === 'true') {
+    const { createAtomicRegistration } = require('./registration-atomic');
+    const outcome = await createAtomicRegistration({email:lote.email_admin,password,lote,legalConsent,env:process.env,fetchImpl:fetch});
+    res.setHeader('Cache-Control','no-store');
+    return res.status(outcome.status).json(outcome.body);
+  }
+
   const headers = { apikey: anonKey, 'Content-Type': 'application/json' };
   let createdUserId = null;
   try {

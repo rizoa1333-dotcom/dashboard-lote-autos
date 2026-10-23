@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const app = require('../../server');
 
-const envKeys = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'APP_BASE_URL'];
+const envKeys = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'APP_BASE_URL','ATOMIC_REGISTRATION_ENABLED'];
 const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
 const originalFetch = global.fetch;
 const registrationHandler = app._router.stack
@@ -17,6 +17,8 @@ async function postRegister(body) {
   const response = {
     statusCode: 200,
     result: null,
+    headers: {},
+    setHeader(name,value) { this.headers[name]=value; },
     status(code) { this.statusCode = code; return this; },
     json(value) { this.result = value; return this; }
   };
@@ -83,6 +85,28 @@ test('si falta email_admin en el esquema, revierte la cuenta Auth e informa cóm
   assert.equal(authUserExists, false);
   assert.equal(lotExists, false);
   assert.equal(calls.some((call) => call.url.pathname.endsWith('/auth/v1/admin/users/user-123')), true);
+});
+
+test('ruta atomica filtra campos privilegiados y no hace INSERT REST ni compensacion',async()=>{
+  const previous=process.env.ATOMIC_REGISTRATION_ENABLED;process.env.ATOMIC_REGISTRATION_ENABLED='true';
+  const id='11111111-1111-4111-8111-111111111111';let calls=0;
+  try {
+    global.fetch=async(input,options={})=>{
+      calls++;const url=new URL(input);
+      if(url.pathname.endsWith('/rpc/registration_atomic_ready'))return jsonResponse(200,{ready:true});
+      if(url.pathname.endsWith('/auth/v1/signup')){
+        const data=JSON.parse(options.body).data.velodrive_registration;
+        assert.equal(data.lote.profile_id,undefined);assert.equal(data.lote.plan_status,undefined);
+        assert.equal(data.lote.stripe_subscription_id,undefined);assert.equal(data.lote.email_admin,'qa@example.com');
+        return jsonResponse(200,{user:{id,email:'qa@example.com'}});
+      }
+      assert.equal(options.method,'GET');
+      if(url.pathname==='/rest/v1/registration_security_operations')return jsonResponse(200,[{id:url.searchParams.get('id').slice(3),user_id:id,lote_id:'22222222-2222-4222-8222-222222222222'}]);
+      return jsonResponse(200,[{id:'22222222-2222-4222-8222-222222222222',profile_id:id,email_admin:'qa@example.com'}]);
+    };
+    const payload=validPayload();Object.assign(payload.datosLote,{profile_id:'other',plan_status:'active',stripe_subscription_id:'sub_forged'});
+    const response=await postRegister(payload);assert.equal(response.status,201);assert.equal(calls,4);
+  } finally {if(previous===undefined)delete process.env.ATOMIC_REGISTRATION_ENABLED;else process.env.ATOMIC_REGISTRATION_ENABLED=previous;}
 });
 
 test('un correo duplicado devuelve 422 sin insertar lote ni borrar la cuenta existente', async () => {

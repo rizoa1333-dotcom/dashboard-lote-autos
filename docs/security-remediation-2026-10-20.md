@@ -106,3 +106,21 @@ Se publico en n8n un cambio limitado a Evaluar Resultado1: devuelve resultado pa
 Panel local: muestra Publicacion parcial y el mensaje por red, sin reenviar fotos al consultar. 122 pruebas unitarias y 23 E2E aprobadas; nueva regresion comprueba cero POST de publicacion durante consulta. El cambio de dashboard.js todavia NO desplegado. Railway muestra incidente de plataforma y Redeploy deshabilitado. Preflight actual Evolution continua reflejando origen externo con credentials=true: M11 sigue abierto. No se reinicio innecesariamente el servicio activo.
 
 Normalizacion del estado O(n) en resultados del proveedor y O(n) de memoria; el servicio admite dos plataformas. Pruebas temporales anteriores permanecen archivadas. Evidencia actual en .qa/evidence (ignorada por Git).
+
+## Cierre verificado 2026-10-22: panel, CORS y Checkout
+
+Main avanzo sin force hasta dafbde5. dashboard.js servido por Railway devuelve HTTP 200, MIME JavaScript y SHA-256 identico al commit. Esto incorpora el estado parcial de publicaciones y los cambios del panel anteriores.
+
+Evolution desplegado con referencia fija evoapicloud/evolution-api@sha256:966625532d9076a2381e973a271307d107e6f070450de3abeeea8bd18be07252. UI: Deployment successful. Preflight real permitido: HTTP 204 y origen exacto del manager; origen https://untrusted.invalid: HTTP 500 sin Access-Control-Allow-Origin ni Allow-Credentials. El rechazo usa una respuesta 500 poco descriptiva, pero no concede acceso cruzado. Manager confirma version 2.3.7 e instancia QA Connected. M11 cerrado para origenes comprobados; CORS no sustituye autenticacion.
+
+Checkout durable: 133 unitarias y 24 E2E aprobadas, regresion SQL real con ROLLBACK aprobada y revision sin bloqueos importantes. Migracion supabase_security_checkout.sql aplicada: RLS, tabla y RPC exclusivas de service_role. Claim por lote, clave idempotente de Stripe, reconciliacion de respuesta perdida, consumo atomico con aplicacion de suscripcion y nueva contratacion tras cancelacion confirmada. Complejidad habitual O(1); recuperacion excepcional O(n), limitada a 1000 sesiones consultadas y fallo cerrado si se excede.
+
+Activacion pendiente: Stripe no conservo los dos permisos autorizados al guardar mediante navegador; usuario debe completar guardado. Se preparan precios existentes sin crear nuevos productos. STRIPE_CHECKOUT_SESSIONS_ENABLED permanece ausente/desactivado. Por tanto el riesgo residual de Payment Links aun NO se declara cerrado. No se ejecuto ningun cobro.
+
+## Registro atomico y permisos confirmados 2026-10-23
+
+Usuario completo el guardado de Stripe. Lectura posterior confirma Checkout Sessions Escritura y Prices Lectura. API verifica ambos precios activos: 11600 MXN/mes produccion y 10 MXN/mes QA. POST incompleto a Checkout devuelve error de parametro (no error de permisos), sin crear sesion ni ejecutar cobro. Variables de precio preparadas en Railway; activacion del Checkout aun pendiente.
+
+Registro: supabase_registration_atomic.sql instalado tras regresion SQL real con ROLLBACK. Auth y lote se crean en la misma transaccion; falla de lote u operation_id repetido no deja usuario. Metadata no puede imponer profile_id, plan activo, suscripcion ni webhook_token. Identidad del lote siempre NEW.id, plan inicial past_due. Tabla de operaciones con RLS y acceso solo servidor. readiness=true comprobado en Supabase.
+
+La revision encontro P1 en el codigo nuevo, antes de activarlo: Supabase puede devolver usuario no confirmado existente con identities no vacio. Corregido exigiendo la operacion aleatoria actual en registration_security_operations antes de leer cualquier lote con service role. Prueba de regresion aprobada; re-revision sin bloqueos importantes. Suite: 142 unitarias y 24 E2E aprobadas. Backend nuevo y ATOMIC_REGISTRATION_ENABLED pendientes de despliegue; no declarar M05 cerrado hasta verificar ruta efectiva.
