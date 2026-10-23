@@ -105,3 +105,21 @@ test('evento sin ID durable y firma inválida no procesan datos',async()=>{
   await s.handler({body:Buffer.from('{}'),get:()=> 'invalid'},r);
   assert.equal(r.code,400); assert.equal(s.calls.length,0);
 });
+
+test('Checkout Session sin Payment Link activa solo la sesion persistida y su dueño',async()=>{
+  const calls=[],writes=[];
+  const localEnv={...env,STRIPE_QA_PRICE_ID:'price_qa'};
+  const fetchImpl=async(input,options={})=>{const url=new URL(input);calls.push(url.pathname);let body;
+    if(url.pathname==='/rest/v1/checkout_security_sessions')body=[{id:'33333333-3333-4333-8333-333333333333',session_id:'cs_test',lote_id:lotId,owner_id:ownerId,reference:'vd_33333333-3333-4333-8333-333333333333',mode:'qa',price_id:'price_qa'}];
+    else if(url.pathname==='/rest/v1/lotes')body=[{id:lotId,profile_id:ownerId,email_admin:'qa@example.com'}];
+    else if(url.hostname==='api.stripe.com')body={id:'sub_qa',customer:'cus_qa',status:'active',items:{data:[{quantity:1,price:{id:'price_qa',unit_amount:1000,currency:'mxn',recurring:{interval:'month',interval_count:1}}}]}};
+    else if(url.pathname.endsWith('/claim_stripe_security_event'))body={state:'claimed'};
+    else if(url.pathname.endsWith('/apply_checkout_session_security_event')){writes.push(JSON.parse(options.body));body={applied:true,matched:true};}
+    else if(url.pathname.endsWith('/fail_stripe_security_event'))body=null;else throw Error('UNEXPECTED_ROUTE');
+    return {ok:true,status:200,json:async()=>body};};
+  const handler=createStripeWebhookHandler({fetchImpl,env:localEnv});
+  const good=await invoke(handler,checkout({payment_link:null,client_reference_id:'vd_33333333-3333-4333-8333-333333333333'}));
+  assert.equal(good.body.matched,true);assert.equal(writes.length,1);assert.equal(writes[0].p_lote_id,lotId);
+  const bad=await invoke(handler,checkout({payment_link:null,client_reference_id:'vd_foreign'}));
+  assert.equal(bad.body.ignored,true);assert.equal(writes.length,1);
+});

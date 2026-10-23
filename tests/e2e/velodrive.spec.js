@@ -512,3 +512,15 @@ test.describe('aislamiento del panel', () => {
   });
 
 });
+
+test('Checkout Session permite redirigir al dominio oficial de Stripe',async({page})=>{
+ await setupPage(page,{user:{id:'user-qa-001'},access_token:'mock'});
+ let destination;
+ page.on('request',request=>{if(request.url().startsWith('https://checkout.stripe.com/'))destination=request.url();});
+ await page.route('https://checkout.stripe.com/**',route=>route.abort());
+ await page.evaluate(async()=>{
+   sessionRequests.fetch=async()=>new Response(JSON.stringify({url:'https://checkout.stripe.com/c/pay/cs_test_only'}),{status:200});
+   await redirigirAStripeCheckout(currentLote).catch(error=>{window.__checkoutError=error.message;});
+ });
+ await expect.poll(()=>destination).toBe('https://checkout.stripe.com/c/pay/cs_test_only');
+});

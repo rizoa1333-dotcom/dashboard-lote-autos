@@ -53,20 +53,41 @@ function createStripeWebhookHandler({ fetchImpl = (...args) => fetch(...args), e
     if (!supported.includes(event.type)) return res.json({ received: true, ignored: true });
     const object = event.data?.object || {};
     const checkout = event.type === 'checkout.session.completed';
+    const serviceHeaders = { apikey: serviceKey, 'Content-Type': 'application/json' };
+    if (serviceKey.startsWith('eyJ')) serviceHeaders.Authorization = 'Bearer ' + serviceKey;
     let identity = null;
+    let durableCheckout = null;
     if (checkout) {
-      if (object.mode !== 'subscription' || !allowed.has(object.payment_link)) {
+      if (object.mode !== 'subscription') {
         return res.json({ received: true, ignored: true, reason: 'payment_link_not_allowed' });
       }
-      identity = verifyCheckoutReference({ reference: object.client_reference_id, paymentLinkId: object.payment_link, secret, created: object.created });
+      if (!object.payment_link) {
+        const match = /^vd_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(object.client_reference_id || '');
+        if (!match || !/^cs_[A-Za-z0-9_]{1,200}$/.test(object.id || '')) {
+          return res.json({received:true,ignored:true,reason:'invalid_checkout_reference'});
+        }
+        try {
+          const query = new URLSearchParams({select:'id,session_id,lote_id,owner_id,reference,mode,price_id',id:'eq.'+match[1],limit:'1'});
+          const response = await fetchImpl(origin + '/rest/v1/checkout_security_sessions?' + query,
+            {headers:serviceHeaders,signal:AbortSignal.timeout(15000)});
+          if (!response.ok) throw Error('CHECKOUT_LOOKUP_FAILED');
+          const rows = await response.json();
+          durableCheckout = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+          if (durableCheckout && !durableCheckout.session_id) return res.status(503).json({error:'Checkout is awaiting durable confirmation. Retry later.'});
+          if (!durableCheckout || durableCheckout.reference !== object.client_reference_id || durableCheckout.session_id !== object.id
+              || !['production','qa'].includes(durableCheckout.mode)) return res.json({received:true,ignored:true,reason:'checkout_session_not_registered'});
+          identity = {lotId:durableCheckout.lote_id,ownerId:durableCheckout.owner_id};
+        } catch { return res.status(503).json({error:'Checkout verification is temporarily unavailable.'}); }
+      } else {
+        if (!allowed.has(object.payment_link)) return res.json({received:true,ignored:true,reason:'payment_link_not_allowed'});
+        identity = verifyCheckoutReference({ reference: object.client_reference_id, paymentLinkId: object.payment_link, secret, created: object.created });
+      }
       if (!identity) return res.json({ received: true, ignored: true, reason: 'invalid_checkout_reference' });
     }
     const subscriptionId = checkout ? object.subscription : event.type.startsWith('customer.subscription.') ? object.id : getSubscriptionId(object);
     if (typeof subscriptionId !== 'string' || !/^sub_[A-Za-z0-9]{1,128}$/.test(subscriptionId)) {
       return res.json({ received: true, ignored: true, reason: 'subscription_missing' });
     }
-    const serviceHeaders = { apikey: serviceKey, 'Content-Type': 'application/json' };
-    if (serviceKey.startsWith('eyJ')) serviceHeaders.Authorization = 'Bearer ' + serviceKey;
     const rpc = async (name, data) => {
       const response = await fetchImpl(origin + '/rest/v1/rpc/' + name, {
         method: 'POST', headers: serviceHeaders, body: JSON.stringify(data), signal: AbortSignal.timeout(15000)
@@ -91,7 +112,7 @@ function createStripeWebhookHandler({ fetchImpl = (...args) => fetch(...args), e
         const rows = await lookup.json();
         lot = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
         const email = String(object.customer_details?.email || object.customer_email || '').trim().toLowerCase();
-        const qa = object.payment_link === env.STRIPE_QA_PAYMENT_LINK_ID;
+        const qa = durableCheckout ? durableCheckout.mode === 'qa' : object.payment_link === env.STRIPE_QA_PAYMENT_LINK_ID;
         if (!lot || lot.id !== identity.lotId || lot.profile_id !== identity.ownerId
           || !email || email !== String(lot.email_admin || '').trim().toLowerCase()
           || (qa && email !== env.STRIPE_QA_EMAIL.toLowerCase())
@@ -111,12 +132,13 @@ function createStripeWebhookHandler({ fetchImpl = (...args) => fetch(...args), e
       if (checkout) {
         const items = current.items?.data;
         const price = Array.isArray(items) && items.length === 1 ? items[0].price : null;
-        const qa = object.payment_link === env.STRIPE_QA_PAYMENT_LINK_ID;
+        const qa = durableCheckout ? durableCheckout.mode === 'qa' : object.payment_link === env.STRIPE_QA_PAYMENT_LINK_ID;
         const expectedAmount = qa ? 1000 : 1160000;
         const expectedPrice = qa ? env.STRIPE_QA_PRICE_ID : env.STRIPE_PRODUCTION_PRICE_ID;
         if (current.customer !== object.customer || !price || price.currency !== 'mxn'
           || price.unit_amount !== expectedAmount || price.recurring?.interval !== 'month'
-          || price.recurring.interval_count !== 1 || (expectedPrice && price.id !== expectedPrice)) {
+          || price.recurring.interval_count !== 1 || (expectedPrice && price.id !== expectedPrice)
+          || (durableCheckout && (items[0].quantity !== 1 || !expectedPrice || price.id !== durableCheckout.price_id))) {
           return res.json({ received: true, ignored: true, reason: 'checkout_price_or_customer_conflict' });
         }
       }
@@ -126,11 +148,12 @@ function createStripeWebhookHandler({ fetchImpl = (...args) => fetch(...args), e
       }
       const periodEnd = current.current_period_end ?? current.items?.data?.[0]?.current_period_end;
       if (periodEnd != null && (!Number.isSafeInteger(periodEnd) || periodEnd <= 0)) throw new Error('INVALID_PERIOD');
-      const result = await rpc('apply_stripe_security_event', {
+      const result = await rpc(durableCheckout ? 'apply_checkout_session_security_event' : 'apply_stripe_security_event', {
         ...lease, p_lote_id: identity?.lotId || null, p_owner_id: identity?.ownerId || null,
         p_customer_id: current.customer, p_plan_status: planStatus,
         p_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-        p_cancelled: current.status === 'canceled'
+        p_cancelled: current.status === 'canceled',
+        ...(durableCheckout ? {p_attempt_id:durableCheckout.id,p_session_id:object.id} : {})
       });
       if (result?.applied !== true) throw new Error('BILLING_COMMIT_NOT_CONFIRMED');
       applied = true;

@@ -73,12 +73,20 @@ function createCheckoutLinkHandler({ env = process.env, fetchImpl = (...args) =>
       if (qa && (!env.STRIPE_QA_EMAIL || email !== env.STRIPE_QA_EMAIL.toLowerCase())) {
         return res.status(403).json({ code: 'QA_FORBIDDEN', message: 'La tarifa de prueba está restringida a la cuenta interna.' });
       }
+      if (env.STRIPE_CHECKOUT_SESSIONS_ENABLED === 'true' && !testMode) {
+        const {createDurableCheckout} = require('./checkout-session');
+        res.setHeader?.('Cache-Control', 'no-store');
+        return res.json(await createDurableCheckout({lot,user,qa,testMode,env,fetchImpl}));
+      }
       const paymentLinkId = testMode ? env.STRIPE_TEST_PAYMENT_LINK_ID : qa ? env.STRIPE_QA_PAYMENT_LINK_ID : productionId;
       const url = new URL(testMode ? TEST_URL : qa ? QA_URL : LIVE_URL);
       url.searchParams.set('client_reference_id', createCheckoutReference({ lotId: lot.id, ownerId: user.id, paymentLinkId, secret: env.STRIPE_WEBHOOK_SECRET }));
       res.setHeader?.('Cache-Control', 'no-store');
       return res.json({ url: url.toString() });
-    } catch {
+    } catch (error) {
+      if (error.message === 'CHECKOUT_ALREADY_COMPLETED') return res.status(409).json({code:'CHECKOUT_ALREADY_COMPLETED',message:'El pago ya se completó. Espera su confirmación o contacta soporte; no inicies otro cobro.'});
+      if (error.message === 'CHECKOUT_CREATION_RECONCILING') return res.status(503).json({code:'CHECKOUT_RECONCILING',message:'Estamos comprobando un intento anterior. Espera a que venza antes de volver a intentar; no se abrió otro cobro.'});
+      if (error.message === 'CHECKOUT_SESSION_NOT_CONFIGURED') return res.status(503).json({code:'CHECKOUT_NOT_CONFIGURED',message:'El pago no está configurado. Contacta soporte.'});
       return res.status(502).json({ code: 'CHECKOUT_UNAVAILABLE', message: 'No se pudo preparar el pago. Intenta de nuevo.' });
     }
   };

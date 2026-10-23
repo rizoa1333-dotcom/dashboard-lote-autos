@@ -70,7 +70,9 @@ async function redirigirAStripeCheckout(lote) {
     if (!response.ok) throw new Error(result.message || 'No se pudo preparar el pago. Intenta de nuevo.');
     if (currentLote?.id !== lote.id) throw new Error('Tu sesión cambió. Vuelve a iniciar sesión.');
     const url = new URL(result.url);
-    if (url.origin !== 'https://buy.stripe.com') throw new Error('El enlace de pago no es válido.');
+    if (!['https://buy.stripe.com', 'https://checkout.stripe.com'].includes(url.origin) || url.username || url.password) {
+      throw new Error('El enlace de pago no es válido.');
+    }
     window.location.href = url.toString();
   } finally {
     checkoutPending = false;
