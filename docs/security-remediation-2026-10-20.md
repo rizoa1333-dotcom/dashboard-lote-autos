@@ -153,3 +153,11 @@ Criticas Evolution desplegado: baileys 7.0.0-rc.9 (CVE-2026-48063, corregido en 
 Criticas n8n actual y candidato: @simple-git/argv-parser 1.1.1 (CVE-2026-102829, fix 2.0.1), simple-git 3.36.0 (CVE-2026-102828, fix 4.0.1), handlebars 4.7.9 (CVE-2026-106445 y CVE-2026-106446, fix 4.7.10). La actualizacion oficial por si sola no elimina esas coincidencias. Fuente del contenedor actual usa FROM n8nio/n8n:latest y USER root; pendiente sustituirla por build controlado sin root tras respaldo/restauracion y pruebas de compatibilidad.
 
 Fuentes primarias: [Baileys advisory](https://github.com/WhiskeySockets/Baileys/security/advisories/GHSA-qvv5-jq5g-4cgg), [protobuf advisory](https://github.com/advisories/GHSA-xq3m-2v4x-88gg), [n8n 2.44.6](https://github.com/n8n-io/n8n/releases/tag/n8n%402.44.6). Reportes completos privados en `.qa/evidence/*scan-20261023.json`. Pendientes de cierre: remediacion/triage de contenedores, limite de descarga upstream previo a acumular documentos, restauracion aislada comprobada y nueva aceptacion real tras actualizar infraestructura.
+
+## Parche del runtime y acceso de auditoria 2026-10-23
+
+521e985 desplegado y prueba real sin cobro repetida con exito: registro 201, una sola sesion durable, Stripe open confirmado, despues expirado y cuenta temporal retirada. No se cancelaron planes existentes. Se retiraron scanner/inventario temporales del contenedor y se revoco la clave SSH de auditoria; Railway confirma cero claves registradas y ambos archivos locales de la clave fueron eliminados.
+
+La restriccion 24.x resolvio Node 24.21.0 en Railway. El [indice oficial de Node](https://nodejs.org/dist/index.json) indica 24.22.1, 2026-10-20, security=true y LTS Krypton. Se fija 24.22.1 en package.json/lock y se agrega una regresion que impide versiones anteriores o rangos ambiguos. Binario de prueba descargado del origen oficial y verificado con SHASUMS256; 146 unitarias y 24 E2E aprobadas usando esa misma revision. Falta confirmar la version resuelta despues de desplegar este ultimo commit.
+
+El usuario descarto consumo adicional en Railway y eligio un laboratorio local gratuito. WSL 2.6.3 esta instalado sin distribuciones; Docker/PostgreSQL no tienen ejecutables utilizables en las rutas revisadas. Preparacion local en curso, sin servicios cloud adicionales ni cambios de imagen en produccion.

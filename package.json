@@ -15,7 +15,7 @@
     "helmet": "^8.0.0"
   },
   "engines": {
-    "node": "24.x"
+    "node": "24.22.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
