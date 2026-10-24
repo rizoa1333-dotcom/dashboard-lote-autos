@@ -227,3 +227,12 @@ duplicados al importar, pero no se publico. Restaurar desde
 .qa/main-bounded-media-live.json, exportar y comparar antes de publicar. No usar
 el JSON completo del repositorio como sustituto del export live. La version
 anterior publicada no fue desactivada ni reemplazada por el borrador vacio.
+
+Actualizacion09:05 del2026-10-24: bloqueo de importacion resuelto. Export28 tiene
+210 nodos y coincide con el parche revisado en parametros, credenciales,
+conexiones y ajustes. Version «Descarga documental acotada - 2026-10-24» publicada;
+UI Published y consulta READ ONLY con TLS confirman active=true, draftNodes=210,
+publishedNodes=210 y boundedDownloaderPublished=true. La copia vacia nunca se
+publico. Evidencia visual n8n-bounded-documents-published-20261024.png y reporte
+live-workflow-publication-20261024.json privados. Sigue pendiente una nueva
+aceptacion documental real; no confundir la comprobacion de version con esa prueba.
