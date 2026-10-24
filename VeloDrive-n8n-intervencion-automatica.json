@@ -2557,36 +2557,12 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=https://evolution-api-production-3652.up.railway.app/chat/getBase64FromMediaMessage/{{ $('Edit Fields1').item.json.tenant_instance }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "apikey",
-              "value": "={{ $env.EVOLUTION_API_KEY }}"
-            },
-            {
-              "name": "Origin",
-              "value": "https://evolution-api-production-3652.up.railway.app"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ message: { key: { id: $json.messageId } }, convertToMp4: false }) }}",
-        "options": {
-          "timeout": 15000
-        }
+        "jsCode": "async function downloadDocumentMedia(request, instance, messageId, apiKey) {\n  if (!/^[A-Za-z0-9_-]{1,100}$/.test(instance || '')\n    || !/^[A-Za-z0-9_-]{1,256}$/.test(messageId || '')\n    || typeof apiKey !== 'string' || !apiKey.length) {\n    throw new Error('INVALID_DOCUMENT_DOWNLOAD');\n  }\n  const origin = 'https://evolution-api-production-3652.up.railway.app';\n  try {\n    const response = await request({\n      method: 'POST',\n      url: origin + '/chat/getBase64FromMediaMessage/' + instance,\n      headers: { apikey: apiKey, Origin: origin },\n      body: { message: { key: { id: messageId } }, convertToMp4: false },\n      json: true,\n      timeout: 15000,\n      disableFollowRedirect: true,\n      maxResponseBodyBytes: 4 * Math.ceil(10 * 1024 * 1024 / 3) + 65536,\n    });\n    const base64 = response?.base64 || response?.data;\n    if (typeof base64 !== 'string' || !base64.length) throw new Error('INVALID_MEDIA_BODY');\n    return { base64 };\n  } catch {\n    // Provider errors can include request headers and signed media URLs.\n    throw new Error('DOCUMENT_DOWNLOAD_FAILED');\n  }\n}\nconst auth = $('Edit Fields1').first().json;\nif (!$json.lote_id || $json.lote_id !== auth.tenant_lote_id) throw new Error('DOCUMENT_TENANT_MISMATCH');\nreturn [{ json: await downloadDocumentMedia(options => this.helpers.httpRequest(options), auth.tenant_instance, $json.messageId, $env.EVOLUTION_API_KEY) }];"
       },
       "id": "c944b57e-8b64-455d-a79c-47172ae813d0",
       "name": "Obtener Base64 de Media",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         37328,
         17648
@@ -2595,7 +2571,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function validateDocument(base64, mimetype, fileLength) {\n  const limit = 10 * 1024 * 1024;\n  const types = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };\n  const invalid = { ok: false, message: 'El archivo no tiene un formato válido. Envía una imagen JPEG, PNG, WebP o un PDF.' };\n  const tooLarge = { ok: false, message: 'El archivo supera el límite de 10 MB. Reduce su tamaño y vuelve a enviarlo.' };\n  if (!Object.hasOwn(types, mimetype)) return invalid;\n  if (fileLength !== undefined && fileLength !== null) {\n    try {\n      const length = typeof fileLength === 'object'\n        ? (BigInt(fileLength.high >>> 0) << 32n) + BigInt(fileLength.low >>> 0)\n        : BigInt(fileLength);\n      if (length < 0n) return invalid;\n      if (length > BigInt(limit)) return tooLarge;\n    } catch { return invalid; }\n  }\n  if (base64 === null || base64 === undefined) return { ok: true, ext: types[mimetype] };\n  if (typeof base64 !== 'string') return invalid;\n  if (base64.length > 4 * Math.ceil(limit / 3)) return tooLarge;\n  if (!base64.length || base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) return invalid;\n  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;\n  if ((base64.length / 4) * 3 - padding > limit) return tooLarge;\n  const bytes = Buffer.from(base64, 'base64');\n  if (bytes.toString('base64') !== base64) return invalid;\n  const signatures = {\n    'image/jpeg': bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255,\n    'image/png': bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),\n    'image/webp': bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP',\n    'application/pdf': bytes.toString('ascii', 0, 5) === '%PDF-'\n  };\n  if (!signatures[mimetype]) return invalid;\n  return { ok: true, ext: types[mimetype], buffer: bytes };\n}\nconst prev = $('Documentación de fase de validación1').item.json;\nconst base64 = $json.base64 || $json.data || null;\nconst validation = validateDocument(base64, prev.mimetype);\nreturn [{ json: { ...prev, base64: validation.ok ? base64 : null,\n  continuar: !!base64 && validation.ok, necesitaDescarga: false,\n  mensajeFaltante: validation.ok ? prev.mensajeFaltante : validation.message } }];"
+        "jsCode": "function validateDocument(base64, mimetype, fileLength) {\n  const limit = 10 * 1024 * 1024;\n  const types = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };\n  const invalid = { ok: false, message: 'El archivo no tiene un formato válido. Envía una imagen JPEG, PNG, WebP o un PDF.' };\n  const tooLarge = { ok: false, message: 'El archivo supera el límite de 10 MB. Reduce su tamaño y vuelve a enviarlo.' };\n  if (!Object.hasOwn(types, mimetype)) return invalid;\n  if (fileLength !== undefined && fileLength !== null) {\n    try {\n      const length = typeof fileLength === 'object'\n        ? (BigInt(fileLength.high >>> 0) << 32n) + BigInt(fileLength.low >>> 0)\n        : BigInt(fileLength);\n      if (length < 0n) return invalid;\n      if (length > BigInt(limit)) return tooLarge;\n    } catch { return invalid; }\n  }\n  if (base64 === null || base64 === undefined) return { ok: true, ext: types[mimetype] };\n  if (typeof base64 !== 'string') return invalid;\n  if (base64.length > 4 * Math.ceil(limit / 3)) return tooLarge;\n  if (!base64.length || base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) return invalid;\n  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;\n  if ((base64.length / 4) * 3 - padding > limit) return tooLarge;\n  const bytes = Buffer.from(base64, 'base64');\n  if (bytes.toString('base64') !== base64) return invalid;\n  const signatures = {\n    'image/jpeg': bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255,\n    'image/png': bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),\n    'image/webp': bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP',\n    'application/pdf': bytes.toString('ascii', 0, 5) === '%PDF-'\n  };\n  if (!signatures[mimetype]) return invalid;\n  return { ok: true, ext: types[mimetype], buffer: bytes };\n}\nconst prev = $('Documentación de fase de validación1').item.json;\nconst base64 = $json.base64 || $json.data || null;\nif ($json.error || typeof base64 !== 'string' || !base64.length) {\n  return [{ json: { ...prev, base64: null, continuar: false, necesitaDescarga: false,\n    mensajeFaltante: 'No pude descargar el archivo. Revisa que no supere 10 MB y vuelve a enviarlo, por favor.' } }];\n}\nconst validation = validateDocument(base64, prev.mimetype);\nreturn [{ json: { ...prev, base64: validation.ok ? base64 : null,\n  continuar: !!base64 && validation.ok, necesitaDescarga: false,\n  mensajeFaltante: validation.ok ? prev.mensajeFaltante : validation.message } }];"
       },
       "id": "4c03a69a-b8b4-4e21-9c2f-1efc6897feff",
       "name": "Combinar Base64 Descargado",

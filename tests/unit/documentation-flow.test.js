@@ -124,3 +124,14 @@ test('un adjunto descargado tambien debe validar su firma antes de continuar', (
   assert.equal(result.continuar, false);
   assert.equal(result.base64, null);
 });
+
+test('una descarga fallida conserva el paso y pide reintentar sin revelar el error interno',()=>{
+ const result=run('Combinar Base64 Descargado',{error:{message:'SECRET_PROVIDER_HEADER'}},{
+  'Documentación de fase de validación1':{mimetype:'image/png',phone:'523121234567',step:2,mensajeFaltante:'Solicitud previa'}
+ })[0].json;
+ assert.equal(result.continuar,false);
+ assert.equal(result.necesitaDescarga,false);
+ assert.equal(result.step,2);
+ assert.match(result.mensajeFaltante,/descargar.*vuelve a enviarlo/i);
+ assert.doesNotMatch(JSON.stringify(result),/SECRET_PROVIDER_HEADER/);
+});

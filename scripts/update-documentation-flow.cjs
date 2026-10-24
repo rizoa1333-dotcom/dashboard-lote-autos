@@ -93,6 +93,10 @@ return [{ json: {
 get('Combinar Base64 Descargado').parameters.jsCode = validatorCode + `
 const prev = $('Documentación de fase de validación1').item.json;
 const base64 = $json.base64 || $json.data || null;
+if ($json.error || typeof base64 !== 'string' || !base64.length) {
+  return [{ json: { ...prev, base64: null, continuar: false, necesitaDescarga: false,
+    mensajeFaltante: 'No pude descargar el archivo. Revisa que no supere 10 MB y vuelve a enviarlo, por favor.' } }];
+}
 const validation = validateDocument(base64, prev.mimetype);
 return [{ json: { ...prev, base64: validation.ok ? base64 : null,
   continuar: !!base64 && validation.ok, necesitaDescarga: false,
@@ -105,6 +109,13 @@ const filename = item.step + '_' + Date.now() + '.' + validation.ext;
 const binary = await this.helpers.prepareBinaryData(validation.buffer, filename, item.mimetype);
 return [{ json: { ...item, filename }, binary: { data: binary } }];`;
 get('Responder Sin Adjunto1').parameters.jsonBody = "={{ JSON.stringify({ number: $('Continuar1').first().json.phone, text: $('Continuar1').first().json.mensajeFaltante }) }}";
-get('Obtener Base64 de Media').parameters.options = { ...get('Obtener Base64 de Media').parameters.options, timeout: 15000 };
+const { downloadDocumentMedia } = require('../document-download');
+const download = get('Obtener Base64 de Media');
+download.type = 'n8n-nodes-base.code';
+download.typeVersion = 2;
+download.parameters = { jsCode: downloadDocumentMedia.toString() + `
+const auth = $('Edit Fields1').first().json;
+if (!$json.lote_id || $json.lote_id !== auth.tenant_lote_id) throw new Error('DOCUMENT_TENANT_MISMATCH');
+return [{ json: await downloadDocumentMedia(options => this.helpers.httpRequest(options), auth.tenant_instance, $json.messageId, $env.EVOLUTION_API_KEY) }];` };
 
 fs.writeFileSync(file, JSON.stringify(workflow, null, 2) + '\n');

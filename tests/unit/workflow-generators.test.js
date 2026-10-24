@@ -11,7 +11,7 @@ test('regenerar flujos conserva credenciales, vigilancia y produce el mismo resu
   const files=['VeloDrive-n8n-intervencion-automatica.json','VeloDrive-n8n-incidentes.json','VeloDrive-n8n-alertas-correo.json'];
   try {
     fs.mkdirSync(path.join(temp,'scripts'));
-    for(const name of [...files,'whatsapp-reliability.js','persistent-memory.js','webhook-security.js','document-validation.js'])fs.copyFileSync(path.join(repo,name),path.join(temp,name));
+    for(const name of [...files,'whatsapp-reliability.js','persistent-memory.js','webhook-security.js','document-validation.js','document-download.js'])fs.copyFileSync(path.join(repo,name),path.join(temp,name));
     for(const name of ['update-whatsapp-reliability.cjs','update-incident-workflows.cjs','update-documentation-flow.cjs','update-conversation-isolation.cjs','update-persistent-memory.cjs','update-security-workflows.cjs'])fs.copyFileSync(path.join(repo,'scripts',name),path.join(temp,'scripts',name));
     const initial=JSON.parse(fs.readFileSync(path.join(temp,files[2])));
     const credentials=initial.nodes.find(n=>n.name==='Enviar alerta de soporte').credentials;

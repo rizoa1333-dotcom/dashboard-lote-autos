@@ -5,7 +5,7 @@ const origin='https://evolution-api-production-3652.up.railway.app';
 
 test('las llamadas autenticadas a Evolution declaran su origen permitido sin ampliar CORS',()=>{
   const nodes=w.nodes.filter(n=>n.type==='n8n-nodes-base.httpRequest'&&new RegExp('^=?'+origin.replaceAll('.','\\.')+'/').test(n.parameters.url||''));
-  assert.equal(nodes.length,15);
+  assert.equal(nodes.length,14);
   for(const node of nodes){
     assert.equal(node.parameters.sendHeaders,true,node.name);
     const headers=node.parameters.headerParameters.parameters;

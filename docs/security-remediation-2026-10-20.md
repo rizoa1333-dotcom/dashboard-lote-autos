@@ -203,3 +203,27 @@ Evolution. DPAPI depende de conservar el perfil Windows del usuario; falta una
 copia de recuperacion con custodia independiente antes de considerarlo un plan
 de desastre completo. El respaldo no cambia por si mismo la conexion productiva.
 La clave SSH temporal fue revocada y Railway confirma cero claves registradas.
+
+## Descarga documental acotada: lista local, publicacion pendiente
+
+Nuevo document-download.js usa el limite decoded maxResponseBodyBytes del helper
+HTTP de n8n antes de acumular el JSON:4*ceil(10MiB/3)+64KiB. El limite posterior de
+archivo sigue siendo10MiB y conserva validacion de MIME/base64/firma. No sigue
+redirecciones; destino y Origin fijos; identidad de lote revalidada y errores
+del proveedor sustituidos por codigo seguro. Si falla, el combinador conserva el
+paso y pide reenviar el archivo sin incluir mensajes internos.
+
+156 pruebas unitarias aprobadas, incluida regeneracion idempotente y memoria
+persistente. Prueba local real en n8n2.44.6: limite efectivo para respuestas
+fragmentadas y sobre bytes descomprimidos gzip. Fuente de n8n2.44.4 declara
+maxResponseBodyBytes en IHttpRequestOptions. Complejidad de descarga O(B) tiempo
+y O(min(B,L)) memoria del transporte, con L acotado al limite de JSON; validacion
+posterior O(L). No se afirma memoria constante independiente del limite.
+
+Parche live derivado del export27: solo2 nodos de210 cambian, mismas conexiones,
+ajustes y credenciales. **Pendiente publicar:** importacion interrumpida; revision
+automatica sin cuota bloqueo reabrir pestaña. El borrador fue vaciado para evitar
+duplicados al importar, pero no se publico. Restaurar desde
+.qa/main-bounded-media-live.json, exportar y comparar antes de publicar. No usar
+el JSON completo del repositorio como sustituto del export live. La version
+anterior publicada no fue desactivada ni reemplazada por el borrador vacio.
