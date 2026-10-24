@@ -7,9 +7,18 @@ function hardenManifest(manifest){
   if(!['7.0.0-rc.9','7.0.0-rc13'].includes(manifest.dependencies?.baileys))throw Error('UNEXPECTED_BAILEYS_BASE');
   const result=structuredClone(manifest);
   result.dependencies.baileys='7.0.0-rc13';
+  const patches={axios:'1.20.0',undici:'7.29.1',sharp:'0.35.5',multer:'2.3.0'};
+  for(const [name,version] of Object.entries(patches)){
+    if(Object.hasOwn(result.dependencies,name))result.dependencies[name]=version;
+  }
   // The vendor application is already compiled; tsup is not used by start:prod.
   delete result.dependencies.tsup;
-  result.overrides={...result.overrides,'proxy-addr':'2.0.8','fast-xml-parser@4':'4.5.4','fast-xml-parser@5':'5.3.5'};
+  const reference=name=>Object.hasOwn(result.dependencies,name)?'$'+name:patches[name];
+  result.overrides={...result.overrides,'proxy-addr':'2.0.8',
+    'fast-xml-parser@4':'4.5.5','fast-xml-parser@5':'5.5.6',
+    'axios@1':reference('axios'),'axios@0':'0.32.0',
+    'undici@7':reference('undici'),sharp:reference('sharp'),'multer@2':reference('multer'),
+    'ws@8':'8.21.0','engine.io@6':'6.6.10','socket.io-parser@4':'4.2.7'};
   return result;
 }
 

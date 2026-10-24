@@ -2,12 +2,15 @@
 
 Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la auditoria del 18-10; no equivale a una certificacion de ausencia de vulnerabilidades.
 
-## Evidencia actual
+## Evidencia actual (actualizada 2026-10-24)
 
-- 118/118 pruebas unitarias y 22/22 pruebas Playwright aprobadas. Servicios externos simulados en E2E; no se ejecutaron cargos.
-- npm audit --omit=dev: cero vulnerabilidades. No cubre imagenes de n8n/Evolution sin SBOM.
-- Produccion: seis comprobaciones de autenticacion aprobadas; canal WhatsApp conectado despues del reinicio.
-- App c3230c6 desplegada; n8n publicado con 210 nodos y autenticacion separada. Migraciones de facturacion, tenants y trigger de citas aplicadas.
+- 157 pruebas unitarias y 24 Playwright aprobadas. E2E usa servicios externos simulados; pruebas reales adicionales se distinguen en el historial inferior. Sin nuevos cargos.
+- Auditoria npm de la aplicacion sin vulnerabilidades reportadas. Escaneos separados de n8n/Evolution si contienen hallazgos pendientes; no extrapolar el resultado de npm a todo el sistema.
+- Registro atomico y Checkout durable probados contra servicios reales sin cobrar; enlaces de compra Live heredados desactivados.
+- Flujo documental publicado y verificado con 210 nodos. n8n 2.44.6 fijado por digest, proceso principal UID 1000, Postgres privado y 24 variables conservadas por huella. Tres workflows activos; cinco credenciales y 311 migraciones conservadas.
+- Prueba real tras el cambio de n8n: ejecucion 21740, 1 entrada/1 respuesta/0 incidentes; usuario confirmo entrega. Alerta controlada aceptada en ejecucion 21854 y destinatario confirmo recepcion. SSH temporal revocado.
+- Siete comprobaciones reales de autenticacion rechazaron solicitudes sin sesion, firma o clave: editor n8n, webhooks WhatsApp/citas/QR, portal Stripe, webhook Stripe y Evolution. Sin mensajes, cargos ni lectura de conversaciones.
+- Evolucion de imagen Evolution: segunda candidata local2.3.7 con0 CRITICAL/20 HIGH (antes69 HIGH); produccion aun conserva el digest anterior con8 CRITICAL/208 HIGH. Compatibilidad de medios, HTTP, Chatwoot y Socket.IO probada en aislamiento, ademas de arranque y57 migraciones. No se declara lista para distribuir por el solo hecho de pasar pruebas funcionales.
 
 ## Hallazgos
 
@@ -16,36 +19,39 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 | C01 | Corregido en app | proxy-addr 2.0.8; audit limpio; imagenes externas fuera de alcance |
 | H01 | Corregido en flujo actual | Stripe Trigger de n8n desactivado y desconectado; backend es escritor del flujo actual; dos destinos antiguos deshabilitados. Destino restante 7c40 identificado por el usuario como prueba de VeloDrive y deshabilitado; solo el destino actual queda activo |
 | H02 | Corregido en rutas actuales | Firma/referencia/precio validados; reconciliacion contra estado actual con claim y commit fenced en DB. No probado mediante un nuevo cobro real |
-| H03 | Corregido en canales principales | Secretos separados de citas y Evolution; headers verificados antes de procesar; query secret retirada y variable compartida eliminada. Trigger opaco notificacion_auto_nuevo requiere inventario |
+| H03 | Corregido en canales identificados | Secretos separados; headers verificados antes de procesar; query secret y variable compartida retiradas. Trigger legado sin consumidor deshabilitado reversiblemente y verificado |
 | H04 | Corregido y verificado | Usuario revoco default secreta; comprobacion directa: clave anterior HTTP 401, nueva HTTP 200; WhatsApp sigue conectado. Workflow legado despublicado y saneado |
 | H05 | Corregido en rutas identificadas | 15 politicas restrictivas de plan para escritura y gates premium en automatizaciones. QR exige plan activo; cualquier onboarding alternativo debe mantener politica explicita |
 | H06 | Corregido | Herramientas de agente usan agent_inventory, proyeccion sin costos privados y filtro de lote |
-| M01 | Parcial | Flujo principal no guarda ejecuciones completas; revisar auxiliares y retencion historica antes de dar por eliminado el riesgo |
+| M01 | Corregido para ejecuciones nuevas | Principal y dos auxiliares none/none/false/false verificados. Historial anterior no purgado; no afirmar eliminacion retroactiva de datos |
 | M02 | Corregido | Revocados TRUNCATE/TRIGGER/REFERENCES de clientes y privilegios por columna |
 | M03 | Corregido | chat_history modificable solo por servidor; cliente conserva lectura autorizada |
 | M04 | Corregido | Restriccion de rol admite user/model/human |
-| M05 | Parcial | Contrato REST y duplicados corregidos y probados; compensacion sigue siendo saga, sin recuperacion durable de huerfanos |
-| M06 | Corregido y probado localmente | AbortController y generaciones invalidan respuestas; salida/cambio de usuario destruye datos y documento; pruebas de logout y cambio Auth. Despliegue del panel pendiente |
-| M07 | Corregido y probado localmente | Catalogo consulta solo columnas comerciales, sin CRM/gastos; respuesta anterior no repuebla costos. Sigue siendo presentacion del propietario, no acceso publico. Despliegue pendiente |
-| M08 | Parcial, publicado | Limite 10 MiB, base64 canonico, firma de formato y validacion posterior a descarga; buffer fuera de JSON. No incluye antivirus ni limite de streaming de la respuesta HTTP de Evolution |
-| M09 | Corregido y probado localmente | CSP bloquea scripts inline/eval; SDK Supabase 2.118.0 local con integridad verificada; Tailwind compilado localmente. 3 regresiones HTTP reales prueban CSP, wizard, PDF y movil. Despliegue pendiente; estilos inline heredados aun permitidos |
-| M10 | Parcial, probado localmente | API interactiva conserva limite; health y Stripe quedan fuera del cupo. Pruebas de 305 health y 301 API. Falta despliegue y almacenamiento compartido/concurrencia n8n |
-| M11 | Pendiente | Restringir CORS de Evolution y credenciales a origenes necesarios |
+| M05 | Corregido y aplicado | Registro atomico Auth+lote por trigger condicional; rollback real y readiness verificados. No depende de borrado compensatorio para nuevas altas marcadas |
+| M06 | Corregido y desplegado | AbortController/generaciones y limpieza de cuenta/documento; pruebas de logout y cambio Auth; archivos productivos comprobados |
+| M07 | Corregido y desplegado | Catalogo solo columnas comerciales, sin CRM/gastos; sigue siendo presentacion del propietario, no un sitio publico |
+| M08 | Parcial, publicado | Archivo10MiB validado; transporte n8n limita JSON descomprimido antes de acumular; sin redirects y reintento seguro. No incluye antivirus ni limita por si mismo el buffering interno de Evolution |
+| M09 | Corregido y desplegado | CSP y recursos locales verificados; estilos inline heredados aun permitidos |
+| M10 | Parcial, desplegado | API interactiva limitada; health/Stripe separados. Almacenamiento compartido y capacidad bajo concurrencia pendientes; no afirmar escalamiento horizontal |
+| M11 | Corregido y aceptado | CORS restringido, credentials=false, Origin fijo en consumidores autorizados; panel y respuesta WhatsApp reales comprobados |
 | M12 | Corregido en produccion | FK compuesta validada; cero incoherencias previas. Prueba service_role RED antes y GREEN despues, con ROLLBACK: rechaza insercion cruzada/reasignacion y conserva cascada original |
 | L01 | Corregido en funciones identificadas | search_path fijo y permisos de ejecucion restringidos; trigger de citas usa Vault |
-| L02 | Pendiente | Fijar digests y escanear imagenes de n8n/Evolution |
+| L02 | Parcial | n8n oficial fijado y sin root; conserva4 CRITICAL/20 HIGH por evaluar. Evolution productivo fijado pero con8 CRITICAL; candidata corregida aun local. Ver reportes separados |
 
 ## Riesgos residuales que impiden afirmar cierre total
 
-1. Rotacion cerrada: anterior HTTP 401 y nueva HTTP 200; mantener inventario de consumidores para siguientes rotaciones.
-2. Destinos Stripe antiguos deshabilitados por autorizacion expresa del propietario; solo servidor actual recibe eventos.
-3. Payment Links reutilizables: dos compras abiertas antes de asociar la suscripcion aun pueden generar doble cobro. El bloqueo de cuenta vinculada reduce el riesgo pero no sustituye Checkout Sessions idempotentes.
-4. notificacion_auto_nuevo requiere identificar consumidor, autenticacion y utilidad antes de retirarlo o corregirlo.
-5. Cambios productivos desplegados por CLI aun no respaldados en GitHub: integrar esta rama antes del siguiente despliegue desde main.
+1. Cerrar o mitigar con evidencia las dependencias vulnerables de los contenedores. La candidata Evolution no se considera desplegada.
+2. Completar recuperacion de Evolution/Supabase y custodia independiente de claves de respaldo. La restauracion comprobada de n8n no cubre todo el sistema.
+3. El limite del cliente HTTP n8n no impide que Evolution acumule previamente un medio grande; revisar esa ruta del proveedor.
+4. Probar carga/concurrencia antes de declarar capacidad comercial para un numero de lotes. La prueba funcional no es una prueba de capacidad.
+5. Mantener pruebas de tenant por operacion, firma/precio Stripe y recuperacion de errores en cada cambio posterior.
 
 ## Orden siguiente
 
-Revocar y verificar clave antigua; atribuir entradas heredadas; respaldar rama remota; cerrar M06/M07/M08 y luego configuracion de infraestructura y dependencias de contenedor. Mantener pruebas de aislamiento por operacion y pruebas reales sin documentos personales.
+Remediar y probar Evolution; evaluar dependencias criticas restantes de n8n;
+cerrar recuperacion y aceptar flujos reales finales. Mantener cambios pequenos,
+reversibles y limitados a los modulos afectados. Los apartados inferiores conservan
+el historial fechado, incluidos bloqueos que ya fueron resueltos.
 
 ## Bloqueo de despliegue del panel
 

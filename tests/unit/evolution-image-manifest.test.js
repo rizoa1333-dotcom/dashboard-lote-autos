@@ -16,9 +16,29 @@ test('la candidata conserva Evolution estable y limita los cambios de dependenci
  assert.equal(out.dependencies.prisma,before.dependencies.prisma);
  assert.deepEqual(out.scripts,before.scripts);
  assert.equal(out.overrides['proxy-addr'],'2.0.8');
- assert.equal(out.overrides['fast-xml-parser@4'],'4.5.4');
- assert.equal(out.overrides['fast-xml-parser@5'],'5.3.5');
+ assert.equal(out.overrides['fast-xml-parser@4'],'4.5.5');
+ assert.equal(out.overrides['fast-xml-parser@5'],'5.5.6');
  assert.equal(out.overrides.unrelated,'1.2.3');
+ assert.deepEqual(hardenManifest(out),out);
+});
+
+test('los parches de transporte e imagen mantienen coherentes dependencias directas y transitivas',()=>{
+ const source={...fixture,dependencies:{...fixture.dependencies,axios:'^1.7.9',undici:'^7.16.0',sharp:'^0.34.2',multer:'^2.0.2'}};
+ const before=structuredClone(source),out=hardenManifest(source);
+ assert.deepEqual(source,before);
+ for(const [name,version] of [['axios','1.20.0'],['undici','7.29.1'],['sharp','0.35.5'],['multer','2.3.0']]){
+  assert.equal(out.dependencies[name],version);
+ }
+ assert.equal(out.overrides['axios@1'],'$axios');
+ assert.equal(out.overrides['axios@0'],'0.32.0');
+ assert.equal(out.overrides['undici@7'],'$undici');
+ assert.equal(out.overrides.sharp,'$sharp');
+ assert.equal(out.overrides['multer@2'],'$multer');
+ assert.equal(out.overrides['ws@8'],'8.21.0');
+ assert.equal(out.overrides['engine.io@6'],'6.6.10');
+ assert.equal(out.overrides['socket.io-parser@4'],'4.2.7');
+ assert.equal(out.dependencies.minio,before.dependencies.minio);
+ assert.equal(out.dependencies.prisma,before.dependencies.prisma);
  assert.deepEqual(hardenManifest(out),out);
 });
 
@@ -40,6 +60,15 @@ test('la candidata instala desde el lock revisado y regenera Prisma sin conectar
  const lock=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'../../infra/security-lab/evolution/package-lock.json'),'utf8').replace(/^\uFEFF/,''));
  assert.equal(lock.packages[''].dependencies.baileys,'7.0.0-rc13');
  assert.equal(lock.packages['node_modules/proxy-addr'].version,'2.0.8');
+ for(const [name,version] of [['axios','1.20.0'],['undici','7.29.1'],['sharp','0.35.5'],['multer','2.3.0']]){
+  assert.equal(lock.packages[''].dependencies[name],version);
+  assert.equal(lock.packages['node_modules/'+name].version,version);
+ }
+ for(const [entry,value] of Object.entries(lock.packages)){
+  if(entry.endsWith('/node_modules/axios')||entry==='node_modules/axios'){
+   assert.ok(['1.20.0','0.32.0'].includes(value.version),entry);
+  }
+ }
 });
 test('una base o version de Baileys inesperada requiere revision antes de construir',()=>{
  assert.equal(typeof hardenManifest,'function');
