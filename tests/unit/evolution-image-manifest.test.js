@@ -1,0 +1,48 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+let hardenManifest;
+let hardenStartupScript;
+try{({hardenManifest}=require('../../infra/security-lab/evolution/harden-manifest.cjs'));}catch(e){if(e.code!=='MODULE_NOT_FOUND')throw e;}
+({hardenStartupScript}=require('../../infra/security-lab/evolution/harden-manifest.cjs'));
+const fixture={name:'evolution-api',version:'2.3.7',dependencies:{baileys:'7.0.0-rc.9',minio:'^8.0.3',prisma:'^6.1.0',tsup:'^8.3.5'},devDependencies:{tsx:'4.0.0'},scripts:{'start:prod':'node dist/main'},overrides:{unrelated:'1.2.3'}};
+test('la candidata conserva Evolution estable y limita los cambios de dependencias a correcciones previstas',()=>{
+ assert.equal(typeof hardenManifest,'function');
+ const before=structuredClone(fixture),out=hardenManifest(fixture);
+ assert.deepEqual(fixture,before);
+ assert.equal(out.version,'2.3.7');
+ assert.equal(out.dependencies.baileys,'7.0.0-rc13');
+ assert.equal(out.dependencies.tsup,undefined);
+ assert.equal(out.dependencies.minio,before.dependencies.minio);
+ assert.equal(out.dependencies.prisma,before.dependencies.prisma);
+ assert.deepEqual(out.scripts,before.scripts);
+ assert.equal(out.overrides['proxy-addr'],'2.0.8');
+ assert.equal(out.overrides['fast-xml-parser@4'],'4.5.4');
+ assert.equal(out.overrides['fast-xml-parser@5'],'5.3.5');
+ assert.equal(out.overrides.unrelated,'1.2.3');
+ assert.deepEqual(hardenManifest(out),out);
+});
+
+test('el arranque conserva migraciones y elimina exclusivamente la impresion de la URL de base de datos',()=>{
+ const source='#!/bin/bash\nexport DATABASE_URL\necho "Database URL: $DATABASE_URL"\nnpm run db:deploy\nnpm run db:generate\n';
+ assert.equal(typeof hardenStartupScript,'function');
+ const output=hardenStartupScript(source);
+ assert.equal(output,source.replace('echo "Database URL: $DATABASE_URL"\n',''));
+ assert.equal(hardenStartupScript(output),output);
+ assert.throws(()=>hardenStartupScript('echo "Unexpected database URL: $DATABASE_URL"'),/UNEXPECTED_DATABASE_URL_LOG/);
+});
+
+test('la candidata instala desde el lock revisado y regenera Prisma sin conectar a una base',()=>{
+ const fs=require('node:fs');
+ const docker=fs.readFileSync(require('node:path').join(__dirname,'../../infra/security-lab/evolution/Dockerfile'),'utf8');
+ assert.match(docker,/COPY package-lock\.json/);
+ assert.match(docker,/npm ci --omit=dev --ignore-scripts/);
+ assert.match(docker,/DATABASE_PROVIDER=postgresql npm run db:generate/);
+ const lock=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'../../infra/security-lab/evolution/package-lock.json'),'utf8').replace(/^\uFEFF/,''));
+ assert.equal(lock.packages[''].dependencies.baileys,'7.0.0-rc13');
+ assert.equal(lock.packages['node_modules/proxy-addr'].version,'2.0.8');
+});
+test('una base o version de Baileys inesperada requiere revision antes de construir',()=>{
+ assert.equal(typeof hardenManifest,'function');
+ assert.throws(()=>hardenManifest({...fixture,version:'2.4.0'}),/UNEXPECTED_EVOLUTION_BASE/);
+ assert.throws(()=>hardenManifest({...fixture,dependencies:{baileys:'unreviewed'}}),/UNEXPECTED_BAILEYS_BASE/);
+});

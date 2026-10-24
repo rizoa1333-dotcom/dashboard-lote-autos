@@ -171,3 +171,35 @@ La comprobacion anterior de CORS cubria navegadores, pero omitio llamadas sin Or
 Correccion preparada: Origin fijo del manager en los15 nodos HTTP de Evolution, conservando apikey, URLs, cuerpos, timeouts y guardas de tenant. No cambia CORS del proveedor ni envia ese header a Supabase/Upload-Post. Generador idempotente y regresion aprobados;147 unitarias pasan. Revision independiente sin hallazgos importantes. Borrador exportado(26) cotejado con respaldo(25):210 nodos, mismas conexiones/settings/credenciales y parametros salvo los15 headers; IDs/posiciones son normalizados por el importador. Pendiente confirmar publicacion y HTTP200 del webhook del panel. Nunca publicar un borrador con nodos duplicados.
 
 Aceptacion completada: version «CORS Evolution: origen permitido - 2026-10-23» publicada, UI Published. Webhook del panel HTTP200/conectado=true. Usuario envio «Hola, prueba CORS VeloDrive» y confirmo respuesta. Lectura acotada al lote QA verifica ejecucion21427:1 inbox completed,1 mensaje de usuario,1 respuesta del agente, outbound aceptado y0 incidentes. La importacion inicial duplico nodos solo en borrador; se reemplazo antes de publicar y export26 confirmo exactamente210 nodos. No se activo la version duplicada.
+
+## Avance verificado 2026-10-24
+
+La candidata **local, no desplegada** de Evolution conserva2.3.7 y actualiza las
+dependencias descritas en infra/security-lab/evolution/README.md. Imagen final
+aad522c1e4dd:0 coincidencias CRITICAL y69 HIGH. Sigue pendiente evaluar los altos,
+probar compatibilidad completa y respaldar Evolution antes de promover. La imagen
+productiva y los cuatro hallazgos criticos de n8n no se declaran corregidos.
+
+**Alto, conexion de n8n a Postgres:** DB_POSTGRESDB_HOST apunta al proxy publico y
+DB_POSTGRESDB_SSL_ENABLED no esta activo. Riesgo de exposicion del trafico y
+credenciales fuera de la red privada. No es evidencia de interceptacion ocurrida.
+Correccion pendiente: DB_POSTGRESDB_HOST=postgres.railway.internal y
+DB_POSTGRESDB_PORT=5432, conservando base/usuario/password actuales, desplegando
+una imagen controlada compatible y verificando la conexion efectiva. No reiniciar
+ni reconstruir ciegamente el Dockerfile actual con FROM latest. Para transportes
+publicos exigir TLS verificado, no rejectUnauthorized=false ni sslmode=require
+como sustituto de validar la identidad.
+
+Se creo un respaldo consistente pg_dump por TLS verificado contra la CA y huella
+obtenidas del control autenticado de Railway. Volcado cifrado AES256GCM, clave y
+clave de n8n protegidas con DPAPI CurrentUser, sin volcado plano guardado. La copia
+se restauro en Postgres16.15 local, red Docker interna y sin puertos publicados:
+16 workflows,0 activos,5 credenciales,204 ejecuciones. Verificacion de descifrado
+en memoria5/5; no se exportaron credenciales en claro. La copia se retiro al cerrar.
+Reportes privados n8n-isolated-restore-20261024.json y evolution-locked-candidate-scan-20261024.json.
+
+**Limites de recuperacion:** esta prueba cubre la base n8n, no Supabase ni sesiones
+Evolution. DPAPI depende de conservar el perfil Windows del usuario; falta una
+copia de recuperacion con custodia independiente antes de considerarlo un plan
+de desastre completo. El respaldo no cambia por si mismo la conexion productiva.
+La clave SSH temporal fue revocada y Railway confirma cero claves registradas.
