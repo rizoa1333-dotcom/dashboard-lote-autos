@@ -30,7 +30,7 @@ test('los parches de transporte e imagen mantienen coherentes dependencias direc
   assert.equal(out.dependencies[name],version);
  }
  assert.equal(out.overrides['axios@1'],'$axios');
- assert.equal(out.overrides['axios@0'],'0.32.0');
+ assert.equal(out.overrides['axios@0'],'0.34.0');
  assert.equal(out.overrides['undici@7'],'$undici');
  assert.equal(out.overrides.sharp,'$sharp');
  assert.equal(out.overrides['multer@2'],'$multer');
@@ -39,6 +39,20 @@ test('los parches de transporte e imagen mantienen coherentes dependencias direc
  assert.equal(out.overrides['socket.io-parser@4'],'4.2.7');
  assert.equal(out.dependencies.minio,before.dependencies.minio);
  assert.equal(out.dependencies.prisma,before.dependencies.prisma);
+ assert.deepEqual(hardenManifest(out),out);
+});
+
+test('la tercera ronda fija correcciones dentro de las ramas de runtime existentes',()=>{
+ const source={...fixture,dependencies:{...fixture.dependencies,compression:'^1.7.5'}};
+ const out=hardenManifest(source);
+ assert.equal(out.dependencies.compression,'1.8.2');
+ assert.equal(out.overrides['compression@1'],'$compression');
+ const versions={'brace-expansion@2':'2.1.6','defu@6':'6.1.5','effect@3':'3.20.0',
+  'ip-address@10':'10.3.1','jws@3':'3.2.3','lodash@4':'4.18.1',
+  'minimatch@9':'9.0.7','path-to-regexp@0.1':'0.1.13'};
+ for(const [name,version] of Object.entries(versions))assert.equal(out.overrides[name],version);
+ assert.equal(out.dependencies.minio,fixture.dependencies.minio);
+ assert.equal(out.dependencies.prisma,fixture.dependencies.prisma);
  assert.deepEqual(hardenManifest(out),out);
 });
 
@@ -66,7 +80,7 @@ test('la candidata instala desde el lock revisado y regenera Prisma sin conectar
  }
  for(const [entry,value] of Object.entries(lock.packages)){
   if(entry.endsWith('/node_modules/axios')||entry==='node_modules/axios'){
-   assert.ok(['1.20.0','0.32.0'].includes(value.version),entry);
+   assert.ok(['1.20.0','0.34.0'].includes(value.version),entry);
   }
  }
 });

@@ -31,6 +31,7 @@
 - [ ] 8. Ejecutar pruebas, revision final, registrar aplicados/bloqueados y respaldar cambios.
 
 ## Ledger
+- 2026-10-24 tercera ronda local Evolution: candidata c2=76da4aded21c...; Trivy0criticos/3altos, compatibilidad extendida y57migraciones/autenticacion401/401/200, UID1000, sinURLDB enlogs.158unitarias aprobadas. c descartada por lodash4.18.0 marcado defectuoso; c2 usa4.18.1 mantenido. No desplegada ni declarada lista. Pendientes deepmerge-ts y link-preview-js con consumidores trazados; actualizar libreria no sustituye validar DNS/destinos en Baileys. Contenedores QA retirados; sin nuevos servicios cloud.
 - 2026-10-22: main remoto avanzó 3865df7 -> 9c82e45 sin force; rama fix/security-20261019 preservada. styles.css contiene cambio preexistente sin diff semantico.
 - Ruling: conservar callbacks de Payment Links previos mientras migra Checkout; el corte solo se declara tras confirmar permisos y acceptacion real sin cobro.
 - 2026-10-22: dashboard 9c82e45 verificado en produccion por SHA-256; 133 unitarias y 24 E2E aprobadas para Checkout durable. SQL de regresion probado con ROLLBACK; revision final sin bloqueos importantes. Feature flag permanece apagada hasta validar configuracion real.

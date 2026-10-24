@@ -4,13 +4,13 @@ Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la au
 
 ## Evidencia actual (actualizada 2026-10-24)
 
-- 157 pruebas unitarias y 24 Playwright aprobadas. E2E usa servicios externos simulados; pruebas reales adicionales se distinguen en el historial inferior. Sin nuevos cargos.
+- 158 pruebas unitarias y 24 Playwright aprobadas. E2E usa servicios externos simulados; pruebas reales adicionales se distinguen en el historial inferior. Sin nuevos cargos.
 - Auditoria npm de la aplicacion sin vulnerabilidades reportadas. Escaneos separados de n8n/Evolution si contienen hallazgos pendientes; no extrapolar el resultado de npm a todo el sistema.
 - Registro atomico y Checkout durable probados contra servicios reales sin cobrar; enlaces de compra Live heredados desactivados.
 - Flujo documental publicado y verificado con 210 nodos. n8n 2.44.6 fijado por digest, proceso principal UID 1000, Postgres privado y 24 variables conservadas por huella. Tres workflows activos; cinco credenciales y 311 migraciones conservadas.
 - Prueba real tras el cambio de n8n: ejecucion 21740, 1 entrada/1 respuesta/0 incidentes; usuario confirmo entrega. Alerta controlada aceptada en ejecucion 21854 y destinatario confirmo recepcion. SSH temporal revocado.
 - Siete comprobaciones reales de autenticacion rechazaron solicitudes sin sesion, firma o clave: editor n8n, webhooks WhatsApp/citas/QR, portal Stripe, webhook Stripe y Evolution. Sin mensajes, cargos ni lectura de conversaciones.
-- Evolucion de imagen Evolution: segunda candidata local2.3.7 con0 CRITICAL/20 HIGH (antes69 HIGH); produccion aun conserva el digest anterior con8 CRITICAL/208 HIGH. Compatibilidad de medios, HTTP, Chatwoot y Socket.IO probada en aislamiento, ademas de arranque y57 migraciones. No se declara lista para distribuir por el solo hecho de pasar pruebas funcionales.
+- Evolucion de imagen Evolution: tercera candidata local2.3.7 con0 CRITICAL/3 HIGH (rondas anteriores69 y20 HIGH); produccion aun conserva el digest anterior con8 CRITICAL/208 HIGH. Compatibilidad de medios, HTTP, Chatwoot, Socket.IO y contexto concurrente probada en aislamiento, ademas de arranque y57 migraciones. No se declara lista para distribuir por el solo hecho de pasar pruebas funcionales.
 
 ## Hallazgos
 
