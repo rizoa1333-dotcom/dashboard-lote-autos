@@ -1178,6 +1178,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -1258,6 +1262,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -1325,6 +1333,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -1523,6 +1535,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -2131,6 +2147,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -2160,6 +2180,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -2238,6 +2262,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -2541,6 +2569,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -2724,6 +2756,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -2880,6 +2916,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -3087,6 +3127,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -3226,6 +3270,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -3467,6 +3515,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -4493,6 +4545,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },
@@ -4571,6 +4627,10 @@
             {
               "name": "apikey",
               "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Origin",
+              "value": "https://evolution-api-production-3652.up.railway.app"
             }
           ]
         },

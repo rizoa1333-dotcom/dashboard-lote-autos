@@ -99,4 +99,13 @@ connect('Confirmar notificación de cita', ['Responder OK Cita']);
 
 // Mantener los incidentes estructurados; no conservar documentos/tokens en ejecuciones completas.
 w.settings = { ...w.settings, saveDataErrorExecution: 'none', saveDataSuccessExecution: 'none', saveManualExecutions: false, saveExecutionProgress: false };
+// Evolution 2.3.7 rejects requests with no Origin when its CORS allowlist is restricted.
+const evolutionOrigin='https://evolution-api-production-3652.up.railway.app';
+for(const item of w.nodes){
+  if(item.type!=='n8n-nodes-base.httpRequest'
+    || !String(item.parameters.url||'').replace(/^=/,'').startsWith(evolutionOrigin+'/'))continue;
+  const existing=item.parameters.headerParameters?.parameters||[];
+  item.parameters.sendHeaders=true;
+  item.parameters.headerParameters={parameters:[...existing.filter(h=>h.name.toLowerCase()!=='origin'),{name:'Origin',value:evolutionOrigin}]};
+}
 fs.writeFileSync(file, JSON.stringify(w, null, 2) + '\n');
