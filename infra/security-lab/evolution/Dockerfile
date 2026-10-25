@@ -9,6 +9,7 @@ COPY package-lock.json ./package-lock.json
 RUN npm install --global --ignore-scripts --no-audit --no-fund npm@12.2.1 \
     && node /tmp/harden-manifest.cjs \
     && npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
+    && node /tmp/harden-manifest.cjs --disable-link-previews \
     && DATABASE_PROVIDER=postgresql npm run db:generate \
     && node -e "import('baileys').then(m=>{for(const k of ['initAuthCreds','useMultiFileAuthState','makeCacheableSignalKeyStore'])if(typeof m[k]!=='function')throw Error('BAILEYS_API_INCOMPATIBLE')})"
 

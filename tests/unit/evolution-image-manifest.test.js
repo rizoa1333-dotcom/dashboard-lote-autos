@@ -2,8 +2,10 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 let hardenManifest;
 let hardenStartupScript;
+let hardenBaileysPreview;
 try{({hardenManifest}=require('../../infra/security-lab/evolution/harden-manifest.cjs'));}catch(e){if(e.code!=='MODULE_NOT_FOUND')throw e;}
 ({hardenStartupScript}=require('../../infra/security-lab/evolution/harden-manifest.cjs'));
+({hardenBaileysPreview}=require('../../infra/security-lab/evolution/harden-manifest.cjs'));
 const fixture={name:'evolution-api',version:'2.3.7',dependencies:{baileys:'7.0.0-rc.9',minio:'^8.0.3',prisma:'^6.1.0',tsup:'^8.3.5'},devDependencies:{tsx:'4.0.0'},scripts:{'start:prod':'node dist/main'},overrides:{unrelated:'1.2.3'}};
 test('la candidata conserva Evolution estable y limita los cambios de dependencias a correcciones previstas',()=>{
  assert.equal(typeof hardenManifest,'function');
@@ -19,14 +21,25 @@ test('la candidata conserva Evolution estable y limita los cambios de dependenci
  assert.equal(out.overrides['fast-xml-parser@4'],'4.5.5');
  assert.equal(out.overrides['fast-xml-parser@5'],'5.5.6');
  assert.equal(out.overrides.unrelated,'1.2.3');
+ assert.equal(out.overrides['deepmerge-ts@7'],'8.0.0');
  assert.deepEqual(hardenManifest(out),out);
+});
+test('la candidata corrige previews pero bloquea el consumidor automatico hasta tener egreso seguro',()=>{
+ const source={...fixture,dependencies:{...fixture.dependencies,'link-preview-js':'^3.0.13'}};
+ const out=hardenManifest(source);
+ assert.equal(out.dependencies['link-preview-js'],'4.0.4');
+ assert.equal(out.overrides['link-preview-js'],'$link-preview-js');
+ assert.equal(typeof hardenBaileysPreview,'function');
+ assert.throws(()=>hardenBaileysPreview('export const getUrlInfo=async()=>{};'),/UNEXPECTED_BAILEYS_PREVIEW_SOURCE/);
+ const disabled='// VeloDrive: automatic URL previews are disabled to avoid untrusted fetches.\nexport const getUrlInfo = async (_text, _options) => undefined;\n';
+ assert.equal(hardenBaileysPreview(disabled),disabled);
 });
 
 test('los parches de transporte e imagen mantienen coherentes dependencias directas y transitivas',()=>{
  const source={...fixture,dependencies:{...fixture.dependencies,axios:'^1.7.9',undici:'^7.16.0',sharp:'^0.34.2',multer:'^2.0.2'}};
  const before=structuredClone(source),out=hardenManifest(source);
  assert.deepEqual(source,before);
- for(const [name,version] of [['axios','1.20.0'],['undici','7.29.1'],['sharp','0.35.5'],['multer','2.3.0']]){
+ for(const [name,version] of [['axios','1.20.0'],['undici','7.30.1'],['sharp','0.35.5'],['multer','2.5.0']]){
   assert.equal(out.dependencies[name],version);
  }
  assert.equal(out.overrides['axios@1'],'$axios');
@@ -74,7 +87,9 @@ test('la candidata instala desde el lock revisado y regenera Prisma sin conectar
  const lock=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'../../infra/security-lab/evolution/package-lock.json'),'utf8').replace(/^\uFEFF/,''));
  assert.equal(lock.packages[''].dependencies.baileys,'7.0.0-rc13');
  assert.equal(lock.packages['node_modules/proxy-addr'].version,'2.0.8');
- for(const [name,version] of [['axios','1.20.0'],['undici','7.29.1'],['sharp','0.35.5'],['multer','2.3.0']]){
+ assert.equal(lock.packages['node_modules/deepmerge-ts'].version,'8.0.0');
+ assert.equal(lock.packages['node_modules/link-preview-js'].version,'4.0.4');
+ for(const [name,version] of [['axios','1.20.0'],['undici','7.30.1'],['sharp','0.35.5'],['multer','2.5.0']]){
   assert.equal(lock.packages[''].dependencies[name],version);
   assert.equal(lock.packages['node_modules/'+name].version,version);
  }
@@ -88,4 +103,11 @@ test('una base o version de Baileys inesperada requiere revision antes de constr
  assert.equal(typeof hardenManifest,'function');
  assert.throws(()=>hardenManifest({...fixture,version:'2.4.0'}),/UNEXPECTED_EVOLUTION_BASE/);
  assert.throws(()=>hardenManifest({...fixture,dependencies:{baileys:'unreviewed'}}),/UNEXPECTED_BAILEYS_BASE/);
+});
+
+test('la quinta ronda corrige parsers y ambas ramas de Undici sin migrar Zod ciegamente',()=>{
+ const out=hardenManifest(fixture);
+ assert.equal(out.overrides['body-parser@1'],'1.20.9');
+ assert.equal(out.overrides['undici@6'],'6.29.1');
+ assert.equal(out.overrides.zod,undefined);
 });

@@ -10,6 +10,7 @@ const {Server}=require('socket.io');
 const {io}=require('socket.io-client');
 const sdk=require('@figuro/chatwoot-sdk');
 const zlib=require('node:zlib');
+let stage='circular-merge';
 
 async function withDeadline(promise,milliseconds=5000){
  let timer;
@@ -18,6 +19,28 @@ async function withDeadline(promise,milliseconds=5000){
 }
 
 (async()=>{
+ const fs=require('node:fs');
+ const {deepmerge}=await import('deepmerge-ts');
+ const left={value:1},right={extra:2};left.self=left;right.self=right;
+ const merged=deepmerge(left,right);assert.equal(merged.self.value,1);assert.equal(merged.self.extra,2);
+ stage='prisma-config';
+ const configPath='/tmp/velodrive-qa-prisma.config.ts';
+ fs.writeFileSync(configPath,'export default {schema:"/evolution/prisma/postgresql-schema.prisma",migrations:{path:"/tmp/qa-migrations"}};');
+ try{
+  const config=await require('@prisma/config').loadConfigFromFile({configFile:configPath});
+  assert.equal(config.error,undefined);assert.equal(config.config.schema,'/evolution/prisma/postgresql-schema.prisma');
+ }finally{fs.unlinkSync(configPath);}
+ stage='plain-links';
+ const {getUrlInfo}=await import('baileys/lib/Utils/link-preview.js');
+ const {generateWAMessageContent}=await import('baileys');
+ let publicPreviewCallback=false;
+ for(const text of ['https://example.com/qa','http://127.0.0.1/private','http://[::1]/private']){
+  assert.equal(await getUrlInfo(text),undefined);
+  const content=await generateWAMessageContent({text},{getUrlInfo:async(...args)=>{if(text==='https://example.com/qa')publicPreviewCallback=true;return getUrlInfo(...args);}});
+  assert.equal(content.extendedTextMessage?.text||content.conversation,text);
+ }
+ assert.equal(publicPreviewCallback,true);
+ stage='runtime-libraries';
  const lodash=require('lodash'),jws=require('jws');
  assert.deepEqual(lodash.merge({nested:{left:1}},{nested:{right:2}}),{nested:{left:1,right:2}});
  assert.equal(lodash.template('Hello <%= name %>')({name:'fixture'}),'Hello fixture');
@@ -94,10 +117,10 @@ async function withDeadline(promise,milliseconds=5000){
    const result=await withDeadline(new Promise(resolve=>client.emit('qa-probe',Buffer.from([1,2,3]),resolve)));
    assert.equal(result.ok,true);client.disconnect();transports.push(transport);
   }
-  console.log(JSON.stringify({passed:true,formats,xmlBranches:[4,5],axios:true,undici:true,compression:true,merge:true,signature:true,ipParsing:true,prototypeProtection:true,glob:true,concurrentEffectContext:true,chatwootJson:true,chatwootMultipart:true,chatwootErrorStatus:true,socketTransports:transports,productionCredentialsUsed:false}));
+  console.log(JSON.stringify({passed:true,formats,xmlBranches:[4,5],axios:true,undici:true,compression:true,merge:true,circularMerge:true,prismaConfig:true,plainLinksPreserved:true,automaticPreviewsDisabled:true,signature:true,ipParsing:true,prototypeProtection:true,glob:true,concurrentEffectContext:true,chatwootJson:true,chatwootMultipart:true,chatwootErrorStatus:true,socketTransports:transports,productionCredentialsUsed:false}));
  }finally{
   for(const client of clients)client.disconnect();
   await undici.getGlobalDispatcher().close();
   server.closeAllConnections();await new Promise(resolve=>sockets.close(resolve));
  }
-})().catch(error=>{console.error(error.code||error.name||'LOCAL_COMPATIBILITY_FAILED');process.exitCode=1});
+})().catch(error=>{console.error(JSON.stringify({stage,code:error.code||error.name||'LOCAL_COMPATIBILITY_FAILED',actual:typeof error.actual==='number'?error.actual:undefined,expected:typeof error.expected==='number'?error.expected:undefined}));process.exitCode=1});

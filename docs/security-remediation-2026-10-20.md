@@ -243,3 +243,43 @@ publishedNodes=210 y boundedDownloaderPublished=true. La copia vacia nunca se
 publico. Evidencia visual n8n-bounded-documents-published-20261024.png y reporte
 live-workflow-publication-20261024.json privados. Sigue pendiente una nueva
 aceptacion documental real; no confundir la comprobacion de version con esa prueba.
+
+## Estado consolidado del 25 de octubre de 2026
+
+Esta seccion actualiza los pendientes historicos anteriores; no elimina su evidencia.
+
+| Area | Evidencia / estado actual | Pendiente para cierre |
+|---|---|---|
+| Control de utilidad | Commit70f83ae desplegado SUCCESS; HTML/JS/vehicle-finance.js publicos coinciden con Git. Costos incompletos no producen utilidad ficticia; venta confirmada, centavos enteros, fechas civiles y gastos con error visibles. | Aceptacion operativa del propietario; no equivale a contabilidad fiscal ni consignacion. |
+| n8n | Oficial2.44.6 UID1000, Postgres privado y restauracion aislada comprobada; WhatsApp y alerta de soporte confirmados por usuario. | Remediar dependencias criticas/altas; no se declaran resueltas por usar la imagen oficial. |
+| Evolution | Candidata local con compatibilidad y migraciones probadas. Produccion conserva imagen anterior. | Promover artefacto revisado, evitar sesiones simultaneas y repetir aceptacion real. |
+| Recuperacion | Cinco respaldos cifrados verificados en USB independiente del perfil Windows. Postgres Evolution17.11 y Redis restaurados aisladamente. | Supabase completo, checkpoint coordinado PG/Redis, automatizacion/retencion y RPO/RTO medidos. |
+| SSH temporal | Acceso revocado y archivos de clave retirados despues de respaldar. | Crear otra clave temporal solo si un siguiente cambio la requiere; revocarla al terminar. |
+
+La base de Trivy usada inicialmente estaba fechada23Oct. Tras actualizarla a
+25Oct19:10UTC, la misma candidata Evolution25Oct muestra0CRITICAL/5HIGH:
+body-parser1.20.3, multer2.3.0, Undici6.29.0/7.29.1 y Zod3.25.76.
+El informe anterior0/0 es historico, no un cierre vigente. Se preparan parches
+compatibles1.20.9,2.5.0,6.29.1/7.30.1. Zod requiere evaluar consumidores antes
+de migrar de3a4; no se impone un override mayor para silenciar el escaner.
+
+Quinta ronda local `qa-20261025b` construida y probada:0CRITICAL/2HIGH.
+Quedan Undici6.29.0 dentro de npm y Zod3.25.76. La regla Undici6 en el lock de
+Evolution no cambia el npm global; no declararla correccion efectiva de ese aviso.
+Smoke de compatibilidad aprobado;57 migraciones y autenticacion401/401/200.
+
+La misma auditoria encontro body-parser en la aplicacion. Se actualizo el lock a
+1.20.9: npm audit de produccion reporta0avisos. Prueba HTTP real con gzip valido e
+invalido mantiene la disponibilidad;181unitarias y34E2E aprobadas. Esto no es una
+prueba exhaustiva de todas las variantes del exploit. Commitbe80aaf desplegado:
+Railway55432fe4-fffa-4b49-b184-0e27c3ef76c3 SUCCESS, commitHash coincide y
+health publico200. La aplicacion tiene el parche; no implica actualizar Evolution/n8n.
+
+Fuentes: [body-parser](https://github.com/expressjs/body-parser/security/advisories/GHSA-27r3-jxmh-p828),
+[Multer](https://github.com/expressjs/multer/security/advisories/GHSA-q7qp-rjg7-q26m),
+[Undici](https://github.com/nodejs/undici/security/advisories/GHSA-xjj6-f33q-929c),
+[comportamiento de arrays Zod](https://github.com/colinhacks/zod/issues/1872).
+Procedimiento de custodia y limites: [recuperacion portable](recovery-package.md).
+
+No se aprueba aun una distribucion comercial general basandose solo en estas
+pruebas. Falta cerrar infraestructura, recuperacion completa y capacidad concurrente.
