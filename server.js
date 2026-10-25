@@ -272,6 +272,7 @@ for (const [url, relativeFile, mime] of [
   ['/assets/utilities.css', 'public/assets/utilities.css', 'text/css'],
   ['/vendor/supabase-2.118.0.js', 'public/vendor/supabase-2.118.0.js', 'application/javascript'],
   ['/app-config.js', 'app-config.js', 'application/javascript'],
+  ['/vehicle-finance.js', 'vehicle-finance.js', 'application/javascript'],
   ['/registration-wizard.js', 'registration-wizard.js', 'application/javascript']
 ]) app.get(url, (req, res) => { res.type(mime).sendFile(path.join(__dirname, relativeFile)); });
 

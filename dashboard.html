@@ -80,6 +80,7 @@
   <script src="app-config.js"></script>
   <script src="vendor/supabase-2.118.0.js"></script>
   <script src="ui-feedback.js" defer></script>
+  <script src="vehicle-finance.js" defer></script>
   <script src="dashboard.js" defer></script>
 </head>
 <body class="bg-[#0F1219] text-[#F5F5F4]">
@@ -602,14 +603,17 @@
         <section id="section-utilidad" class="dashboard-section space-y-6 hidden">
           <div>
             <h2 class="text-lg font-bold tracking-tight uppercase">Control de utilidad</h2>
-            <p class="text-xs text-[#9CA3AF] mt-1">Captura costos, gastos y precios reales de venta; esta información es privada del lote.</p>
+            <p class="text-xs text-[#9CA3AF] mt-1">Registra la compra, agrega los gastos y confirma la venta real. La ganancia se calcula antes de impuestos y gastos generales no registrados.</p>
+            <button id="btnActualizarUtilidad" type="button" class="btn-ghost px-3 py-2 text-sm rounded-lg mt-2">Actualizar datos</button>
+            <p id="utilidadCargaEstado" class="text-xs text-[#9CA3AF]" role="status" aria-live="polite"></p>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 privacy-sensitive">
-            <div class="card p-5"><p class="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider">Capital invertido en patio</p><p id="invValorTotal" class="text-2xl font-bold mt-2 stat-mono">$0.00</p><p class="text-[11px] text-[#9CA3AF] mt-2">Suma de costos de compra en unidades activas</p></div>
-            <div class="card p-5"><p class="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider">Ventas acumuladas</p><p id="invGananciasTotales" class="text-2xl font-bold mt-2 stat-mono">$0.00</p><p class="text-[11px] text-[#9CA3AF] mt-2">Importe real registrado de unidades vendidas</p></div>
-            <div class="card p-5"><p class="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider">Utilidad neta del mes</p><p id="invUtilidadMes" class="text-2xl font-bold mt-2 stat-mono">$0.00</p><p class="text-[11px] text-[#9CA3AF] mt-2">Ventas menos compra y gastos capturados</p></div>
-            <div class="card p-5"><p class="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider">Inventario +30 días</p><p id="invAutosAntiguos" class="text-2xl font-bold mt-2 stat-mono">0</p><p class="text-[11px] text-[#9CA3AF] mt-2">Unidades disponibles o apartadas</p></div>
+            <div class="card p-5"><p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Capital invertido en patio</p><p id="invValorTotal" class="text-2xl font-bold mt-2 stat-mono">$0.00</p><p class="text-[11px] text-[#9CA3AF] mt-2">Suma de costos de compra en unidades activas</p></div>
+            <div class="card p-5"><p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Ventas acumuladas</p><p id="invGananciasTotales" class="text-2xl font-bold mt-2 stat-mono">$0.00</p><p class="text-[11px] text-[#9CA3AF] mt-2">Importe real registrado de unidades vendidas</p></div>
+            <div class="card p-5"><p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Ganancia registrada del mes</p><p id="invUtilidadMes" class="text-2xl font-bold mt-2 stat-mono">$0.00</p><p class="text-[11px] text-[#9CA3AF] mt-2">Venta real − compra − gastos del vehículo</p></div>
+            <div class="card p-5"><p class="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Inventario +30 días</p><p id="invAutosAntiguos" class="text-2xl font-bold mt-2 stat-mono">0</p><p class="text-[11px] text-[#9CA3AF] mt-2">Unidades disponibles o apartadas</p></div>
           </div>
+          <p id="utilidadAvisos" class="text-sm text-[#9CA3AF] privacy-sensitive" role="status" aria-live="polite"></p>
           <div class="card p-5 privacy-sensitive">
             <h3 class="font-bold text-xs uppercase tracking-wider">Ventas por mes · año en curso</h3>
             <p class="text-[11px] text-[#9CA3AF] mt-1">Importes basados en el precio real de venta capturado.</p>
@@ -1063,8 +1067,9 @@
           <select id="carStatus" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
             <option value="Disponible">Disponible</option>
             <option value="Apartado">Apartado</option>
-            <option value="Vendido">Vendido</option>
+            <option value="Vendido" disabled>Vendido (desde Control de utilidad)</option>
           </select>
+          <p class="text-xs text-[#9CA3AF] mt-1">Para cerrar una venta utiliza Control de utilidad y captura los importes reales.</p>
         </div>
         <button type="submit" id="btnSubmitCarForm" class="btn-primary w-full text-sm font-semibold py-2 rounded-lg mt-3">
           Guardar Unidad en Sistema
@@ -1074,15 +1079,16 @@
   </div>
 
   <!-- ============ MODAL COSTOS Y UTILIDAD ============ -->
-  <div id="modalCostosOverlay" class="fixed inset-0 bg-black/70 z-[60] hidden items-start sm:items-center justify-center p-0 sm:p-4 overflow-y-auto privacy-sensitive">
+  <div id="modalCostosOverlay" role="dialog" aria-modal="true" aria-labelledby="costosTitulo" aria-describedby="costosInstrucciones" class="fixed inset-0 bg-black/70 z-[60] hidden items-start sm:items-center justify-center p-0 sm:p-4 overflow-y-auto privacy-sensitive">
     <div class="card w-full sm:max-w-lg p-5 sm:p-6 space-y-4 min-h-screen sm:min-h-0 sm:rounded-xl rounded-none my-0 sm:my-4">
       <div class="flex justify-between items-start gap-3 border-b border-[#272A30] pb-3">
         <div class="min-w-0">
-          <h3 class="font-bold text-base">Control financiero del vehículo</h3>
+          <h3 id="costosTitulo" tabindex="-1" class="font-bold text-base">Control financiero del vehículo</h3>
           <p id="costosCarNombre" class="text-xs text-[#9CA3AF] mt-1"></p>
         </div>
-        <button id="btnCerrarCostos" type="button" class="text-[#9CA3AF] hover:text-[#F5F5F4]" aria-label="Cerrar">✕</button>
+        <button id="btnCerrarCostos" type="button" class="text-[#9CA3AF] hover:text-[#F5F5F4] p-3" aria-label="Cerrar">✕</button>
       </div>
+      <p id="costosInstrucciones" class="text-xs text-[#9CA3AF]">1. Captura la compra. 2. Registra los gastos. 3. Cuando vendas, captura el precio real y confirma. Guardar solo la compra no marca el vehículo como vendido.</p>
       <div class="grid grid-cols-2 gap-3">
         <div class="rounded-lg border border-[#272A30] p-3"><p class="text-[10px] uppercase text-[#9CA3AF]">Costo de compra</p><p id="costosCompraResumen" class="font-bold mt-1">$0</p></div>
         <div class="rounded-lg border border-[#272A30] p-3"><p class="text-[10px] uppercase text-[#9CA3AF]">Gastos adicionales</p><p id="costosGastosResumen" class="font-bold mt-1">$0</p></div>
@@ -1091,9 +1097,10 @@
       <form id="formDatosFinancieros" class="space-y-3 border-t border-[#272A30] pt-4">
         <h4 class="text-xs font-bold uppercase tracking-wide">Datos de compra y venta</h4>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label for="controlCostoCompra" class="block text-xs text-[#9CA3AF]">Costo de compra (MXN)</label><input id="controlCostoCompra" type="number" min="0" step="0.01" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm"></div>
-          <div><label for="controlPrecioVenta" class="block text-xs text-[#9CA3AF]">Precio real de venta (MXN)</label><input id="controlPrecioVenta" type="number" min="0" step="0.01" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm" placeholder="Déjalo vacío si sigue en inventario"></div>
+          <div><label for="controlCostoCompra" class="block text-xs text-[#9CA3AF]">Costo de compra (MXN)</label><input id="controlCostoCompra" type="number" min="0.01" max="9999999999.99" step="0.01" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm"></div>
+          <div><label for="controlPrecioVenta" class="block text-xs text-[#9CA3AF]">Precio real de venta (MXN)</label><input id="controlPrecioVenta" type="number" min="0.01" max="9999999999.99" step="0.01" aria-describedby="ventaAyuda" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm"><p id="ventaAyuda" class="text-xs text-[#9CA3AF] mt-1">Déjalo vacío mientras siga en inventario.</p></div>
         </div>
+        <div><label for="controlFechaVenta" class="block text-xs text-[#9CA3AF]">Fecha real de venta</label><input id="controlFechaVenta" type="date" style="color-scheme:dark" aria-describedby="fechaVentaAyuda" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm"><p id="fechaVentaAyuda" class="text-xs text-[#9CA3AF] mt-1">Se usa para el resumen mensual. Solo se guarda cuando registras una venta.</p></div>
         <button id="btnGuardarDatosFinancieros" type="submit" class="btn-primary w-full text-sm font-semibold py-2 rounded-lg">Guardar compra y venta</button>
         <p id="finanzasStatus" class="text-xs text-[#9CA3AF]" role="status" aria-live="polite"></p>
       </form>

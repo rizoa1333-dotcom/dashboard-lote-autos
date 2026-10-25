@@ -92,7 +92,12 @@ let directPasswordChange = false;
 let leadsCache = [];
 let carsCache = [];
 let carExpensesCache = [];
+let carExpensesAvailable = false;
+let financeRefreshRequired = false;
+let carsReadGeneration = 0;
+let carsReadCommitted = 0;
 let activeCostCarId = null;
+let costosReturnFocus = null;
 let citasCache = [];
 let citasCalendarioMes = new Date();
 let citasDiaSeleccionado = null;
@@ -120,7 +125,11 @@ function clearTenantContext() {
   detenerEsperaWhatsapp();
   currentUser = null; currentLote = null;
   leadsCache = []; carsCache = []; carExpensesCache = []; citasCache = [];
+  carExpensesAvailable=false;
+  financeRefreshRequired=false;
+  carsReadGeneration+=1;carsReadCommitted=0;
   activeCostCarId = null; activeLeadId = null; editingCarId = null;
+  costosReturnFocus = null;
   carImageUrls = []; marketingSelectedCarId = null; marketingImageUrls = [];
   whatsappQrExpires = 0; whatsappQrLoteId = null;
   catalogModeActive = false;
@@ -807,26 +816,39 @@ function statusBadgeClass(status) {
 // SECCIÓN INVENTARIO
 // ------------------------------------------------------------
 async function fetchCars() {
-  if (!currentLote) return;
+  if (!currentLote) return false;
   const context = captureTenantContext();
-  const { data, error } = await supabaseClient.from('cars')
+  const readGeneration=++carsReadGeneration;
+  let result;
+  try{result=await supabaseClient.from('cars')
     .select(context.catalog ? CATALOG_CAR_COLUMNS : '*')
-    .eq('lote_id', context.loteId).order('created_at', { ascending: false });
-  if (!isCurrentTenantContext(context)) return;
-  if (error) { console.error('[Inventory Engine] Fallo:', error); return; }
+    .eq('lote_id', context.loteId).order('created_at', { ascending: false });}
+  catch{result={data:null,error:true};}
+  const {data,error}=result;
+  if (!isCurrentTenantContext(context)) return false;
+  if(readGeneration!==carsReadGeneration)return carsReadCommitted===carsReadGeneration;
+  if (error) { marcarResumenFinancieroPendiente();return false; }
   if (context.catalog) {
     const allowed = CATALOG_CAR_COLUMNS.split(',');
     carsCache = (data || []).map(car => Object.fromEntries(allowed.filter(key => key in car).map(key => [key, car[key]])));
     carExpensesCache = [];
+    carExpensesAvailable=false;
   } else {
-    const expenses = await supabaseClient.from('car_expenses').select('*')
-      .eq('lote_id', context.loteId).order('created_at', { ascending: false });
-    if (!isCurrentTenantContext(context)) return;
+    let expenses;
+    try{expenses=await supabaseClient.from('car_expenses').select('*')
+      .eq('lote_id', context.loteId).order('created_at', { ascending: false });}
+    catch{expenses={data:null,error:true};}
+    if (!isCurrentTenantContext(context)) return false;
+    if(readGeneration!==carsReadGeneration)return carsReadCommitted===carsReadGeneration;
     carsCache = data || [];
     carExpensesCache = expenses.error ? [] : expenses.data || [];
+    carExpensesAvailable=!expenses.error&&Array.isArray(expenses.data);
   }
+  financeRefreshRequired=false;
   renderCars(); renderCarsCounter(); calcularMetricasInventario();
   renderControlUtilidad(); populateMarketingCarSelect(); calcularOportunidadesRescatadas();
+  if(context.catalog||carExpensesAvailable)carsReadCommitted=readGeneration;
+  return context.catalog||carExpensesAvailable;
 }
 
 // FIX #2: fetchInventario no existía — se reemplaza por fetchCars en todos los
@@ -855,81 +877,50 @@ function calcularMetricasInventario() {
   const utilidadMesEl = document.getElementById('invUtilidadMes');
   const autosAntiguosEl = document.getElementById('invAutosAntiguos');
 
-  let valorTotal = 0;
-  let gananciasTotales = 0;
-  let utilidadMes = 0;
   let autosAntiguos = 0;
   const ahora = new Date();
-  const gastosPorAuto = carExpensesCache.reduce((totales, gasto) => {
-    const id = String(gasto.car_id);
-    totales[id] = (totales[id] || 0) + (Number(gasto.amount) || 0);
-    return totales;
-  }, {});
-
   const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const reporteMensual = mesesNombres.map(mes => ({ name: mes, unidades: 0, dinero: 0 }));
-
-  const anioActual = new Date().getFullYear();
-
+  let report;
+  const avisos=document.getElementById('utilidadAvisos');
+  if(financeRefreshRequired){
+    for(const element of [invValorTotalEl,invGananciasTotalesEl,utilidadMesEl])if(element)element.textContent=catalogModeActive?CATALOG_REDACTED:'Actualizar datos';
+    if(avisos)avisos.textContent=catalogModeActive?'':'No se pudo actualizar el resumen. Pulsa Actualizar datos antes de consultar la ganancia.';
+    mensualesContainer?.replaceChildren();return;
+  }
+  try{report=window.VeloDriveFinance.buildReport(carsCache,carExpensesCache,fechaActualLocalISO(),{expensesKnown:carExpensesAvailable});}
+  catch{
+    for(const element of [invValorTotalEl,invGananciasTotalesEl,utilidadMesEl])if(element)element.textContent=catalogModeActive?CATALOG_REDACTED:'Revisar importes';
+    if(avisos)avisos.textContent=catalogModeActive?'':'No se pudo calcular el resumen. Revisa los importes registrados.';
+    if(mensualesContainer)mensualesContainer.replaceChildren();
+    return;
+  }
+  const reporteMensual=report.months.map((mes,index)=>({name:mesesNombres[index],unidades:mes.units,dinero:mes.missingPriceCount?null:mes.salesCents/100}));
   carsCache.forEach(car => {
-    const precio = car.status === 'Vendido' ? (Number(car.sold_price) || 0) : (Number(car.price) || 0);
     const fechaAlta = car.created_at ? new Date(car.created_at) : null;
     if (car.status !== 'Vendido' && fechaAlta && !Number.isNaN(fechaAlta.getTime()) && (ahora - fechaAlta) >= 30 * 24 * 60 * 60 * 1000) autosAntiguos += 1;
-    if (car.status === 'Vendido') {
-      gananciasTotales += precio;
-
-      const mesActualKey = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
-      if (String(car.fecha_venta || '').slice(0, 7) === mesActualKey && Number(car.sold_price) > 0) {
-        utilidadMes += Number(car.sold_price) - (Number(car.purchase_cost) || 0) - (gastosPorAuto[String(car.id)] || 0);
-      }
-
-      try {
-        const fechaTarget = car.fecha_venta || car.created_at;
-        if (fechaTarget) {
-          const fechaVenta = new Date(fechaTarget);
-
-          if (!isNaN(fechaVenta.getTime())) {
-            const numeroMes = fechaVenta.getMonth();
-            const anioVenta = fechaVenta.getFullYear();
-
-            // FIX #10: usar anioActual dinámico en vez de 2026 hardcodeado
-            if (anioVenta === anioActual && numeroMes >= 0 && numeroMes < 12) {
-              reporteMensual[numeroMes].unidades += 1;
-              reporteMensual[numeroMes].dinero += precio;
-            }
-          } else {
-            const mesActual = new Date().getMonth();
-            reporteMensual[mesActual].unidades += 1;
-            reporteMensual[mesActual].dinero += precio;
-          }
-        } else {
-          const mesActual = new Date().getMonth();
-          reporteMensual[mesActual].unidades += 1;
-          reporteMensual[mesActual].dinero += precio;
-        }
-      } catch (err) {
-        console.warn("[Fix Guard] Error calculando fecha de venta:", err);
-        const mesActual = new Date().getMonth();
-        reporteMensual[mesActual].unidades += 1;
-        reporteMensual[mesActual].dinero += precio;
-      }
-    } else {
-      valorTotal += Number(car.purchase_cost) || 0;
-    }
   });
-
-  if (invValorTotalEl) invValorTotalEl.textContent = catalogModeActive ? CATALOG_REDACTED : formatCurrency(valorTotal);
-  if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = catalogModeActive ? CATALOG_REDACTED : formatCurrency(gananciasTotales);
-  if (utilidadMesEl) utilidadMesEl.textContent = catalogModeActive ? CATALOG_REDACTED : formatCurrency(utilidadMes);
+  const amount=cents=>catalogModeActive?CATALOG_REDACTED:cents===null?'Datos incompletos':formatCurrency(cents/100);
+  if (invValorTotalEl) invValorTotalEl.textContent = amount(report.capitalCents);
+  if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = amount(report.salesCents);
+  if (utilidadMesEl) utilidadMesEl.textContent = amount(report.monthProfitCents);
+  if(avisos){
+    const pendientes=[];
+    if(!report.expensesKnown)pendientes.push('No se pudieron cargar los gastos. Actualiza el inventario antes de consultar la ganancia');
+    if(report.missingPurchaseCount)pendientes.push(`${report.missingPurchaseCount} unidades en inventario sin costo de compra`);
+    if(report.missingSaleCount)pendientes.push(`${report.missingSaleCount} ventas sin precio real`);
+    if(report.incompleteProfitCount)pendientes.push(`${report.incompleteProfitCount} ventas requieren datos para completar la ganancia mensual`);
+    if(report.undatedSalesCount)pendientes.push(`${report.undatedSalesCount} ventas sin fecha válida; no se asignaron a un mes`);
+    avisos.textContent=catalogModeActive?'':pendientes.join('. ');
+  }
   if (autosAntiguosEl) autosAntiguosEl.textContent = catalogModeActive ? CATALOG_REDACTED : String(autosAntiguos);
 
   if (mensualesContainer) {
     const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
 
     if (catalogModeActive) {
-      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Facturación oculta en Modo Catálogo.</p>`;
+      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Ventas ocultas en Modo Catálogo.</p>`;
     } else if (mesesConVentas.length === 0) {
-      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Sin registros de facturación cerrados en el año en curso.</p>`;
+      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Sin ventas con fecha registrada en el año en curso.</p>`;
     } else {
       mensualesContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
@@ -940,7 +931,7 @@ function calcularMetricasInventario() {
                 <p class="text-[10px] text-[#9CA3AF] font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
               </div>
               <div class="text-right">
-                <p class="text-sm font-extrabold stat-mono" style="color: var(--text);">${formatCurrency(mes.dinero)}</p>
+                <p class="text-sm font-extrabold stat-mono" style="color: var(--text);">${mes.dinero===null?'Falta precio real':formatCurrency(mes.dinero)}</p>
               </div>
             </div>
           `).join('')}
@@ -1127,21 +1118,10 @@ function renderCars() {
   }).join('');
 
   grid.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const hoyParaBD = fechaActualLocalISO();
-      const { error } = await supabaseClient
-        .from('cars')
-        .update({ status: 'Vendido', fecha_venta: hoyParaBD })
-        .eq('id', btn.getAttribute('data-action-id'))
-        .eq('lote_id', currentLote.id);
-
-      if (error) {
-        alert('Error al actualizar estatus');
-        console.error(error);
-      } else {
-        alert('Unidad marcada como vendida. Captura el precio real en Control de utilidad para calcular la ganancia.');
-      }
-      await fetchCars();
+    btn.addEventListener('click', () => {
+      abrirControlCostos(btn.getAttribute('data-action-id'));
+      const status=document.getElementById('finanzasStatus');
+      if(status)status.textContent='Captura la compra y el precio real para confirmar la venta.';
     });
   });
 
@@ -1162,6 +1142,7 @@ function renderCars() {
       document.getElementById('carEnganche').value = car.enganche_minimo || 0;
       document.getElementById('carCaracteristicas').value = car.caracteristicas || '';
       document.getElementById('carStatus').value = car.status || 'Disponible';
+      document.getElementById('carStatus').disabled=car.status==='Vendido';
       carImageUrls = Array.isArray(car.image_urls) && car.image_urls.length ? [...car.image_urls] : (car.image_url ? [car.image_url] : []);
       document.getElementById('carImageUrl').value = carImageUrls[0] || '';
       renderCarThumbs();
@@ -1220,17 +1201,51 @@ function renderCars() {
 }
 
 function abrirControlCostos(carId) {
+  if(catalogModeActive||document.getElementById('btnGuardarDatosFinancieros')?.disabled||document.getElementById('btnGuardarGasto')?.disabled)return;
   const car = carsCache.find(c => String(c.id) === String(carId));
   if (!car) return;
+  costosReturnFocus={node:document.activeElement,carId:String(car.id),attribute:['data-finance-car','data-expense-car','data-action-id'].find(name=>document.activeElement?.hasAttribute(name))};
   activeCostCarId = car.id;
   document.getElementById('costosCarNombre').textContent = `${car.brand || ''} ${car.model || ''} ${car.year || ''}`.trim();
-  document.getElementById('controlCostoCompra').value = Number(car.purchase_cost) || 0;
+  document.getElementById('controlCostoCompra').value = Number(car.purchase_cost)>0?car.purchase_cost:'';
   document.getElementById('controlPrecioVenta').value = Number(car.sold_price) > 0 ? car.sold_price : '';
+  const fechaVenta=document.getElementById('controlFechaVenta');
+  fechaVenta.max=fechaActualLocalISO();
+  fechaVenta.value=car.fecha_venta||(car.status==='Vendido'?'':fechaActualLocalISO());
   document.getElementById('costosCompraResumen').textContent = formatCurrency(car.purchase_cost || 0);
   renderDetalleCostos(car);
   const modal = document.getElementById('modalCostosOverlay');
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  for(const id of ['finanzasStatus','gastoStatus']){
+    const status=document.getElementById(id);status.textContent='';status.setAttribute('role','status');
+  }
+  document.getElementById('costosTitulo').focus();
+}
+
+function cerrarControlCostos(){
+  const modal=document.getElementById('modalCostosOverlay');
+  modal?.classList.add('hidden');modal?.classList.remove('flex');activeCostCarId=null;
+  let target=costosReturnFocus?.node;
+  if(!target?.isConnected&&costosReturnFocus){
+    const {attribute,carId}=costosReturnFocus;
+    const candidates=[...document.querySelectorAll('[data-finance-car],[data-expense-car],[data-action-id],[data-edit-id]')].filter(element=>element.getClientRects().length);
+    target=candidates.find(element=>attribute&&element.getAttribute(attribute)===carId)||candidates.find(element=>element.getAttribute('data-edit-id')===carId);
+  }
+  (target?.isConnected?target:document.querySelector('[data-section="section-utilidad"]'))?.focus();
+  costosReturnFocus=null;
+}
+
+function textoGanancia(finance){
+  if(finance.profitCents!==null)return formatCurrency(finance.profitCents/100);
+  return {pending_sale:'Pendiente de venta',missing_purchase:'Falta costo de compra',missing_sale:'Falta precio real de venta',invalid_expenses:'Revisar gastos registrados',expenses_unavailable:'No se pudieron cargar los gastos'}[finance.state]||'Datos incompletos';
+}
+
+function marcarResumenFinancieroPendiente(){
+  financeRefreshRequired=true;
+  calcularMetricasInventario();renderControlUtilidad();
+  const car=carsCache.find(item=>String(item.id)===String(activeCostCarId));
+  if(car)renderDetalleCostos(car);
 }
 
 function renderControlUtilidad() {
@@ -1240,15 +1255,17 @@ function renderControlUtilidad() {
     container.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Los datos financieros están ocultos en Modo Catálogo.</p>';
     return;
   }
+  if(financeRefreshRequired){container.textContent='No se pudo actualizar el resumen. Pulsa Actualizar datos.';return;}
   if (!carsCache.length) {
     container.innerHTML = '<p class="text-xs text-[#9CA3AF]">Aún no hay vehículos en el inventario.</p>';
     return;
   }
+  let report;
+  try{report=window.VeloDriveFinance.buildReport(carsCache,carExpensesCache,fechaActualLocalISO(),{expensesKnown:carExpensesAvailable});}
+  catch{container.textContent='No se pudo calcular la ganancia. Revisa los importes registrados.';return;}
   container.innerHTML = carsCache.map(car => {
-    const gastos = carExpensesCache.filter(g => String(g.car_id) === String(car.id)).reduce((total, g) => total + (Number(g.amount) || 0), 0);
-    const compra = Number(car.purchase_cost) || 0;
-    const venta = Number(car.sold_price) || 0;
-    const utilidad = car.status === 'Vendido' && venta > 0 ? venta - compra - gastos : null;
+    const finance=report.vehicles.get(String(car.id));
+    const utilidad=finance.profitCents;
     const estatus = car.status === 'Vendido' ? 'Vendido' : (car.status || 'Disponible');
     return `<article class="rounded-xl border border-[#272A30] bg-[#12151C] p-4">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -1256,10 +1273,10 @@ function renderControlUtilidad() {
         <div class="flex flex-wrap gap-2"><button type="button" data-finance-car="${escapeHtml(car.id)}" class="btn-abrir-control btn-ghost px-3 py-1.5 rounded-lg text-[11px]">Editar compra / venta</button><button type="button" data-expense-car="${escapeHtml(car.id)}" class="btn-abrir-control btn-primary px-3 py-1.5 rounded-lg text-[11px]">Registrar gastos</button></div>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-        <div><p class="text-[9px] uppercase text-[#6B7280]">Compra</p><p class="text-xs font-bold mt-1">${formatCurrency(compra)}</p></div>
-        <div><p class="text-[9px] uppercase text-[#6B7280]">Gastos</p><p class="text-xs font-bold mt-1">${formatCurrency(gastos)}</p></div>
-        <div><p class="text-[9px] uppercase text-[#6B7280]">Venta real</p><p class="text-xs font-bold mt-1">${venta > 0 ? formatCurrency(venta) : 'Pendiente'}</p></div>
-        <div><p class="text-[9px] uppercase text-[#6B7280]">Utilidad</p><p class="text-xs font-bold mt-1" style="color:${utilidad === null ? 'var(--text-muted)' : (utilidad >= 0 ? 'var(--success)' : 'var(--danger)')}">${utilidad === null ? 'Pendiente de venta' : formatCurrency(utilidad)}</p></div>
+        <div><p class="text-[10px] uppercase text-[#9CA3AF]">Compra</p><p class="text-xs font-bold mt-1">${finance.purchaseCents===null?'Sin capturar':formatCurrency(finance.purchaseCents/100)}</p></div>
+        <div><p class="text-[10px] uppercase text-[#9CA3AF]">Gastos</p><p class="text-xs font-bold mt-1">${!report.expensesKnown?'Sin consultar':finance.invalidExpense?'Revisar importes':formatCurrency(finance.expenseCents/100)}</p></div>
+        <div><p class="text-[10px] uppercase text-[#9CA3AF]">Venta real</p><p class="text-xs font-bold mt-1">${finance.saleCents===null?'Pendiente':formatCurrency(finance.saleCents/100)}</p></div>
+        <div><p class="text-[10px] uppercase text-[#9CA3AF]">Ganancia</p><p class="text-xs font-bold mt-1" style="color:${utilidad === null ? 'var(--text-dim)' : (utilidad >= 0 ? 'var(--success)' : 'var(--danger)')}">${textoGanancia(finance)}</p></div>
       </div>
     </article>`;
   }).join('');
@@ -1267,26 +1284,28 @@ function renderControlUtilidad() {
 }
 
 function renderDetalleCostos(car) {
-  const gastos = carExpensesCache.filter(g => String(g.car_id) === String(car.id));
-  const sumaGastos = gastos.reduce((suma, g) => suma + (Number(g.amount) || 0), 0);
+  const gastos = carExpensesCache.filter(g => String(g.car_id) === String(car.id)&&g.lote_id===car.lote_id);
   const utilidadEl = document.getElementById('costosUtilidadResumen');
-  document.getElementById('costosCompraResumen').textContent = formatCurrency(car.purchase_cost || 0);
-  document.getElementById('costosGastosResumen').textContent = formatCurrency(sumaGastos);
-  if (car.status === 'Vendido' && Number(car.sold_price) > 0) {
-    const utilidad = Number(car.sold_price) - (Number(car.purchase_cost) || 0) - sumaGastos;
-    utilidadEl.textContent = formatCurrency(utilidad);
-    utilidadEl.style.color = utilidad >= 0 ? 'var(--success)' : 'var(--danger)';
-  } else {
-    utilidadEl.textContent = 'Pendiente de venta';
-    utilidadEl.style.color = '';
+  if(financeRefreshRequired){
+    utilidadEl.textContent='Actualizar datos';utilidadEl.style.color='';
+    document.getElementById('costosCompraResumen').textContent='Sin actualizar';
+    document.getElementById('costosGastosResumen').textContent='Sin actualizar';
+    document.getElementById('listaGastosVehiculo').textContent='La lista de gastos está pendiente de actualizar.';return;
   }
+  let finance;
+  try{finance=window.VeloDriveFinance.buildReport([car],gastos,fechaActualLocalISO(),{expensesKnown:carExpensesAvailable}).vehicles.get(String(car.id));}
+  catch{utilidadEl.textContent='Revisar importes';return;}
+  document.getElementById('costosCompraResumen').textContent=finance.purchaseCents===null?'Sin capturar':formatCurrency(finance.purchaseCents/100);
+  document.getElementById('costosGastosResumen').textContent=!carExpensesAvailable?'Sin consultar':finance.invalidExpense?'Revisar importes':formatCurrency(finance.expenseCents/100);
+  utilidadEl.textContent=textoGanancia(finance);
+  utilidadEl.style.color=finance.profitCents===null?'':finance.profitCents>=0?'var(--success)':'var(--danger)';
   const nombres = { reparacion: 'Reparación', estetica: 'Estética / detallado', tramites: 'Trámites', otro: 'Otro' };
   const lista = document.getElementById('listaGastosVehiculo');
   lista.innerHTML = gastos.length ? gastos.map(g => `
     <div class="flex items-start justify-between gap-3 rounded-lg border border-[#272A30] p-3">
-      <div class="min-w-0"><p class="text-xs font-semibold">${escapeHtml(nombres[g.category] || g.category)}</p><p class="text-[11px] text-[#9CA3AF] break-words">${escapeHtml(g.description || 'Sin descripción')}</p><p class="text-[10px] text-[#6B7280]">${g.created_at ? new Date(g.created_at).toLocaleDateString('es-MX') : ''}</p></div>
-      <div class="flex items-center gap-2"><span class="text-xs font-bold whitespace-nowrap">${formatCurrency(g.amount)}</span><button type="button" data-delete-expense="${escapeHtml(g.id)}" class="btn-eliminar-gasto text-xs text-red-400" aria-label="Eliminar gasto">🗑</button></div>
-    </div>`).join('') : '<p class="text-xs text-[#9CA3AF]">Sin gastos registrados.</p>';
+      <div class="min-w-0"><p class="text-xs font-semibold">${escapeHtml(nombres[g.category] || g.category)}</p><p class="text-[11px] text-[#9CA3AF] break-words">${escapeHtml(g.description || 'Sin descripción')}</p><p class="text-[10px] text-[#9CA3AF]">${g.created_at ? new Date(g.created_at).toLocaleDateString('es-MX') : ''}</p></div>
+      <div class="flex items-center gap-2"><span class="text-xs font-bold whitespace-nowrap">${window.VeloDriveFinance.toCents(g.amount)===null?'Revisar importe':formatCurrency(g.amount)}</span><button type="button" data-delete-expense="${escapeHtml(g.id)}" class="btn-eliminar-gasto text-xs text-red-400 px-3 py-2" aria-label="Eliminar gasto">🗑</button></div>
+    </div>`).join('') : `<p class="text-xs text-[#9CA3AF]">${carExpensesAvailable?'Sin gastos registrados.':'No se pudieron cargar los gastos.'}</p>`;
   lista.querySelectorAll('.btn-eliminar-gasto').forEach(btn => btn.addEventListener('click', async () => {
     if (!confirm('¿Eliminar este gasto?')) return;
     const { error } = await supabaseClient.from('car_expenses').delete().eq('id', btn.dataset.deleteExpense).eq('lote_id', currentLote.id);
@@ -1823,6 +1842,8 @@ function initCatalogMode() {
       leadsCache = [];
       citasCache = [];
       carExpensesCache = [];
+      carExpensesAvailable=false;
+      costosReturnFocus=null;
       carsCache = carsCache.map(car => {
         return Object.fromEntries(CATALOG_CAR_COLUMNS.split(',').filter(key => key in car).map(key => [key, car[key]]));
       });
@@ -2583,6 +2604,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     carImageUrls = [];
     const form = document.getElementById('formNuevoCar');
     if (form) form.reset();
+    document.getElementById('carStatus').disabled=false;
     const urlEl = document.getElementById('carImageUrl');
     if (urlEl) urlEl.value = '';
     const statusEl = document.getElementById('uploadStatusText');
@@ -2625,41 +2647,82 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   const modalCostos = document.getElementById('modalCostosOverlay');
-  on('btnCerrarCostos', 'click', () => {
-    modalCostos?.classList.add('hidden');
-    modalCostos?.classList.remove('flex');
-    activeCostCarId = null;
+  on('btnActualizarUtilidad','click',async()=>{
+    if(!currentLote||catalogModeActive)return;
+    const context=captureTenantContext();
+    const finish=window.VeloDriveUI.beginSubmit(document.getElementById('btnActualizarUtilidad'),document.getElementById('utilidadCargaEstado'),'Actualizando…','Consultando compra, venta y gastos…');
+    if(!finish)return;
+    try{
+      const complete=await fetchCars();
+      if(!isCurrentTenantContext(context)){finish();return;}
+      finish(complete?'Datos actualizados.':'No se pudieron actualizar todos los datos. Revisa tu conexión y vuelve a intentarlo.',complete?'success':'error');
+    }catch{
+      if(!isCurrentTenantContext(context)){finish();return;}
+      finish('No se pudieron actualizar los datos. Revisa tu conexión y vuelve a intentarlo.','error');
+    }
+  });
+  on('btnCerrarCostos', 'click', cerrarControlCostos);
+  document.addEventListener('keydown',event=>{
+    if(!modalCostos||modalCostos.classList.contains('hidden'))return;
+    if(event.key==='Escape'){event.preventDefault();cerrarControlCostos();return;}
+    if(event.key!=='Tab')return;
+    const controls=[...modalCostos.querySelectorAll('button,input,select,textarea,a[href]')].filter(element=>!element.disabled&&element.getClientRects().length);
+    const first=controls[0],last=controls[controls.length-1];
+    if(!modalCostos.contains(document.activeElement)){event.preventDefault();first?.focus();}
+    else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
   });
   on('formDatosFinancieros', 'submit', async (e) => {
     e.preventDefault();
     const button = document.getElementById('btnGuardarDatosFinancieros');
     if (button?.disabled) return;
-    if (!currentLote || !activeCostCarId) return;
+    if (!currentLote || !activeCostCarId || catalogModeActive) return;
+    const context=captureTenantContext(),carId=activeCostCarId;
     const car = carsCache.find(c => String(c.id) === String(activeCostCarId));
     if (!car) return;
-    const compra = Number(document.getElementById('controlCostoCompra').value);
+    const compra = document.getElementById('controlCostoCompra').value;
     const ventaRaw = document.getElementById('controlPrecioVenta').value.trim();
-    const venta = ventaRaw === '' ? null : Number(ventaRaw);
-    if (!Number.isFinite(compra) || compra < 0 || (venta !== null && (!Number.isFinite(venta) || venta < 0))) {
-      alert('Revisa los importes: deben ser números iguales o mayores que cero.');
-      return;
-    }
-    const update = { purchase_cost: compra, sold_price: venta };
-    if (venta !== null && venta > 0) {
-      update.status = 'Vendido';
-      update.fecha_venta = car.fecha_venta || fechaActualLocalISO();
+    const fechaVenta=document.getElementById('controlFechaVenta').value;
+    const status=document.getElementById('finanzasStatus');
+    let update;
+    try{
+      try{update=window.VeloDriveFinance.prepareUpdate(car,compra,ventaRaw,false,fechaActualLocalISO(),fechaVenta);}
+      catch(error){
+        if(error.message!=='SALE_CONFIRMATION_REQUIRED')throw error;
+        if(!confirm(`¿Confirmas la venta de ${car.brand||''} ${car.model||''} por ${formatCurrency(ventaRaw)}? Al guardar, la unidad quedará marcada como vendida.`)){
+          status.textContent='Venta sin confirmar. No se guardaron cambios.';status.setAttribute('role','status');return;
+        }
+        update=window.VeloDriveFinance.prepareUpdate(car,compra,ventaRaw,true,fechaActualLocalISO(),fechaVenta);
+      }
+    }catch(error){
+      status.textContent={PURCHASE_REQUIRED:'Captura un costo de compra mayor que cero, con hasta dos decimales.',SALE_PRICE_REQUIRED:'Captura un precio real de venta mayor que cero, con hasta dos decimales.',SALE_DATE_INVALID:'Captura la fecha real de venta, sin elegir un día futuro.'}[error.message]||'Revisa los datos financieros.';
+      status.setAttribute('role','alert');return;
     }
     const finish = window.VeloDriveUI?.beginSubmit(button, document.getElementById('finanzasStatus'), 'Guardando…', 'Guardando los datos de compra y venta…');
     if (!finish) return;
+    let persisted=false;
     try {
-      const { error } = await supabaseClient.from('cars').update(update).eq('id', activeCostCarId).eq('lote_id', currentLote.id);
+      const { data,error } = await supabaseClient.from('cars').update(update).eq('id', carId).eq('lote_id', context.loteId).select('id').single();
       if (error) throw error;
-      await fetchCars();
-      const actualizado = carsCache.find(c => String(c.id) === String(activeCostCarId));
+      if(!data||String(data.id)!==String(carId))throw Error('FINANCE_UPDATE_NOT_CONFIRMED');
+      persisted=true;
+      if(!isCurrentTenantContext(context)){finish();return;}
+      const refreshed=await fetchCars();
+      if(!isCurrentTenantContext(context)){finish();return;}
+      if(!refreshed){
+        marcarResumenFinancieroPendiente();
+        finish('Compra y venta guardadas. No se pudo actualizar el resumen; pulsa Actualizar datos.','error');return;
+      }
+      const actualizado = String(activeCostCarId)===String(carId)&&carsCache.find(c => String(c.id) === String(carId));
       if (actualizado) renderDetalleCostos(actualizado);
       finish('Compra y venta guardadas.', 'success');
       showActionToast('Datos de compra y venta guardados.');
     } catch (error) {
+      if(!isCurrentTenantContext(context)){finish();return;}
+      if(persisted){
+        marcarResumenFinancieroPendiente();
+        finish('Compra y venta guardadas. No se pudo actualizar el resumen; pulsa Actualizar datos.','error');return;
+      }
       finish('No se pudieron guardar los datos. Revisa tu conexión e inténtalo de nuevo.', 'error');
       showActionToast('No se pudieron guardar los datos financieros.', 'error');
     }
@@ -2668,27 +2731,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const button = document.getElementById('btnGuardarGasto');
     if (button?.disabled) return;
-    if (!currentLote || !activeCostCarId) return;
-    const amount = Number(document.getElementById('gastoMonto').value);
-    if (!Number.isFinite(amount) || amount <= 0) { alert('Escribe un importe mayor que cero.'); return; }
+    if (!currentLote || !activeCostCarId || catalogModeActive) return;
+    const context=captureTenantContext(),carId=activeCostCarId;
+    const cents=window.VeloDriveFinance.toCents(document.getElementById('gastoMonto').value);
+    if (cents===null||cents<=0) { alert('Escribe un importe mayor que cero, con hasta dos decimales.'); return; }
+    const amount=cents/100;
     const finish = window.VeloDriveUI?.beginSubmit(button, document.getElementById('gastoStatus'), 'Guardando…', 'Guardando el gasto…');
     if (!finish) return;
+    let persisted=false;
     try {
       const { error } = await supabaseClient.from('car_expenses').insert({
-        lote_id: currentLote.id,
-        car_id: activeCostCarId,
+        lote_id: context.loteId,
+        car_id: carId,
         category: document.getElementById('gastoCategoria').value,
         description: document.getElementById('gastoDescripcion').value.trim() || null,
         amount
       });
       if (error) throw error;
+      persisted=true;
+      if(!isCurrentTenantContext(context)){finish();return;}
       e.target.reset();
-      await fetchCars();
-      const carActual = carsCache.find(c => String(c.id) === String(activeCostCarId));
+      const refreshed=await fetchCars();
+      if(!isCurrentTenantContext(context)){finish();return;}
+      if(!refreshed){
+        marcarResumenFinancieroPendiente();
+        finish('Gasto guardado. No se pudo actualizar el resumen; pulsa Actualizar datos.','error');return;
+      }
+      const carActual = String(activeCostCarId)===String(carId)&&carsCache.find(c => String(c.id) === String(carId));
       if (carActual) renderDetalleCostos(carActual);
       finish('Gasto guardado.', 'success');
       showActionToast('Gasto registrado.');
     } catch (error) {
+      if(!isCurrentTenantContext(context)){finish();return;}
+      if(persisted){
+        marcarResumenFinancieroPendiente();
+        finish('Gasto guardado. No se pudo actualizar el resumen; pulsa Actualizar datos.','error');return;
+      }
       finish('No se pudo guardar el gasto. Revisa tu conexión e inténtalo de nuevo.', 'error');
       showActionToast('No se pudo registrar el gasto.', 'error');
     }
@@ -2778,6 +2856,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const statusText = document.getElementById('uploadStatusText');
     const esEdicion = Boolean(editingCarId);
+    const originalCar=esEdicion?carsCache.find(car=>String(car.id)===String(editingCarId)):null;
+    if(document.getElementById('carStatus').value==='Vendido'&&originalCar?.status!=='Vendido'){
+      statusText.textContent='Registra la venta desde Control de utilidad, con compra, precio real y fecha.';
+      statusText.setAttribute('role','alert');return;
+    }
     const textoOriginal = btnSubmit?.textContent.trim() || 'Guardar Unidad en Sistema';
     const finishSubmit = window.VeloDriveUI?.beginSubmit(
       btnSubmit,
@@ -2794,7 +2877,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       price: parseFloat(document.getElementById('carPrice').value),
       image_url: document.getElementById('carImageUrl').value.trim() || PLACEHOLDER_IMG,
       image_urls: carImageUrls,
-      status: document.getElementById('carStatus').value,
+      status: originalCar?.status==='Vendido'?'Vendido':document.getElementById('carStatus').value,
       transmision: document.getElementById('carTransmision').value,
       kilometraje: parseFloat(document.getElementById('carKilometraje').value) || 0,
       enganche_minimo: parseFloat(document.getElementById('carEnganche').value) || 0,

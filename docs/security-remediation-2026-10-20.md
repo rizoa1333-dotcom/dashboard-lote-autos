@@ -2,9 +2,10 @@
 
 Fecha: 2026-10-20. Rama: fix/security-20261019. Este documento complementa la auditoria del 18-10; no equivale a una certificacion de ausencia de vulnerabilidades.
 
-## Evidencia actual (actualizada 2026-10-24)
+## Evidencia actual (actualizada 2026-10-25)
 
-- 158 pruebas unitarias y 24 Playwright aprobadas. E2E usa servicios externos simulados; pruebas reales adicionales se distinguen en el historial inferior. Sin nuevos cargos.
+- 171 pruebas unitarias y 34 Playwright aprobadas. E2E usa servicios externos simulados; pruebas reales adicionales se distinguen en el historial inferior. Sin nuevos cargos.
+- Control de utilidad corregido y revisado localmente: centavos, datos incompletos, fechas reales, confirmacion de venta y recuperacion de refresco. Despliegue de este cambio pendiente de verificar; ver docs/control-utilidad.md. No se insertaron gastos/ventas productivos durante QA.
 - Auditoria npm de la aplicacion sin vulnerabilidades reportadas. Escaneos separados de n8n/Evolution si contienen hallazgos pendientes; no extrapolar el resultado de npm a todo el sistema.
 - Registro atomico y Checkout durable probados contra servicios reales sin cobrar; enlaces de compra Live heredados desactivados.
 - Flujo documental publicado y verificado con 210 nodos. n8n 2.44.6 fijado por digest, proceso principal UID 1000, Postgres privado y 24 variables conservadas por huella. Tres workflows activos; cinco credenciales y 311 migraciones conservadas.
