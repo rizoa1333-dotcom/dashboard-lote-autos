@@ -21,3 +21,20 @@ test('los recursos de SDK y CSS son archivos propios con MIME correcto, sin fall
  }
  }finally{await new Promise(r=>server.close(r));}
 });
+
+test('el parser corregido maneja gzip valido e invalido y mantiene disponible el servidor',async()=>{
+ const zlib=require('node:zlib');
+ const lock=require('../../package-lock.json');
+ assert.equal(lock.packages['node_modules/body-parser'].version,'1.20.9');
+ const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
+ const post=body=>new Promise((resolve,reject)=>{
+  const req=http.request({host:'127.0.0.1',port:server.address().port,path:'/api/stripe-checkout-link',method:'POST',headers:{'Content-Type':'application/json','Content-Encoding':'gzip','Content-Length':body.length}},res=>{
+   res.resume();res.on('end',()=>resolve(res.statusCode));
+  });req.on('error',reject);req.end(body);
+ });
+ try{
+  assert.equal(await post(zlib.gzipSync(Buffer.from('{}'))),401);
+  assert.equal(await post(Buffer.from('invalid gzip')),400);
+  assert.equal((await get(server.address().port,'/health')).status,200);
+ }finally{await new Promise(r=>server.close(r));}
+});
