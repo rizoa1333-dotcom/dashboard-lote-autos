@@ -37,6 +37,16 @@ La imagen conserva 4 coincidencias CRITICAL y 20 HIGH del escaneo. Fijarla y ret
 root no corrige automaticamente esas dependencias: mantener evaluacion de alcance
 y remediacion pendientes. Tampoco afirmar recuperacion completa de Supabase/Evolution.
 
+Actualizacion25Oct: nuevo escaneo del artefacto oficial exacto con base de avisos
+25Oct19:10UTC arroja **4CRITICAL/27HIGH**. El recuento20HIGH anterior es historico.
+Siguen criticas simple-git3.36.0, argv-parser1.1.1 y dos avisos de Handlebars4.7.9.
+Simple-git4 cambia los imports: elimina default/require callable y conserva
+`simpleGit` nombrado; no imponerlo a n8n sin adaptar y probar cada consumidor.
+La version4.0.1 incluye argv-parser2.0.0, que no basta; la rama corregida debe
+incluir argv-parser2.0.1. Ver [cambios oficiales](https://github.com/steveukx/git-js/blob/main/simple-git/CHANGELOG.md).
+Handlebars corregido4.7.10 requiere pruebas del correo y consumidores de plantillas.
+No se modifico la imagen productiva por esta inspeccion.
+
 Referencia anterior de despliegue: 8a411ab9-370e-4e29-95e6-29adfef8f09b.
 Railway expone deploymentRollback(id); su disponibilidad se consulto, pero no se
 ejecuto una reversion en produccion como prueba. Si se necesita, verificar imagen,

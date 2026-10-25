@@ -283,3 +283,9 @@ Procedimiento de custodia y limites: [recuperacion portable](recovery-package.md
 
 No se aprueba aun una distribucion comercial general basandose solo en estas
 pruebas. Falta cerrar infraestructura, recuperacion completa y capacidad concurrente.
+
+Escaneo actualizado del n8n oficial desplegado,25Oct con base vigente:
+4CRITICAL/27HIGH. Los cuatro criticos anteriores persisten; nuevos avisos aumentan
+el recuento alto. Revisar el informe vigente y no reutilizar20HIGH como estado actual.
+La migracion simple-git3a4 rompe el import por defecto; requiere compatibilidad
+de consumidores, ademas de argv-parser2.0.1. No se hizo un reemplazo ciego.
