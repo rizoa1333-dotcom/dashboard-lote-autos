@@ -93,5 +93,32 @@
     }
     return update;
   }
-  return {toCents,safeAdd,buildReport,prepareUpdate};
+  /** @param {unknown} price @param {string} date @param {string} today */
+  function prepareSale(price,date,today){
+    const cents=toCents(price);
+    if(cents===null||cents<=0)throw Error('SALE_PRICE_REQUIRED');
+    if(!validDate(today)||!validDate(date)||date>today)throw Error('SALE_DATE_INVALID');
+    return {status:'Vendido',sold_price:cents/100,fecha_venta:date};
+  }
+  /** @param {Vehicle[]} cars @param {string} today @param {string} [year] */
+  function buildSalesReport(cars,today,year=today.slice(0,4)){
+    if(!validDate(today)||!/^\d{4}$/.test(year))throw Error('SALE_DATE_INVALID');
+    const months=Array.from({length:12},(_,index)=>({month:index+1,units:0,totalCents:0,knownCents:0,missingPriceCount:0,cars:[]}));
+    const undated=[];
+    for(const car of cars){
+      if(car.status!=='Vendido')continue;
+      if(!validDate(car.fecha_venta)||car.fecha_venta>today){undated.push(car);continue;}
+      if(car.fecha_venta.slice(0,4)!==year)continue;
+      const month=months[Number(car.fecha_venta.slice(5,7))-1],cents=toCents(car.sold_price);
+      month.units++;month.cars.push(car);
+      if(cents===null||cents<=0)month.missingPriceCount++;
+      else month.knownCents=safeAdd(month.knownCents,cents);
+    }
+    for(const month of months){
+      month.totalCents=month.missingPriceCount?null:month.knownCents;
+      month.cars.sort((a,b)=>a.fecha_venta.localeCompare(b.fecha_venta)||String(a.id).localeCompare(String(b.id)));
+    }
+    return {year,months,undated};
+  }
+  return {toCents,safeAdd,buildReport,prepareUpdate,prepareSale,buildSalesReport};
 });

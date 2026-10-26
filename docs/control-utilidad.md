@@ -1,5 +1,8 @@
 # Control de utilidad
 
+> Referencia historica. Este modulo fue retirado de la interfaz y sustituido por
+> [Ventas mensuales](ventas-mensuales.md). No usar los pasos siguientes para el panel actual.
+
 ## Uso
 
 1. Abre Control de utilidad y selecciona Editar compra / venta en la unidad.

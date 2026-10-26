@@ -97,13 +97,11 @@ let directPasswordChange = false;
 
 let leadsCache = [];
 let carsCache = [];
-let carExpensesCache = [];
-let carExpensesAvailable = false;
-let financeRefreshRequired = false;
+let salesRefreshRequired = false;
 let carsReadGeneration = 0;
 let carsReadCommitted = 0;
-let activeCostCarId = null;
-let costosReturnFocus = null;
+let activeSaleCarId = null;
+let saleReturnFocus = null;
 let citasCache = [];
 let citasCalendarioMes = new Date();
 let citasDiaSeleccionado = null;
@@ -134,12 +132,11 @@ function clearTenantContext() {
   stopSync();
   detenerEsperaWhatsapp();
   currentUser = null; currentLote = null;
-  leadsCache = []; carsCache = []; carExpensesCache = []; citasCache = [];
-  carExpensesAvailable=false;
-  financeRefreshRequired=false;
+  leadsCache = []; carsCache = []; citasCache = [];
+  salesRefreshRequired=false;
   carsReadGeneration+=1;carsReadCommitted=0;
-  activeCostCarId = null; activeLeadId = null; editingCarId = null;
-  costosReturnFocus = null;
+  activeSaleCarId = null; activeLeadId = null; editingCarId = null;
+  saleReturnFocus = null;
   carImageUrls = []; marketingSelectedCarId = null; marketingImageUrls = [];
   whatsappQrExpires = 0; whatsappQrLoteId = null;
   catalogModeActive = false;
@@ -225,7 +222,8 @@ function startSync() {
 function setSyncStatus(message, state = 'idle') {
   const status = document.getElementById('dashboardSyncStatus');
   if (!status) return;
-  if (state === 'loading' && ['success', 'error'].includes(status.dataset.state)) return;
+  if(state!=='error'){status.textContent='';status.dataset.state=state;status.classList.add('hidden');return;}
+  status.classList.remove('hidden');
   if (status.textContent === message && status.dataset.state === state) return;
   status.textContent = message;
   status.dataset.state = state;
@@ -415,11 +413,6 @@ function renderLeadsTable() {
     const esHoy = clave === hoyClave;
 
     const filaHTML = lead => {
-      const fechaReg = lead.created_at ? parseFechaMx(lead.created_at) : new Date();
-      const horaVisual = new Intl.DateTimeFormat('es-MX', {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-        timeZone: 'America/Mexico_City'
-      }).format(fechaReg);
       const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
       const badgeDocs = tieneDocumentos ? `<span class="badge badge-success ml-1">📎 Docs</span>` : '';
       return `
@@ -432,7 +425,6 @@ function renderLeadsTable() {
           </td>
           <td class="px-4 py-3 text-xs text-[#6B7280] font-mono privacy-sensitive">${catalogModeActive ? CATALOG_REDACTED : escapeHtml(lead.phone_number || lead.telefono || '—')}</td>
           <td class="px-4 py-3 text-sm font-medium" style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</td>
-          <td class="px-4 py-3 text-xs text-[#9CA3AF]">${horaVisual}</td>
           <td class="px-4 py-3"><span class="badge ${statusBadgeClass(lead.status)}">${escapeHtml(lead.status || 'Calificado')}</span></td>
           <td class="px-4 py-3 text-right">
             <button data-lead-id="${escapeHtml(lead.id)}" class="btn-ver-perfil text-[11px] btn-primary px-2.5 py-1.5 rounded-lg font-medium cursor-pointer">Ver Perfil</button>
@@ -441,11 +433,6 @@ function renderLeadsTable() {
     };
 
     const tarjetaHTML = lead => {
-      const fechaReg = lead.created_at ? parseFechaMx(lead.created_at) : new Date();
-      const horaVisual = new Intl.DateTimeFormat('es-MX', {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-        timeZone: 'America/Mexico_City'
-      }).format(fechaReg);
       const tieneDocumentos = lead.url_ine || lead.url_comprobante_domicilio || lead.url_comprobante_ingresos;
       return `
         <div class="card p-4 space-y-2">
@@ -461,7 +448,6 @@ function renderLeadsTable() {
             ${tieneDocumentos ? `<span class="badge badge-success">📎 Docs</span>` : ''}
           </div>
           <div class="flex items-center justify-between pt-2 border-t border-[#272A30]">
-            <span class="text-[11px] text-[#9CA3AF]">${horaVisual}</span>
             <button data-lead-id="${escapeHtml(lead.id)}" class="btn-ver-perfil text-[11px] btn-primary px-3 py-1.5 rounded-lg font-medium cursor-pointer">Ver Perfil</button>
           </div>
         </div>`;
@@ -484,7 +470,6 @@ function renderLeadsTable() {
                   <th class="px-4 py-3">Nombre</th>
                   <th class="px-4 py-3">Teléfono</th>
                   <th class="px-4 py-3">Auto de Interés</th>
-                  <th class="px-4 py-3">Hora</th>
                   <th class="px-4 py-3">Estatus</th>
                   <th class="px-4 py-3 text-right">Acción</th>
                 </tr>
@@ -850,39 +835,21 @@ function statusBadgeClass(status) {
 // SECCIÓN INVENTARIO
 // ------------------------------------------------------------
 async function fetchCars() {
-  if (!currentLote) return false;
-  const context = captureTenantContext();
-  const readGeneration=++carsReadGeneration;
-  const read = query => Promise.resolve(query).catch(() => ({data:null,error:true}));
-  const [result, expenses] = await Promise.all([
-    read(supabaseClient.from('cars').select(context.catalog ? CATALOG_CAR_COLUMNS : '*')
-      .eq('lote_id', context.loteId).order('created_at', { ascending: false })),
-    context.catalog ? null : read(supabaseClient.from('car_expenses').select('*')
-      .eq('lote_id', context.loteId).order('created_at', { ascending: false }))
-  ]);
-  const {data,error}=result;
-  if (!isCurrentTenantContext(context)) return false;
-  if(readGeneration!==carsReadGeneration)return carsReadCommitted===carsReadGeneration;
-  if (error) { marcarResumenFinancieroPendiente();return false; }
-  if (context.catalog) {
-    const allowed = CATALOG_CAR_COLUMNS.split(',');
-    carsCache = (data || []).map(car => Object.fromEntries(allowed.filter(key => key in car).map(key => [key, car[key]])));
-    carExpensesCache = [];
-    carExpensesAvailable=false;
-  } else {
-    carsCache = data || [];
-    carExpensesCache = expenses.error ? [] : expenses.data || [];
-    carExpensesAvailable=!expenses.error&&Array.isArray(expenses.data);
-  }
-  financeRefreshRequired=false;
-  renderCars(); renderCarsCounter(); calcularMetricasInventario();
-  renderControlUtilidad(); populateMarketingCarSelect(); calcularOportunidadesRescatadas();
-  if(context.catalog||carExpensesAvailable)carsReadCommitted=readGeneration;
-  return context.catalog||carExpensesAvailable;
+  if(!currentLote)return false;
+  const context=captureTenantContext(),generation=++carsReadGeneration;
+  let result;
+  try{result=await supabaseClient.from('cars').select(context.catalog?CATALOG_CAR_COLUMNS:'*').eq('lote_id',context.loteId).order('created_at',{ascending:false});}
+  catch(_){result={error:true};}
+  if(!isCurrentTenantContext(context))return false;
+  if(generation!==carsReadGeneration)return carsReadCommitted===carsReadGeneration;
+  if(result.error){marcarVentasPendientes();return false;}
+  if(context.catalog){const allowed=CATALOG_CAR_COLUMNS.split(',');carsCache=(result.data||[]).map(car=>Object.fromEntries(allowed.filter(key=>key in car).map(key=>[key,car[key]])));}
+  else carsCache=result.data||[];
+  salesRefreshRequired=false;carsReadCommitted=generation;
+  renderCars();renderCarsCounter();calcularMetricasInventario();renderVentasMensuales();populateMarketingCarSelect();calcularOportunidadesRescatadas();
+  return true;
 }
 
-// FIX #2: fetchInventario no existía — se reemplaza por fetchCars en todos los
-// puntos de llamada (ver btn-eliminar-car más abajo).
 async function fetchInventario() {
   return fetchCars();
 }
@@ -900,85 +867,10 @@ function fechaActualLocalISO() {
 }
 
 function calcularMetricasInventario() {
-  const invValorTotalEl = document.getElementById('invValorTotal');
-  const invGananciasTotalesEl = document.getElementById('invGananciasTotales');
-  const mensualesContainer = document.getElementById('ventasMensualesContainer');
-  const kpiPublicadosEl = document.getElementById('kpiAutosPublicados');
-  const utilidadMesEl = document.getElementById('invUtilidadMes');
-  const autosAntiguosEl = document.getElementById('invAutosAntiguos');
-
-  let autosAntiguos = 0;
-  const ahora = new Date();
-  const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  let report;
-  const avisos=document.getElementById('utilidadAvisos');
-  if(financeRefreshRequired){
-    for(const element of [invValorTotalEl,invGananciasTotalesEl,utilidadMesEl])if(element)element.textContent=catalogModeActive?CATALOG_REDACTED:'Actualizar datos';
-    if(avisos)avisos.textContent=catalogModeActive?'':'No se pudo actualizar el resumen. Pulsa Actualizar datos antes de consultar la ganancia.';
-    mensualesContainer?.replaceChildren();return;
-  }
-  try{report=window.VeloDriveFinance.buildReport(carsCache,carExpensesCache,fechaActualLocalISO(),{expensesKnown:carExpensesAvailable});}
-  catch{
-    for(const element of [invValorTotalEl,invGananciasTotalesEl,utilidadMesEl])if(element)element.textContent=catalogModeActive?CATALOG_REDACTED:'Revisar importes';
-    if(avisos)avisos.textContent=catalogModeActive?'':'No se pudo calcular el resumen. Revisa los importes registrados.';
-    if(mensualesContainer)mensualesContainer.replaceChildren();
-    return;
-  }
-  const reporteMensual=report.months.map((mes,index)=>({name:mesesNombres[index],unidades:mes.units,dinero:mes.missingPriceCount?null:mes.salesCents/100}));
-  carsCache.forEach(car => {
-    const fechaAlta = car.created_at ? new Date(car.created_at) : null;
-    if (car.status !== 'Vendido' && fechaAlta && !Number.isNaN(fechaAlta.getTime()) && (ahora - fechaAlta) >= 30 * 24 * 60 * 60 * 1000) autosAntiguos += 1;
-  });
-  const amount=cents=>catalogModeActive?CATALOG_REDACTED:cents===null?'Datos incompletos':formatCurrency(cents/100);
-  if (invValorTotalEl) invValorTotalEl.textContent = amount(report.capitalCents);
-  if (invGananciasTotalesEl) invGananciasTotalesEl.textContent = amount(report.salesCents);
-  if (utilidadMesEl) utilidadMesEl.textContent = amount(report.monthProfitCents);
-  if(avisos){
-    const pendientes=[];
-    if(!report.expensesKnown)pendientes.push('No se pudieron cargar los gastos. Actualiza el inventario antes de consultar la ganancia');
-    if(report.missingPurchaseCount)pendientes.push(`${report.missingPurchaseCount} unidades en inventario sin costo de compra`);
-    if(report.missingSaleCount)pendientes.push(`${report.missingSaleCount} ventas sin precio real`);
-    if(report.incompleteProfitCount)pendientes.push(`${report.incompleteProfitCount} ventas requieren datos para completar la ganancia mensual`);
-    if(report.undatedSalesCount)pendientes.push(`${report.undatedSalesCount} ventas sin fecha válida; no se asignaron a un mes`);
-    avisos.textContent=catalogModeActive?'':pendientes.join('. ');
-  }
-  if (autosAntiguosEl) autosAntiguosEl.textContent = catalogModeActive ? CATALOG_REDACTED : String(autosAntiguos);
-
-  if (mensualesContainer) {
-    const mesesConVentas = reporteMensual.filter(m => m.unidades > 0);
-
-    if (catalogModeActive) {
-      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Ventas ocultas en Modo Catálogo.</p>`;
-    } else if (mesesConVentas.length === 0) {
-      mensualesContainer.innerHTML = `<p class="text-xs text-[#9CA3AF] italic p-2">Sin ventas con fecha registrada en el año en curso.</p>`;
-    } else {
-      mensualesContainer.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-          ${mesesConVentas.map(mes => `
-            <div class="flex items-center justify-between p-3 bg-[#161922] border border-[#272A30] rounded-xl">
-              <div>
-                <p class="text-xs font-bold">${mes.name}</p>
-                <p class="text-[10px] text-[#9CA3AF] font-medium">${mes.unidades} ${mes.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
-              </div>
-              <div class="text-right">
-                <p class="text-sm font-extrabold stat-mono" style="color: var(--text);">${mes.dinero===null?'Falta precio real':formatCurrency(mes.dinero)}</p>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-  }
-
-  if (kpiPublicadosEl) {
-    const publicadosEsteMes = carsCache.filter(car => car.publicado_meta === true).length;
-    kpiPublicadosEl.textContent = publicadosEsteMes;
-  }
+  const publicados=document.getElementById('kpiAutosPublicados');
+  if(publicados)publicados.textContent=String(carsCache.filter(car=>car.publicado_meta===true).length);
 }
 
-// ------------------------------------------------------------
-// SALUD DEL INVENTARIO
-// ------------------------------------------------------------
 function renderCarThumbs() {
   const wrap = document.getElementById('carImageThumbs');
   wrap.innerHTML = carImageUrls.map((url, i) => `
@@ -1149,9 +1041,7 @@ function renderCars() {
 
   grid.querySelectorAll('.btn-marcar-vendido').forEach(btn => {
     btn.addEventListener('click', () => {
-      abrirControlCostos(btn.getAttribute('data-action-id'));
-      const status=document.getElementById('finanzasStatus');
-      if(status)status.textContent='Captura la compra y el precio real para confirmar la venta.';
+      abrirVenta(btn.getAttribute('data-action-id'));
     });
   });
 
@@ -1231,125 +1121,86 @@ function renderCars() {
   });
 }
 
-function abrirControlCostos(carId) {
-  if(catalogModeActive||document.getElementById('btnGuardarDatosFinancieros')?.disabled||document.getElementById('btnGuardarGasto')?.disabled)return;
-  const car = carsCache.find(c => String(c.id) === String(carId));
+function abrirVenta(carId) {
+  if (catalogModeActive || document.getElementById('btnGuardarVenta')?.disabled) return;
+  const car=carsCache.find(item=>String(item.id)===String(carId));
   if (!car) return;
-  costosReturnFocus={node:document.activeElement,carId:String(car.id),attribute:['data-finance-car','data-expense-car','data-action-id'].find(name=>document.activeElement?.hasAttribute(name))};
-  activeCostCarId = car.id;
-  document.getElementById('costosCarNombre').textContent = `${car.brand || ''} ${car.model || ''} ${car.year || ''}`.trim();
-  document.getElementById('controlCostoCompra').value = Number(car.purchase_cost)>0?car.purchase_cost:'';
-  document.getElementById('controlPrecioVenta').value = Number(car.sold_price) > 0 ? car.sold_price : '';
-  const fechaVenta=document.getElementById('controlFechaVenta');
-  fechaVenta.max=fechaActualLocalISO();
-  fechaVenta.value=car.fecha_venta||(car.status==='Vendido'?'':fechaActualLocalISO());
-  document.getElementById('costosCompraResumen').textContent = formatCurrency(car.purchase_cost || 0);
-  renderDetalleCostos(car);
-  const modal = document.getElementById('modalCostosOverlay');
-  modal.classList.remove('hidden');
-  modal.classList.add('flex');
-  for(const id of ['finanzasStatus','gastoStatus']){
-    const status=document.getElementById(id);status.textContent='';status.setAttribute('role','status');
-  }
-  document.getElementById('costosTitulo').focus();
+  activeSaleCarId=car.id;
+  saleReturnFocus={node:document.activeElement,carId:String(car.id)};
+  document.getElementById('ventaCarNombre').textContent=`${car.brand||''} ${car.model||''} ${car.year||''}`.trim();
+  document.getElementById('ventaPrecio').value=Number(car.sold_price)>0?car.sold_price:'';
+  const date=document.getElementById('ventaFecha');
+  date.max=fechaActualLocalISO();date.value=car.fecha_venta||(car.status==='Vendido'?'':fechaActualLocalISO());
+  document.getElementById('ventaStatus').textContent='';
+  const modal=document.getElementById('modalVentaOverlay');modal.classList.remove('hidden');modal.classList.add('flex');
+  document.getElementById('ventaTitulo').focus();
 }
 
-function cerrarControlCostos(){
-  const modal=document.getElementById('modalCostosOverlay');
-  modal?.classList.add('hidden');modal?.classList.remove('flex');activeCostCarId=null;
-  let target=costosReturnFocus?.node;
-  if(!target?.isConnected&&costosReturnFocus){
-    const {attribute,carId}=costosReturnFocus;
-    const candidates=[...document.querySelectorAll('[data-finance-car],[data-expense-car],[data-action-id],[data-edit-id]')].filter(element=>element.getClientRects().length);
-    target=candidates.find(element=>attribute&&element.getAttribute(attribute)===carId)||candidates.find(element=>element.getAttribute('data-edit-id')===carId);
+function cerrarVenta(){
+  const modal=document.getElementById('modalVentaOverlay');modal?.classList.add('hidden');modal?.classList.remove('flex');activeSaleCarId=null;
+  let target=saleReturnFocus?.node;
+  if(!target?.isConnected&&saleReturnFocus){
+    target=[...document.querySelectorAll('[data-sale-car],[data-action-id],[data-edit-id]')].find(element=>
+      element.getClientRects().length&&['data-sale-car','data-action-id','data-edit-id'].some(key=>element.getAttribute(key)===saleReturnFocus.carId));
   }
-  (target?.isConnected?target:document.querySelector('[data-section="section-utilidad"]'))?.focus();
-  costosReturnFocus=null;
+  (target?.isConnected?target:document.querySelector('[data-section="section-ventas"]'))?.focus();saleReturnFocus=null;
 }
 
-function textoGanancia(finance){
-  if(finance.profitCents!==null)return formatCurrency(finance.profitCents/100);
-  return {pending_sale:'Pendiente de venta',missing_purchase:'Falta costo de compra',missing_sale:'Falta precio real de venta',invalid_expenses:'Revisar gastos registrados',expenses_unavailable:'No se pudieron cargar los gastos'}[finance.state]||'Datos incompletos';
-}
+function marcarVentasPendientes(){salesRefreshRequired=true;renderVentasMensuales();}
 
-function marcarResumenFinancieroPendiente(){
-  financeRefreshRequired=true;
-  calcularMetricasInventario();renderControlUtilidad();
-  const car=carsCache.find(item=>String(item.id)===String(activeCostCarId));
-  if(car)renderDetalleCostos(car);
-}
-
-function renderControlUtilidad() {
-  const container = document.getElementById('utilidadVehiculosContainer');
-  if (!container) return;
-  if (catalogModeActive) {
-    container.innerHTML = '<p class="text-xs text-[#9CA3AF] italic">Los datos financieros están ocultos en Modo Catálogo.</p>';
-    return;
-  }
-  if(financeRefreshRequired){container.textContent='No se pudo actualizar el resumen. Pulsa Actualizar datos.';return;}
-  if (!carsCache.length) {
-    container.innerHTML = '<p class="text-xs text-[#9CA3AF]">Aún no hay vehículos en el inventario.</p>';
-    return;
-  }
+function renderVentasMensuales(){
+  const container=document.getElementById('ventasMensualesContainer'),pending=document.getElementById('ventasPendientes');
+  if(!container)return;
+  if(catalogModeActive){container.textContent='Ventas ocultas en Modo Catálogo.';if(pending)pending.replaceChildren();return;}
+  if(salesRefreshRequired){container.textContent='No se pudieron actualizar las ventas. Pulsa Actualizar ventas.';pending?.replaceChildren();return;}
+  const select=document.getElementById('ventasYear');
+  const years=[...new Set([fechaActualLocalISO().slice(0,4),...carsCache.filter(car=>car.status==='Vendido'&&/^\d{4}-\d{2}-\d{2}$/.test(car.fecha_venta||'')).map(car=>car.fecha_venta.slice(0,4))])].sort().reverse();
+  const chosen=select?.value&&years.includes(select.value)?select.value:fechaActualLocalISO().slice(0,4);
+  if(select){select.replaceChildren(...years.map(year=>{const option=document.createElement('option');option.value=year;option.textContent=year;return option;}));select.value=chosen;}
   let report;
-  try{report=window.VeloDriveFinance.buildReport(carsCache,carExpensesCache,fechaActualLocalISO(),{expensesKnown:carExpensesAvailable});}
-  catch{container.textContent='No se pudo calcular la ganancia. Revisa los importes registrados.';return;}
-  container.innerHTML = carsCache.map(car => {
-    const finance=report.vehicles.get(String(car.id));
-    const utilidad=finance.profitCents;
-    const estatus = car.status === 'Vendido' ? 'Vendido' : (car.status || 'Disponible');
-    return `<article class="rounded-xl border border-[#272A30] bg-[#12151C] p-4">
-      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div class="min-w-0"><h4 class="font-semibold text-sm truncate">${escapeHtml(`${car.brand || ''} ${car.model || ''}`.trim())} <span class="text-[#9CA3AF]">${escapeHtml(String(car.year || ''))}</span></h4><p class="text-[10px] uppercase text-[#9CA3AF] mt-1">${escapeHtml(estatus)} · Inventario #${escapeHtml(String(car.id).slice(-6))}</p></div>
-        <div class="flex flex-wrap gap-2"><button type="button" data-finance-car="${escapeHtml(car.id)}" class="btn-abrir-control btn-ghost px-3 py-1.5 rounded-lg text-[11px]">Editar compra / venta</button><button type="button" data-expense-car="${escapeHtml(car.id)}" class="btn-abrir-control btn-primary px-3 py-1.5 rounded-lg text-[11px]">Registrar gastos</button></div>
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-        <div><p class="text-[10px] uppercase text-[#9CA3AF]">Compra</p><p class="text-xs font-bold mt-1">${finance.purchaseCents===null?'Sin capturar':formatCurrency(finance.purchaseCents/100)}</p></div>
-        <div><p class="text-[10px] uppercase text-[#9CA3AF]">Gastos</p><p class="text-xs font-bold mt-1">${!report.expensesKnown?'Sin consultar':finance.invalidExpense?'Revisar importes':formatCurrency(finance.expenseCents/100)}</p></div>
-        <div><p class="text-[10px] uppercase text-[#9CA3AF]">Venta real</p><p class="text-xs font-bold mt-1">${finance.saleCents===null?'Pendiente':formatCurrency(finance.saleCents/100)}</p></div>
-        <div><p class="text-[10px] uppercase text-[#9CA3AF]">Ganancia</p><p class="text-xs font-bold mt-1" style="color:${utilidad === null ? 'var(--text-dim)' : (utilidad >= 0 ? 'var(--success)' : 'var(--danger)')}">${textoGanancia(finance)}</p></div>
-      </div>
-    </article>`;
-  }).join('');
-  container.querySelectorAll('.btn-abrir-control').forEach(btn => btn.addEventListener('click', () => abrirControlCostos(btn.dataset.financeCar || btn.dataset.expenseCar)));
+  try{report=window.VeloDriveFinance.buildSalesReport(carsCache,fechaActualLocalISO(),chosen);}
+  catch{container.textContent='No se pudo generar el resumen. Revisa los precios de venta.';pending?.replaceChildren();return;}
+  const names=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const carName=car=>escapeHtml(`${car.brand||''} ${car.model||''} ${car.year||''}`.trim());
+  const edit=car=>`<button type="button" data-sale-car="${escapeHtml(car.id)}" class="btn-ghost px-3 py-2 rounded-lg text-xs">Editar venta</button>`;
+  const months=report.months.filter(month=>month.units>0);
+  container.innerHTML=months.length?months.map(month=>`<article class="card p-4 sm:p-5 space-y-4">
+    <div class="flex flex-wrap justify-between items-start gap-3"><div><h3 class="font-bold">${names[month.month-1]} ${escapeHtml(chosen)}</h3><p class="text-xs text-[#9CA3AF]">${month.units} ${month.units===1?'vehículo vendido':'vehículos vendidos'}</p></div><p class="font-bold stat-mono">${month.totalCents===null?'Faltan precios de venta':formatCurrency(month.totalCents/100)}</p></div>
+    ${month.missingPriceCount?'<p class="action-status">Completa los precios pendientes para conocer el total del mes.</p>':''}
+    <div class="space-y-3">${month.cars.map(car=>{const cents=window.VeloDriveFinance.toCents(car.sold_price);return `<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#272A30] pt-3"><div class="min-w-0"><p class="font-semibold text-sm break-words">${carName(car)}</p><p class="text-xs text-[#9CA3AF]">Fecha de venta: ${escapeHtml(car.fecha_venta.split('-').reverse().join('/'))} · Inventario #${escapeHtml(String(car.id).slice(-6))}</p></div><div class="flex items-center justify-between sm:justify-end gap-4"><span class="font-semibold text-sm whitespace-nowrap">${cents>0?formatCurrency(cents/100):'Falta precio real'}</span>${edit(car)}</div></div>`;}).join('')}</div>
+    </article>`).join(''):'<p class="text-sm text-[#9CA3AF]">No hay ventas registradas en este año.</p>';
+  if(pending)pending.innerHTML=report.undated.length?`<div class="card p-4 space-y-3"><h3 class="font-semibold text-sm">Ventas pendientes de fecha</h3><p class="text-xs text-[#9CA3AF]">Estas ventas no se asignan a un mes hasta registrar una fecha válida.</p>${report.undated.map(car=>`<div class="flex flex-wrap items-center justify-between gap-3"><span class="text-sm">${carName(car)}</span>${edit(car)}</div>`).join('')}</div>`:'';
+  for(const root of [container,pending])root?.querySelectorAll('[data-sale-car]').forEach(button=>button.addEventListener('click',()=>abrirVenta(button.dataset.saleCar)));
 }
 
-function renderDetalleCostos(car) {
-  const gastos = carExpensesCache.filter(g => String(g.car_id) === String(car.id)&&g.lote_id===car.lote_id);
-  const utilidadEl = document.getElementById('costosUtilidadResumen');
-  if(financeRefreshRequired){
-    utilidadEl.textContent='Actualizar datos';utilidadEl.style.color='';
-    document.getElementById('costosCompraResumen').textContent='Sin actualizar';
-    document.getElementById('costosGastosResumen').textContent='Sin actualizar';
-    document.getElementById('listaGastosVehiculo').textContent='La lista de gastos está pendiente de actualizar.';return;
-  }
-  let finance;
-  try{finance=window.VeloDriveFinance.buildReport([car],gastos,fechaActualLocalISO(),{expensesKnown:carExpensesAvailable}).vehicles.get(String(car.id));}
-  catch{utilidadEl.textContent='Revisar importes';return;}
-  document.getElementById('costosCompraResumen').textContent=finance.purchaseCents===null?'Sin capturar':formatCurrency(finance.purchaseCents/100);
-  document.getElementById('costosGastosResumen').textContent=!carExpensesAvailable?'Sin consultar':finance.invalidExpense?'Revisar importes':formatCurrency(finance.expenseCents/100);
-  utilidadEl.textContent=textoGanancia(finance);
-  utilidadEl.style.color=finance.profitCents===null?'':finance.profitCents>=0?'var(--success)':'var(--danger)';
-  const nombres = { reparacion: 'Reparación', estetica: 'Estética / detallado', tramites: 'Trámites', otro: 'Otro' };
-  const lista = document.getElementById('listaGastosVehiculo');
-  lista.innerHTML = gastos.length ? gastos.map(g => `
-    <div class="flex items-start justify-between gap-3 rounded-lg border border-[#272A30] p-3">
-      <div class="min-w-0"><p class="text-xs font-semibold">${escapeHtml(nombres[g.category] || g.category)}</p><p class="text-[11px] text-[#9CA3AF] break-words">${escapeHtml(g.description || 'Sin descripción')}</p><p class="text-[10px] text-[#9CA3AF]">${g.created_at ? new Date(g.created_at).toLocaleDateString('es-MX') : ''}</p></div>
-      <div class="flex items-center gap-2"><span class="text-xs font-bold whitespace-nowrap">${window.VeloDriveFinance.toCents(g.amount)===null?'Revisar importe':formatCurrency(g.amount)}</span><button type="button" data-delete-expense="${escapeHtml(g.id)}" class="btn-eliminar-gasto text-xs text-red-400 px-3 py-2" aria-label="Eliminar gasto">🗑</button></div>
-    </div>`).join('') : `<p class="text-xs text-[#9CA3AF]">${carExpensesAvailable?'Sin gastos registrados.':'No se pudieron cargar los gastos.'}</p>`;
-  lista.querySelectorAll('.btn-eliminar-gasto').forEach(btn => btn.addEventListener('click', async () => {
-    if (!confirm('¿Eliminar este gasto?')) return;
-    const { error } = await supabaseClient.from('car_expenses').delete().eq('id', btn.dataset.deleteExpense).eq('lote_id', currentLote.id);
-    if (error) { alert(`No se pudo eliminar el gasto: ${error.message}`); return; }
-    await fetchCars();
-    const carActual = carsCache.find(c => String(c.id) === String(activeCostCarId));
-    if (carActual) renderDetalleCostos(carActual);
-  }));
+async function handleSaleSubmit(event){
+  event.preventDefault();
+  const button=document.getElementById('btnGuardarVenta');
+  if(button.disabled||!currentLote||catalogModeActive||!activeSaleCarId)return;
+  const car=carsCache.find(item=>String(item.id)===String(activeSaleCarId));if(!car)return;
+  const context=captureTenantContext(),carId=car.id,status=document.getElementById('ventaStatus');
+  let update;
+  try{update=window.VeloDriveFinance.prepareSale(document.getElementById('ventaPrecio').value,document.getElementById('ventaFecha').value,fechaActualLocalISO());}
+  catch(error){status.setAttribute('role','alert');status.textContent=error.message==='SALE_PRICE_REQUIRED'?'Captura un precio real mayor que cero, con hasta dos decimales.':'Captura una fecha de venta válida, sin elegir un día futuro.';return;}
+  if(car.status!=='Vendido'&&!confirm(`¿Confirmas la venta de ${car.brand||''} ${car.model||''} por ${formatCurrency(update.sold_price)}?`)){status.textContent='Venta sin confirmar. No se guardaron cambios.';return;}
+  const finish=window.VeloDriveUI.beginSubmit(button,status,'Guardando venta…','Registrando el precio y la fecha de venta…');if(!finish)return;
+  let persisted=false;
+  try{
+    const {data,error}=await supabaseClient.from('cars').update(update).eq('id',carId).eq('lote_id',context.loteId).select('id').single();
+    if(error||!data||String(data.id)!==String(carId))throw Error('SALE_SAVE_FAILED');
+    persisted=true;if(!isCurrentTenantContext(context))return;
+    const fresh=await fetchCars();if(!isCurrentTenantContext(context))return;
+    if(!fresh){marcarVentasPendientes();finish('Venta guardada. Actualiza las ventas para ver el resultado; no hace falta registrarla otra vez.','error');return;}
+    finish('Venta guardada.','success');showActionToast('Venta registrada.');
+    if(String(activeSaleCarId)===String(carId))cerrarVenta();
+  }catch(_){
+    if(isCurrentTenantContext(context)){
+      if(persisted)marcarVentasPendientes();
+      finish(persisted?'Venta guardada. Actualiza el listado sin registrarla otra vez.':'No se pudo guardar la venta. Revisa tu conexión.','error');
+    }
+  }finally{finish();}
 }
 
-// ------------------------------------------------------------
-// AGENTE PUBLICITARIO IA
-// ------------------------------------------------------------
 function populateMarketingCarSelect() {
   const select = document.getElementById('marketingCarSelect');
   if (!select) return;
@@ -1931,18 +1782,16 @@ function initCatalogMode() {
 
     if (catalogModeActive) {
       closeDrawer();
-      const modalCostos = document.getElementById('modalCostosOverlay');
+      const modalCostos = document.getElementById('modalVentaOverlay');
       modalCostos?.classList.add('hidden');
       modalCostos?.classList.remove('flex');
-      activeCostCarId = null;
+      activeSaleCarId = null;
       activeLeadId = null;
 
       // Presentation mode requests only the retail projection; it is not public authorization.
       leadsCache = [];
       citasCache = [];
-      carExpensesCache = [];
-      carExpensesAvailable=false;
-      costosReturnFocus=null;
+      saleReturnFocus=null;
       carsCache = carsCache.map(car => {
         return Object.fromEntries(CATALOG_CAR_COLUMNS.split(',').filter(key => key in car).map(key => [key, car[key]]));
       });
@@ -1959,7 +1808,7 @@ function initCatalogMode() {
     renderCitasCronologicas();
     renderCars();
     calcularMetricasInventario();
-    renderControlUtilidad();
+    renderVentasMensuales();
   });
 }
 
@@ -2309,8 +2158,7 @@ async function checkSessionAndLote() {
     console.error('[Route Guard] Excepción validando sesión:', err);
     currentUser = null;
     currentLote = null;
-    carExpensesCache = [];
-    activeCostCarId = null;
+    activeSaleCarId = null;
     showView('view-login');
     return false;
   }
@@ -2787,130 +2635,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  const modalCostos = document.getElementById('modalCostosOverlay');
-  on('btnActualizarUtilidad','click',async()=>{
+  const modalVenta=document.getElementById('modalVentaOverlay');
+  on('ventasYear','change',renderVentasMensuales);
+  on('btnActualizarVentas','click',async()=>{
     if(!currentLote||catalogModeActive)return;
     const context=captureTenantContext();
-    const finish=window.VeloDriveUI.beginSubmit(document.getElementById('btnActualizarUtilidad'),document.getElementById('utilidadCargaEstado'),'Actualizando…','Consultando compra, venta y gastos…');
-    if(!finish)return;
-    try{
-      const complete=await fetchCars();
-      if(!isCurrentTenantContext(context)){finish();return;}
-      finish(complete?'Datos actualizados.':'No se pudieron actualizar todos los datos. Revisa tu conexión y vuelve a intentarlo.',complete?'success':'error');
-    }catch{
-      if(!isCurrentTenantContext(context)){finish();return;}
-      finish('No se pudieron actualizar los datos. Revisa tu conexión y vuelve a intentarlo.','error');
-    }
+    const finish=window.VeloDriveUI.beginSubmit(document.getElementById('btnActualizarVentas'),document.getElementById('ventasCargaEstado'),'Actualizando…','Consultando ventas…');if(!finish)return;
+    try{const fresh=await fetchCars();if(isCurrentTenantContext(context))finish(fresh?'Ventas actualizadas.':'No se pudieron actualizar las ventas.',fresh?'success':'error');}
+    catch(_){if(isCurrentTenantContext(context))finish('No se pudieron actualizar las ventas.','error');}
+    finally{finish();}
   });
-  on('btnCerrarCostos', 'click', cerrarControlCostos);
+  on('btnCerrarVenta','click',cerrarVenta);
+  on('formVenta','submit',handleSaleSubmit);
   document.addEventListener('keydown',event=>{
-    if(!modalCostos||modalCostos.classList.contains('hidden'))return;
-    if(event.key==='Escape'){event.preventDefault();cerrarControlCostos();return;}
+    if(!modalVenta||modalVenta.classList.contains('hidden'))return;
+    if(event.key==='Escape'){event.preventDefault();cerrarVenta();return;}
     if(event.key!=='Tab')return;
-    const controls=[...modalCostos.querySelectorAll('button,input,select,textarea,a[href]')].filter(element=>!element.disabled&&element.getClientRects().length);
+    const controls=[...modalVenta.querySelectorAll('button,input,select')].filter(element=>!element.disabled&&element.getClientRects().length);
     const first=controls[0],last=controls[controls.length-1];
-    if(!modalCostos.contains(document.activeElement)){event.preventDefault();first?.focus();}
+    if(!modalVenta.contains(document.activeElement)){event.preventDefault();first?.focus();}
     else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
-  });
-  on('formDatosFinancieros', 'submit', async (e) => {
-    e.preventDefault();
-    const button = document.getElementById('btnGuardarDatosFinancieros');
-    if (button?.disabled) return;
-    if (!currentLote || !activeCostCarId || catalogModeActive) return;
-    const context=captureTenantContext(),carId=activeCostCarId;
-    const car = carsCache.find(c => String(c.id) === String(activeCostCarId));
-    if (!car) return;
-    const compra = document.getElementById('controlCostoCompra').value;
-    const ventaRaw = document.getElementById('controlPrecioVenta').value.trim();
-    const fechaVenta=document.getElementById('controlFechaVenta').value;
-    const status=document.getElementById('finanzasStatus');
-    let update;
-    try{
-      try{update=window.VeloDriveFinance.prepareUpdate(car,compra,ventaRaw,false,fechaActualLocalISO(),fechaVenta);}
-      catch(error){
-        if(error.message!=='SALE_CONFIRMATION_REQUIRED')throw error;
-        if(!confirm(`¿Confirmas la venta de ${car.brand||''} ${car.model||''} por ${formatCurrency(ventaRaw)}? Al guardar, la unidad quedará marcada como vendida.`)){
-          status.textContent='Venta sin confirmar. No se guardaron cambios.';status.setAttribute('role','status');return;
-        }
-        update=window.VeloDriveFinance.prepareUpdate(car,compra,ventaRaw,true,fechaActualLocalISO(),fechaVenta);
-      }
-    }catch(error){
-      status.textContent={PURCHASE_REQUIRED:'Captura un costo de compra mayor que cero, con hasta dos decimales.',SALE_PRICE_REQUIRED:'Captura un precio real de venta mayor que cero, con hasta dos decimales.',SALE_DATE_INVALID:'Captura la fecha real de venta, sin elegir un día futuro.'}[error.message]||'Revisa los datos financieros.';
-      status.setAttribute('role','alert');return;
-    }
-    const finish = window.VeloDriveUI?.beginSubmit(button, document.getElementById('finanzasStatus'), 'Guardando…', 'Guardando los datos de compra y venta…');
-    if (!finish) return;
-    let persisted=false;
-    try {
-      const { data,error } = await supabaseClient.from('cars').update(update).eq('id', carId).eq('lote_id', context.loteId).select('id').single();
-      if (error) throw error;
-      if(!data||String(data.id)!==String(carId))throw Error('FINANCE_UPDATE_NOT_CONFIRMED');
-      persisted=true;
-      if(!isCurrentTenantContext(context)){finish();return;}
-      const refreshed=await fetchCars();
-      if(!isCurrentTenantContext(context)){finish();return;}
-      if(!refreshed){
-        marcarResumenFinancieroPendiente();
-        finish('Compra y venta guardadas. No se pudo actualizar el resumen; pulsa Actualizar datos.','error');return;
-      }
-      const actualizado = String(activeCostCarId)===String(carId)&&carsCache.find(c => String(c.id) === String(carId));
-      if (actualizado) renderDetalleCostos(actualizado);
-      finish('Compra y venta guardadas.', 'success');
-      showActionToast('Datos de compra y venta guardados.');
-    } catch (error) {
-      if(!isCurrentTenantContext(context)){finish();return;}
-      if(persisted){
-        marcarResumenFinancieroPendiente();
-        finish('Compra y venta guardadas. No se pudo actualizar el resumen; pulsa Actualizar datos.','error');return;
-      }
-      finish('No se pudieron guardar los datos. Revisa tu conexión e inténtalo de nuevo.', 'error');
-      showActionToast('No se pudieron guardar los datos financieros.', 'error');
-    }
-  });
-  on('formGastoVehiculo', 'submit', async (e) => {
-    e.preventDefault();
-    const button = document.getElementById('btnGuardarGasto');
-    if (button?.disabled) return;
-    if (!currentLote || !activeCostCarId || catalogModeActive) return;
-    const context=captureTenantContext(),carId=activeCostCarId;
-    const cents=window.VeloDriveFinance.toCents(document.getElementById('gastoMonto').value);
-    if (cents===null||cents<=0) { alert('Escribe un importe mayor que cero, con hasta dos decimales.'); return; }
-    const amount=cents/100;
-    const finish = window.VeloDriveUI?.beginSubmit(button, document.getElementById('gastoStatus'), 'Guardando…', 'Guardando el gasto…');
-    if (!finish) return;
-    let persisted=false;
-    try {
-      const { error } = await supabaseClient.from('car_expenses').insert({
-        lote_id: context.loteId,
-        car_id: carId,
-        category: document.getElementById('gastoCategoria').value,
-        description: document.getElementById('gastoDescripcion').value.trim() || null,
-        amount
-      });
-      if (error) throw error;
-      persisted=true;
-      if(!isCurrentTenantContext(context)){finish();return;}
-      e.target.reset();
-      const refreshed=await fetchCars();
-      if(!isCurrentTenantContext(context)){finish();return;}
-      if(!refreshed){
-        marcarResumenFinancieroPendiente();
-        finish('Gasto guardado. No se pudo actualizar el resumen; pulsa Actualizar datos.','error');return;
-      }
-      const carActual = String(activeCostCarId)===String(carId)&&carsCache.find(c => String(c.id) === String(carId));
-      if (carActual) renderDetalleCostos(carActual);
-      finish('Gasto guardado.', 'success');
-      showActionToast('Gasto registrado.');
-    } catch (error) {
-      if(!isCurrentTenantContext(context)){finish();return;}
-      if(persisted){
-        marcarResumenFinancieroPendiente();
-        finish('Gasto guardado. No se pudo actualizar el resumen; pulsa Actualizar datos.','error');return;
-      }
-      finish('No se pudo guardar el gasto. Revisa tu conexión e inténtalo de nuevo.', 'error');
-      showActionToast('No se pudo registrar el gasto.', 'error');
-    }
   });
 
   // Import CSV
@@ -2990,7 +2735,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const esEdicion = Boolean(editingCarId);
     const originalCar=esEdicion?carsCache.find(car=>String(car.id)===String(editingCarId)):null;
     if(document.getElementById('carStatus').value==='Vendido'&&originalCar?.status!=='Vendido'){
-      statusText.textContent='Registra la venta desde Control de utilidad, con compra, precio real y fecha.';
+      statusText.textContent='Registra el precio real y la fecha desde Marcar Vendido.';
       statusText.setAttribute('role','alert');return;
     }
     const textoOriginal = btnSubmit?.textContent.trim() || 'Guardar Unidad en Sistema';

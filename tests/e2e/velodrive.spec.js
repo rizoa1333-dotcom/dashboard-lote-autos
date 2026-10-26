@@ -136,6 +136,7 @@ const supabaseMock = String.raw`(() => {
     delete() { this.op = 'delete'; return this; }
     async run() {
       state.queries.push({ table: this.table, op: this.op, columns: this.columns });
+      if(this.table==='cars'&&this.op==='select'&&state.failAfterSale&&state.updates.cars>0)return {data:null,error:{message:'Fixture refresh failed'}};
       if(this.table==='car_expenses'&&this.op==='select'&&state.failExpenses)return {data:null,error:{message:'Fixture read failed'}};
       if(this.table==='cars'&&this.op==='select'&&state.failCarsAfterExpense&&state.inserts.car_expenses>0){
         if(state.failCarsAfterExpense==='throw')throw Error('Fixture refresh failed');
@@ -327,7 +328,7 @@ test('registro QA con cobro real: muestra aviso de recurrencia y usa el Payment 
   await expect.poll(() => stripeRequest).toContain('client_reference_id=server_signed_reference');
 });
 
-test.describe('inventario y utilidad', () => {
+test.describe('inventario', () => {
   const session = { user: { id: 'user-qa-001', email: 'qa@example.com' }, access_token: 'mock', refresh_token: 'mock', seedCars: [] };
 
   async function openInventory(page) {
@@ -397,179 +398,76 @@ test.describe('inventario y utilidad', () => {
     await context.setOffline(false);
   });
 
-  test('utilidad: guarda compra/venta y gasto con feedback y doble envío bloqueado', async ({ page }) => {
-    const seededSession = { ...session, seedCars: [{ id: 'car-qa-1', lote_id: 'lote-qa-001', brand: 'Honda', model: 'Civic', year: 2022, price: 320000, status: 'Disponible', purchase_cost: 250000, sold_price: null, image_urls: [] }] };
-    await setupPage(page, seededSession);
-    await openInventory(page);
-    await page.locator('[data-section="section-utilidad"]').click({ force: true });
-    await page.locator('#section-utilidad').evaluate((section) => section.classList.remove('hidden'));
-    await page.getByRole('button', { name: 'Editar compra / venta' }).click();
-    await page.locator('#controlCostoCompra').fill('250000');
-    await page.locator('#controlPrecioVenta').fill('320000');
-    page.once('dialog',dialog=>dialog.accept());
-    const saveFinance = page.locator('#btnGuardarDatosFinancieros');
-    await saveFinance.click();
-    await expect(saveFinance).toBeDisabled();
-    await expect(page.locator('#finanzasStatus')).toContainText('Guardando');
-    await expect(page.locator('#finanzasStatus')).toContainText('guardadas', { timeout: 8000 });
-    await expect(page.locator('#costosUtilidadResumen')).toContainText('$70,000');
-
-    await page.locator('#gastoMonto').fill('5000');
-    await page.locator('#gastoDescripcion').fill('Servicio y limpieza');
-    await page.locator('#btnGuardarGasto').click();
-    await expect(page.locator('#btnGuardarGasto')).toBeDisabled();
-    await page.locator('#btnGuardarGasto').evaluate(button=>button.dispatchEvent(new MouseEvent('click',{bubbles:true})));
-    await expect(page.locator('#gastoStatus')).toContainText('Gasto guardado.');
-    expect(await page.evaluate(()=>window.__fakeState.inserts.car_expenses)).toBe(1);
-    await expect(page.locator('#costosUtilidadResumen')).toContainText('$65,000');
-    await expect(page.locator('#actionToast')).toContainText('Gasto registrado');
-    page.once('dialog',dialog=>dialog.accept());
-    await page.getByRole('button',{name:'Eliminar gasto',exact:true}).click();
-    await expect(page.locator('#listaGastosVehiculo')).toContainText('Sin gastos registrados');
-    await expect(page.locator('#costosUtilidadResumen')).toContainText('$70,000');
-  });
 });
 
-test.describe('utilidad confiable',()=>{
-  const sold={id:'finance-1',lote_id:'lote-qa-001',brand:'Honda',model:'Civic',year:2022,price:320000,status:'Vendido',purchase_cost:0,sold_price:320000,fecha_venta:'2026-10-01',image_urls:[]};
-  async function openFinance(page,car=sold,origin=null){
-    await page.clock.setFixedTime(new Date('2026-10-24T18:00:00Z'));
-    await setupPage(page,{user:{id:'user-qa-001'},access_token:'mock',seedCars:[car]},null,'',origin);
-    await page.evaluate(()=>stopSync());
-    await page.locator('[data-section="section-inventario"]').click({force:true});
-    await page.locator('[data-section="section-utilidad"]').click({force:true});
-    await page.locator('#section-utilidad').evaluate(section=>section.classList.remove('hidden'));
-    await expect(page.locator('#section-utilidad')).toBeVisible();
-  }
-  test('costo faltante no se presenta como ganancia y la pantalla explica el calculo',async({page})=>{
-    await openFinance(page);
-    await expect(page.locator('#utilidadVehiculosContainer')).toContainText('Falta costo de compra');
-    await expect(page.locator('#section-utilidad')).toContainText('antes de impuestos');
-    await page.getByRole('button',{name:'Editar compra / venta'}).click();
-    await expect(page.locator('#controlCostoCompra')).toHaveValue('');
-    await expect(page.locator('#costosUtilidadResumen')).toHaveText('Falta costo de compra');
-    await expect(page.locator('#modalCostosOverlay')).toHaveAttribute('role','dialog');
-    await page.keyboard.press('Escape');
-    await expect(page.locator('#modalCostosOverlay')).toBeHidden();
-    await expect(page.getByRole('button',{name:'Editar compra / venta'})).toBeFocused();
-  });
-  test('cancelar la confirmacion no cambia el carro; confirmar registra una sola venta',async({page})=>{
-    await openFinance(page,{...sold,status:'Disponible',purchase_cost:250000,sold_price:null,fecha_venta:null});
-    await page.getByRole('button',{name:'Editar compra / venta'}).click();
-    await page.locator('#controlPrecioVenta').fill('320000');
-    page.once('dialog',dialog=>dialog.dismiss());
-    await page.locator('#btnGuardarDatosFinancieros').click();
-    expect(await page.evaluate(()=>window.__fakeState.updates.cars)).toBe(0);
-    await expect(page.locator('#finanzasStatus')).toContainText('Venta sin confirmar');
-    page.once('dialog',dialog=>dialog.accept());
-    await page.locator('#btnGuardarDatosFinancieros').click();
-    await expect(page.locator('#btnGuardarDatosFinancieros')).toBeDisabled();
-    await page.locator('#btnGuardarDatosFinancieros').evaluate(button=>button.dispatchEvent(new MouseEvent('click',{bubbles:true})));
-    await expect(page.locator('#finanzasStatus')).toContainText('guardadas');
-    expect(await page.evaluate(()=>window.__fakeState.updates.cars)).toBe(1);
-    await expect(page.locator('#costosUtilidadResumen')).toContainText('$70,000');
-    await page.keyboard.press('Escape');
-    await expect(page.locator('#modalCostosOverlay')).toBeHidden();
-    await expect(page.getByRole('button',{name:'Editar compra / venta'})).toBeFocused();
-  });
-  test('marcar vendido abre la captura sin modificar inventario y guardar offline permite reintentar',async({page,context})=>{
-    await openFinance(page,{...sold,status:'Disponible',purchase_cost:250000,sold_price:null,fecha_venta:null});
-    await page.locator('[data-section="section-inventario"]').click({force:true});
-    await page.locator('#section-inventario').evaluate(section=>section.classList.remove('hidden'));
-    await page.locator('.btn-marcar-vendido').click();
-    await expect(page.locator('#modalCostosOverlay')).toBeVisible();
-    expect(await page.evaluate(()=>window.__fakeState.updates.cars)).toBe(0);
-    await page.locator('#controlCostoCompra').fill('240000');
-    await context.setOffline(true);
-    await page.locator('#btnGuardarDatosFinancieros').click();
-    await expect(page.locator('#finanzasStatus')).toHaveAttribute('role','alert');
-    await expect(page.locator('#controlCostoCompra')).toHaveValue('240000');
-    await expect(page.locator('#btnGuardarDatosFinancieros')).toBeEnabled();
-    await context.setOffline(false);
-    await page.locator('#btnGuardarDatosFinancieros').click();
-    await expect(page.locator('#finanzasStatus')).toContainText('guardadas');
-    expect(await page.evaluate(()=>window.__fakeState.cars[0].status)).toBe('Disponible');
-  });
-  test('un fallo al leer gastos bloquea la ganancia hasta recuperar la consulta',async({page})=>{
-    await openFinance(page,{...sold,purchase_cost:250000});
-    await page.evaluate(async()=>{window.__fakeState.failExpenses=true;await fetchCars();});
-    await expect(page.locator('#utilidadVehiculosContainer')).toContainText('No se pudieron cargar los gastos');
-    await expect(page.locator('#invUtilidadMes')).toHaveText('Datos incompletos');
-    await page.evaluate(()=>{window.__fakeState.failExpenses=false;});
-    await page.locator('#btnActualizarUtilidad').click();
-    await expect(page.locator('#utilidadCargaEstado')).toContainText('Datos actualizados');
-    await expect(page.locator('#invUtilidadMes')).toContainText('$70,000');
-  });
-  test('editar unidad no permite cerrar una venta fuera del control financiero',async({page})=>{
-    await openFinance(page,{...sold,status:'Disponible',purchase_cost:250000,sold_price:null,fecha_venta:null});
-    await page.locator('[data-section="section-inventario"]').evaluate(button=>button.click());
-    await page.locator('.btn-editar-car').click();
-    await expect(page.locator('#carStatus option[value="Vendido"]')).toBeDisabled();
-    await page.locator('#carStatus').evaluate(select=>{select.value='Vendido';});
-    await page.locator('#btnSubmitCarForm').click();
-    await expect(page.locator('#uploadStatusText')).toContainText('Control de utilidad');
-    expect(await page.evaluate(()=>window.__fakeState.updates.cars)).toBe(0);
-  });
-  test('una venta sin fecha requiere capturar la real y actualiza el mes correcto',async({page})=>{
-    await openFinance(page,{...sold,purchase_cost:250000,fecha_venta:null});
-    await page.getByRole('button',{name:'Editar compra / venta'}).click();
-    await expect(page.locator('#controlFechaVenta')).toHaveValue('');
-    await page.locator('#btnGuardarDatosFinancieros').click();
-    await expect(page.locator('#finanzasStatus')).toHaveAttribute('role','alert');
-    expect(await page.evaluate(()=>window.__fakeState.updates.cars)).toBe(0);
-    await page.locator('#controlFechaVenta').fill('2026-09-30');
-    await page.locator('#btnGuardarDatosFinancieros').click();
-    await expect(page.locator('#finanzasStatus')).toContainText('guardadas');
-    await expect(page.locator('#ventasMensualesContainer')).toContainText('Septiembre');
-    await expect(page.locator('#invUtilidadMes')).toContainText('$0');
-  });
-  test('utilidad conserva el dialogo utilizable en movil y el foco dentro de sus controles',async({page})=>{
-    const server=require('../../server').listen(0,'127.0.0.1');
-    await new Promise(resolve=>server.once('listening',resolve));
-    try{
-    await openFinance(page,{...sold,purchase_cost:250000},'http://127.0.0.1:'+server.address().port);
-    await page.locator('[data-section="section-utilidad"]').evaluate(button=>button.click());
-    await page.screenshot({path:path.resolve(__dirname,'../../.qa/evidence/profit-desktop.png'),fullPage:true});
-    await page.getByRole('button',{name:'Editar compra / venta'}).click();
-    await page.setViewportSize({width:390,height:844});
-    await expect(page.locator('#costosTitulo')).toBeFocused();
-    await page.locator('#btnGuardarGasto').focus();
-    await page.keyboard.press('Tab');
-    await expect(page.locator('#btnCerrarCostos')).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(page.locator('#btnGuardarGasto')).toBeFocused();
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-    await page.locator('#modalCostosOverlay').evaluate(element=>element.scrollTop=0);
-    await page.screenshot({path:path.resolve(__dirname,'../../.qa/evidence/profit-mobile.png'),fullPage:true});
-    }finally{await new Promise(resolve=>server.close(resolve));}
-  });
-  for(const failure of ['error','throw'])test(`gasto confirmado y refresco ${failure}: no invita a registrarlo otra vez`,async({page})=>{
-    await openFinance(page,{...sold,purchase_cost:250000});
-    await page.getByRole('button',{name:'Registrar gastos'}).click();
-    await page.locator('#gastoMonto').fill('5000');
-    await page.evaluate(mode=>{window.__fakeState.failCarsAfterExpense=mode;},failure);
-    await page.locator('#btnGuardarGasto').click();
-    await expect(page.locator('#gastoStatus')).toContainText('Gasto guardado. No se pudo actualizar el resumen');
-    await expect(page.locator('#costosUtilidadResumen')).toHaveText('Actualizar datos');
-    expect(await page.evaluate(()=>window.__fakeState.inserts.car_expenses)).toBe(1);
-    await expect(page.locator('#gastoMonto')).toHaveValue('');
-    await page.keyboard.press('Escape');
-    await page.evaluate(()=>{window.__fakeState.failCarsAfterExpense=null;});
-    await page.locator('#btnActualizarUtilidad').click();
-    await expect(page.locator('#invUtilidadMes')).toContainText('$65,000');
-    expect(await page.evaluate(()=>window.__fakeState.inserts.car_expenses)).toBe(1);
-  });
-  test('una lectura vieja del mismo lote no reemplaza una ganancia mas reciente',async({page})=>{
-    await openFinance(page,{...sold,purchase_cost:250000});
-    await page.evaluate(()=>{window.__fakeState.holdSnapshot=true;window.__slowFinanceRead=fetchCars();});
-    await expect.poll(()=>page.evaluate(()=>typeof window.__fakeState.releaseSnapshot)).toBe('function');
-    await page.evaluate(async()=>{window.__fakeState.holdSnapshot=false;window.__fakeState.cars[0].purchase_cost=270000;await fetchCars();});
-    await expect(page.locator('#invUtilidadMes')).toContainText('$50,000');
-    await page.evaluate(async()=>{window.__fakeState.releaseSnapshot();await window.__slowFinanceRead;});
-    await expect(page.locator('#invUtilidadMes')).toContainText('$50,000');
-  });
+test.describe('ventas mensuales',()=>{
+ let server,origin;
+ test.beforeAll(async()=>{server=require('../../server').listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));origin='http://127.0.0.1:'+server.address().port;});
+ test.afterAll(async()=>{server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));});
+ const year=String(new Date().getFullYear());
+ const sold={id:'sale-qa-1',lote_id:'lote-qa-001',brand:'Honda',model:'Civic',year:2022,price:320000,status:'Vendido',sold_price:280000,fecha_venta:year+'-01-12',image_urls:[]};
+ async function openSales(page,car=sold){
+  await page.route('https://n8n-production-97a4.up.railway.app/**',route=>route.fulfill({json:{}}));
+  await setupPage(page,{user:{id:'user-qa-001'},access_token:'mock',seedCars:[car]},null,'',origin);
+  await page.evaluate(()=>{stopSync();currentLote.plan_status='active';renderSubscriptionStatus();});
+  await page.locator('[data-section="section-ventas"]').click();await expect(page.locator('#section-ventas')).toBeVisible();
+ }
+ test('muestra ventas reales y elimina utilidad, horas de leads y aviso global',async({page})=>{
+  await openSales(page);await expect(page.locator('#ventasMensualesContainer')).toContainText('Enero');
+  await expect(page.locator('#ventasMensualesContainer')).toContainText('Honda Civic 2022');await expect(page.locator('#ventasMensualesContainer')).toContainText('12/01/'+year);
+  await expect(page.locator('#ventasMensualesContainer')).toContainText('$280,000');await expect(page.locator('#section-ventas')).not.toContainText(/ganancia|compra|gastos/i);
+  await expect(page.locator('[data-section="section-utilidad"]')).toHaveCount(0);
+  expect(await page.evaluate(()=>window.__fakeState.queries.some(q=>q.table==='car_expenses'))).toBe(false);
+  await page.evaluate(()=>{setSyncStatus('Datos actualizados.','success');leadsCache=[{id:'lead-test',nombre:'Cliente prueba',status:'Calificado',created_at:new Date().toISOString()}];renderLeadsTable();});
+  await expect(page.locator('#dashboardSyncStatus')).toBeHidden();await expect(page.locator('#dashboardSyncStatus')).toBeEmpty();
+  expect(await page.locator('#leadsGroupedContainer').textContent()).not.toMatch(/\bHora\b|\d{1,2}:\d{2}\s*[ap]/i);
+  await page.screenshot({path:path.resolve(__dirname,'../../.qa/evidence/monthly-sales-desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await expect.poll(()=>page.locator('#sidebar').evaluate(element=>element.getBoundingClientRect().right)).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:path.resolve(__dirname,'../../.qa/evidence/monthly-sales-mobile.png'),fullPage:true});
+ });
+ test('registra venta sin compra y bloquea doble envio',async({page})=>{
+  await openSales(page,{...sold,status:'Disponible',sold_price:null,fecha_venta:null});await page.locator('[data-section="section-inventario"]').click({force:true});await page.locator('.btn-marcar-vendido').click();
+  await expect(page.locator('#ventaPrecio')).toHaveValue('');await page.locator('#ventaPrecio').fill('279999.50');await page.locator('#ventaFecha').fill(year+'-01-10');
+  page.once('dialog',dialog=>dialog.accept());await page.locator('#btnGuardarVenta').click();await expect(page.locator('#btnGuardarVenta')).toBeDisabled();
+  await page.locator('#formVenta').evaluate(form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await expect(page.locator('#modalVentaOverlay')).toBeHidden();
+  const result=await page.evaluate(()=>({car:window.__fakeState.cars[0],updates:window.__fakeState.updates.cars}));
+  expect(result.updates).toBe(1);expect(result.car.status).toBe('Vendido');expect(result.car.sold_price).toBe(279999.5);expect(result.car).not.toHaveProperty('purchase_cost');
+ });
+ test('cancelar confirmacion no modifica el auto',async({page})=>{
+  await openSales(page,{...sold,status:'Disponible',sold_price:null});await page.evaluate(()=>abrirVenta('sale-qa-1'));await page.locator('#ventaPrecio').fill('200000');await page.locator('#ventaFecha').fill(year+'-01-10');
+  page.once('dialog',dialog=>dialog.dismiss());await page.locator('#btnGuardarVenta').click();await expect(page.locator('#ventaStatus')).toContainText('sin confirmar');expect(await page.evaluate(()=>window.__fakeState.updates.cars)).toBe(0);
+ });
+ test('venta sin fecha se completa y precio ausente nunca usa precio de catalogo',async({page})=>{
+  await openSales(page,{...sold,fecha_venta:null,sold_price:null});await expect(page.locator('#ventasPendientes')).toContainText('Honda Civic');await expect(page.locator('#ventasMensualesContainer')).toContainText('No hay ventas');
+  await page.locator('#ventasPendientes [data-sale-car]').click();await expect(page.locator('#ventaFecha')).toHaveValue('');await page.locator('#ventaFecha').fill(year+'-02-01');await page.locator('#ventaPrecio').fill('250000');await page.locator('#btnGuardarVenta').click();
+  await expect(page.locator('#modalVentaOverlay')).toBeHidden();await expect(page.locator('#ventasMensualesContainer')).toContainText('Febrero');await expect(page.locator('#ventasPendientes')).toBeEmpty();
+ });
+ test('separa años y no suma precios faltantes',async({page})=>{
+  await openSales(page,{...sold,fecha_venta:(Number(year)-1)+'-12-01',sold_price:null});await expect(page.locator('#ventasMensualesContainer')).toContainText('No hay ventas');
+  await page.locator('#ventasYear').selectOption(String(Number(year)-1));await expect(page.locator('#ventasMensualesContainer')).toContainText('Diciembre');await expect(page.locator('#ventasMensualesContainer')).toContainText('Faltan precios');await expect(page.locator('#ventasMensualesContainer')).not.toContainText('$320,000');
+ });
+ test('offline conserva el formulario y permite reintentar',async({page,context})=>{
+  await openSales(page);await page.locator('[data-sale-car]').click();await page.locator('#ventaPrecio').fill('275000');await context.setOffline(true);await page.locator('#btnGuardarVenta').click();
+  await expect(page.locator('#ventaStatus')).toHaveAttribute('role','alert');await expect(page.locator('#ventaPrecio')).toHaveValue('275000');await expect(page.locator('#btnGuardarVenta')).toBeEnabled();
+ });
+ test('dialogo movil conserva foco y escape',async({page})=>{
+  await openSales(page);await page.locator('[data-sale-car]').click();await page.setViewportSize({width:390,height:844});await expect(page.locator('#ventaTitulo')).toBeFocused();
+  await page.locator('#btnGuardarVenta').focus();await page.keyboard.press('Tab');await expect(page.locator('#btnCerrarVenta')).toBeFocused();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.keyboard.press('Escape');await expect(page.locator('#modalVentaOverlay')).toBeHidden();await expect(page.locator('[data-sale-car]')).toBeFocused();
+ });
+ test('venta guardada con refresco fallido no invita a registrarla otra vez',async({page})=>{
+  await openSales(page);await page.locator('[data-sale-car]').click();await page.evaluate(()=>{window.__fakeState.failAfterSale=true;});await page.locator('#btnGuardarVenta').click();
+  await expect(page.locator('#ventaStatus')).toContainText('Venta guardada. Actualiza');expect(await page.evaluate(()=>window.__fakeState.updates.cars)).toBe(1);await expect(page.locator('#btnGuardarVenta')).toBeEnabled();
+ });
+ test('otra venta no reutiliza el modal mientras sigue un guardado pendiente',async({page})=>{
+  await openSales(page);await page.evaluate(()=>window.__fakeState.cars.push({...window.__fakeState.cars[0],id:'second-car',brand:'Toyota',model:'Yaris'}));
+  await page.locator('[data-sale-car="sale-qa-1"]').click();await page.locator('#btnGuardarVenta').click();await expect(page.locator('#btnGuardarVenta')).toBeDisabled();
+  await page.locator('#btnCerrarVenta').click();await page.evaluate(()=>abrirVenta('second-car'));await expect(page.locator('#modalVentaOverlay')).toBeHidden();
+  await expect(page.locator('#btnGuardarVenta')).toBeEnabled();await page.evaluate(()=>abrirVenta('second-car'));await expect(page.locator('#ventaCarNombre')).toContainText('Toyota Yaris');
+ });
 });
-
 
 test.describe('conexión WhatsApp',()=>{
   const session={user:{id:'user-qa-001'},access_token:'mock'};
@@ -621,7 +519,7 @@ test.describe('aislamiento del panel', () => {
     await page.evaluate(() => stopSync());
     await page.locator('#catalogModeToggle').click();
     await page.evaluate(async () => { window.__fakeState.queries = []; await fetchAndRenderAll(); });
-    const result = await page.evaluate(() => ({ queries: window.__fakeState.queries, cars: carsCache, leads: leadsCache, citas: citasCache, expenses: carExpensesCache }));
+    const result = await page.evaluate(() => ({ queries: window.__fakeState.queries, cars: carsCache, leads: leadsCache, citas: citasCache }));
     expect(result.queries.map(q => q.table)).toEqual(['cars']);
     expect(result.queries[0].columns).not.toBe('*');
     expect(result.queries[0].columns).not.toMatch(/purchase_cost|sold_price/);
@@ -629,7 +527,6 @@ test.describe('aislamiento del panel', () => {
     expect(result.cars[0]).not.toHaveProperty('sold_price');
     expect(result.leads).toEqual([]);
     expect(result.citas).toEqual([]);
-    expect(result.expenses).toEqual([]);
   });
 
   test('una lectura privada pendiente no repuebla caches al entrar en catalogo', async ({ page }) => {
@@ -645,13 +542,13 @@ test.describe('aislamiento del panel', () => {
     await page.evaluate(() => {
       stopSync(); window.__fakeState.holdReads = true;
       leadsCache = [{ nombre: 'Cliente privado' }]; citasCache = [{ telefono: '123' }];
-      marketingImageUrls = ['https://privado.test/imagen']; carExpensesCache = [{ amount: 10 }];
+      marketingImageUrls = ['https://privado.test/imagen'];
       window.__oldRead = fetchCars();
       clearTenantContext();
     });
     await page.evaluate(async () => { window.__fakeState.holdReads = false; window.__fakeState.releaseRead(); await window.__oldRead; });
-    const state = await page.evaluate(() => ({ user: currentUser, lote: currentLote, cars: carsCache, leads: leadsCache, citas: citasCache, gastos: carExpensesCache, fotos: marketingImageUrls }));
-    expect(state).toEqual({ user: null, lote: null, cars: [], leads: [], citas: [], gastos: [], fotos: [] });
+    const state = await page.evaluate(() => ({ user: currentUser, lote: currentLote, cars: carsCache, leads: leadsCache, citas: citasCache, fotos: marketingImageUrls }));
+    expect(state).toEqual({ user: null, lote: null, cars: [], leads: [], citas: [], fotos: [] });
     await expect(page.locator('#view-login')).toBeVisible();
     await expect(page.locator('#view-dashboard')).toBeEmpty();
   });
@@ -710,11 +607,9 @@ test.describe('respuesta y estados de acciones',()=>{
   await expect(page.locator('#configNombreLote')).toHaveValue('No perder este nombre');
   await expect(page.locator('#configForm button[type=submit]')).toBeEnabled();
  });
- test('inventario inicia gastos sin esperar a la respuesta de autos',async({page})=>{
-  await setupPage(page,session);
-  await page.evaluate(()=>{stopSync();window.__fakeState.queries=[];window.__fakeState.holdReads=true;window.__parallelRead=fetchCars();});
-  await expect.poll(()=>page.evaluate(()=>window.__fakeState.queries.some(q=>q.table==='car_expenses'))).toBe(true);
-  await page.evaluate(async()=>{window.__fakeState.holdReads=false;window.__fakeState.releaseRead();await window.__parallelRead;});
+ test('inventario no realiza consultas de gastos',async({page})=>{
+  await setupPage(page,session);await page.evaluate(async()=>{stopSync();window.__fakeState.queries=[];await fetchCars();});
+  expect(await page.evaluate(()=>window.__fakeState.queries.map(q=>q.table))).toEqual(['cars']);
  });
  test('login bloquea envios repetidos mientras valida las credenciales',async({page})=>{
   await setupPage(page);

@@ -54,15 +54,15 @@ test('el cambio a atencion manual no lanza otra escritura mientras esta pendient
  assert.equal(f.context.handoffActionPending,false);assert.match(f.nodes.crmAiHandoffStatus.textContent,/pausada/);
 });
 
-test('inventario y gastos arrancan en paralelo, conservando la guarda del lote',async()=>{
+test('inventario ya no consulta gastos despues de retirar utilidad',async()=>{
  const f=fixture('fetchCars'),started=[],releases={};
- Object.assign(f.context,{carsReadGeneration:0,carsReadCommitted:0,carsCache:[],carExpensesCache:[],carExpensesAvailable:false,financeRefreshRequired:false,
-  renderCars(){},renderCarsCounter(){},calcularMetricasInventario(){},renderControlUtilidad(){},populateMarketingCarSelect(){},calcularOportunidadesRescatadas(){}});
+ Object.assign(f.context,{carsReadGeneration:0,carsReadCommitted:0,carsCache:[],salesRefreshRequired:false,
+  renderCars(){},renderCarsCounter(){},calcularMetricasInventario(){},renderVentasMensuales(){},populateMarketingCarSelect(){},calcularOportunidadesRescatadas(){}});
  f.context.supabaseClient={from:table=>{const query={select:()=>query,eq:()=>query,order:()=>query,then:(resolve,reject)=>{started.push(table);return new Promise(r=>{releases[table]=r;}).then(resolve,reject);}};return query;}};
  const work=f.context.fetchCars();await Promise.resolve();await Promise.resolve();
- assert.deepEqual(started.sort(),['car_expenses','cars']);
- releases.cars({data:[{id:'car-a',lote_id:'lot-a'}],error:null});releases.car_expenses({data:[],error:null});
- assert.equal(await work,true);assert.equal(f.context.carExpensesAvailable,true);
+ assert.deepEqual(started,['cars']);
+ releases.cars({data:[{id:'car-a',lote_id:'lot-a'}],error:null});
+ assert.equal(await work,true);
 });
 
 test('subida de fotos rechaza formatos o tamaños invalidos sin enviarlos al bucket',async()=>{
