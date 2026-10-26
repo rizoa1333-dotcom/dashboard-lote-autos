@@ -15,7 +15,10 @@ button[aria-busy="true"]::before {
 .action-status[data-state="error"] { color: #FF9885; }
 .action-status[data-state="success"] { color: #8BCAB0; }
 #dashboardSyncStatus { margin-block: 0; }
+/* Tailwind uses the independent translate property; transform alone does not reset it. */
+#drawerPro.drawer-open { translate: 0 0 !important; }
 @keyframes velodrive-busy { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   button[aria-busy="true"]::before { animation: none; }
+  #drawerPro { transition: none; }
 }

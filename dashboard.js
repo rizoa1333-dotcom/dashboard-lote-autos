@@ -107,6 +107,8 @@ let citasCalendarioMes = new Date();
 let citasDiaSeleccionado = null;
 let editingCarId = null;
 let activeLeadId = null;
+let drawerGeneration = 0;
+let drawerReturnFocus = null;
 let handoffActionPending = false;
 let carImageUrls = [];
 let carEditorVersion = 0;
@@ -126,6 +128,10 @@ function isCurrentTenantContext(context) {
   return context.version === tenantContextVersion && context.loteId === currentLote?.id && context.catalog === catalogModeActive;
 }
 function clearTenantContext() {
+  drawerGeneration += 1;
+  closeDrawer();
+  for(const id of ['crmLeadIdDisplay','drawerNombre','drawerTelefono','crmAvatarInitials','drawerStatus','drawerFechaCita','drawerInteres','drawerUltimoMensaje','drawerNotas','drawerEnganche','drawerSituacion','crmChatHistoryContainer','drawerExpedienteDocs','crmAiHandoffStatus','drawerLoadStatus'])document.getElementById(id)?.replaceChildren();
+  drawerReturnFocus = null;
   tenantContextVersion += 1;
   sessionRequests.reset();
   privateReads.reset();
@@ -1501,6 +1507,10 @@ async function openDrawer(leadId) {
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
+  const context = captureTenantContext(), generation = ++drawerGeneration;
+  const drawer = document.getElementById('drawerPro');
+  if (!drawer.classList.contains('drawer-open')) drawerReturnFocus = {node:document.activeElement,leadId:String(lead.id)};
+  const isCurrent = () => isCurrentTenantContext(context) && generation === drawerGeneration && String(activeLeadId) === String(lead.id);
   activeLeadId = lead.id;
 
   const citaAsociada = citasCache.find(c => String(c.telefono) === String(lead.phone_number || lead.telefono));
@@ -1545,24 +1555,47 @@ async function openDrawer(leadId) {
   }
   document.getElementById('drawerSituacion').textContent = textoSituacion;
 
+  drawer.inert = false;
+  document.getElementById('view-dashboard').inert = true;
+  drawer.setAttribute('aria-hidden', 'false');
+  drawer.setAttribute('aria-busy', 'true');
+  drawer.classList.add('drawer-open');
+  document.getElementById('drawerOverlay').classList.remove('hidden');
+  const loadStatus = document.getElementById('drawerLoadStatus');
+  loadStatus.setAttribute('role', 'status');loadStatus.textContent = 'Consultando historial y documentos…';
+  const chat = document.getElementById('crmChatHistoryContainer');
+  if(chat)chat.textContent = 'Cargando conversación…';
+  document.getElementById('crmAiHandoffStatus').textContent = 'Consultando estado de la IA…';
+  for(const id of ['btnPauseAiChat','btnResumeAiChat'])document.getElementById(id).disabled = true;
+  if (window._activarDrawerTabDatos) window._activarDrawerTabDatos();
+  document.getElementById('drawerTitle').focus();
   const expedienteContainer = document.getElementById('drawerExpedienteDocs');
-  if (expedienteContainer) {
-    const [urlIne, urlDomicilio, urlIngresos] = await Promise.all([
+  if(expedienteContainer)expedienteContainer.textContent = 'Cargando documentos…';
+  const loadDocuments = async () => {
+    if(!expedienteContainer)return true;
+    const results = await Promise.allSettled([
       crearUrlDocumentoPrivado(lead.url_ine),
       crearUrlDocumentoPrivado(lead.url_comprobante_domicilio),
       crearUrlDocumentoPrivado(lead.url_comprobante_ingresos)
     ]);
+    if(!isCurrent())return false;
+    const [urlIne,urlDomicilio,urlIngresos]=results.map(result=>result.status==='fulfilled'?result.value:'');
     expedienteContainer.innerHTML =
       renderDocPreview(urlIne, '🪪', 'Clave Elector (INE)', !!lead.url_ine && !urlIne) +
       renderDocPreview(urlDomicilio, '🏡', 'Dirección de Residencia', !!lead.url_comprobante_domicilio && !urlDomicilio) +
       renderDocPreview(urlIngresos, '📊', 'Estados de Cuenta', !!lead.url_comprobante_ingresos && !urlIngresos);
-  }
-
-  await refreshChatLive(lead.id);
-
-  document.getElementById('drawerPro').classList.add('drawer-open');
-  document.getElementById('drawerOverlay').classList.remove('hidden');
-  if (window._activarDrawerTabDatos) window._activarDrawerTabDatos();
+    return results.every(result=>result.status==='fulfilled');
+  };
+  const loadChat = async () => {
+    try { return await refreshChatLive(lead.id); }
+    catch (_) { if(isCurrent()&&chat)chat.textContent='No se pudo cargar la conversación. Vuelve a abrir el perfil para reintentar.';return false; }
+  };
+  const results = await Promise.allSettled([loadDocuments(), loadChat()]);
+  if(!isCurrent())return;
+  drawer.removeAttribute('aria-busy');
+  const partial=results.some(result=>result.status==='rejected'||result.value===false);
+  loadStatus.setAttribute('role',partial?'alert':'status');
+  loadStatus.textContent=partial?'No se pudo cargar toda la información. Cierra y vuelve a abrir el perfil para reintentar.':'';
 }
 
 function normalizarTelefonoChat(value) {
@@ -1572,23 +1605,29 @@ function normalizarTelefonoChat(value) {
 async function refreshAiHandoffControls(lead) {
   if (!currentLote || catalogModeActive) return;
   const context = captureTenantContext();
+  const generation = drawerGeneration;
   const status = document.getElementById('crmAiHandoffStatus');
   const pauseButton = document.getElementById('btnPauseAiChat');
   const resumeButton = document.getElementById('btnResumeAiChat');
   if (!status || !currentLote || !lead) return;
   const phone = normalizarTelefonoChat(lead.phone_number || lead.telefono);
-  const { data, error } = await supabaseClient.from('chat_handoffs')
+  let result;
+  try{result=await supabaseClient.from('chat_handoffs')
     .select('manual_until')
     .eq('lote_id', currentLote.id)
     .eq('phone_number', phone)
-    .maybeSingle();
-  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(lead.id) || handoffActionPending) return;
+    .maybeSingle();}catch(_){result={data:null,error:true};}
+  const {data,error}=result;
+  if (!isCurrentTenantContext(context) || generation !== drawerGeneration || String(activeLeadId) !== String(lead.id) || handoffActionPending) return;
+  for(const [button,label] of [[pauseButton,'Pausar IA · 30 min'],[resumeButton,'Reactivar IA ahora']]){
+    if(button){button.removeAttribute('aria-busy');button.textContent=label;}
+  }
   if (error) {
-    status.textContent = 'Aplica la configuración SQL';
+    status.textContent = 'Estado de la IA no disponible. Vuelve a abrir el perfil.';
     status.className = 'text-[10px] font-bold text-amber-400';
     if (pauseButton) pauseButton.disabled = true;
     if (resumeButton) resumeButton.disabled = true;
-    return;
+    return false;
   }
   const expiry = data?.manual_until ? Date.parse(data.manual_until) : 0;
   const paused = Number.isFinite(expiry) && expiry > Date.now();
@@ -1602,15 +1641,17 @@ async function refreshAiHandoffControls(lead) {
   }
   if (pauseButton) { pauseButton.disabled = paused; pauseButton.classList.toggle('opacity-50', paused); }
   if (resumeButton) { resumeButton.classList.toggle('hidden', !paused); resumeButton.disabled = !paused; }
+  return true;
 }
 
 async function setAiHandoffPaused(paused) {
   const lead = leadsCache.find(item => String(item.id) === String(activeLeadId));
   if (!lead || !currentLote || catalogModeActive || handoffActionPending) return;
-  const context = captureTenantContext(), leadId = activeLeadId;
+  const context = captureTenantContext(), leadId = activeLeadId, generation=drawerGeneration;
+  const isCurrent=()=>isCurrentTenantContext(context)&&String(activeLeadId)===String(leadId)&&generation===drawerGeneration;
   const status = document.getElementById('crmAiHandoffStatus');
   const button = document.getElementById(paused ? 'btnPauseAiChat' : 'btnResumeAiChat');
-  const finish = window.VeloDriveUI.beginSubmit(button, status, paused ? 'Pausando…' : 'Activando…', 'Actualizando atención de la conversación…');
+  const finish = window.VeloDriveUI.beginSubmit(button, status, paused ? 'Pausando…' : 'Activando…', 'Actualizando atención de la conversación…', isCurrent);
   if (!finish) return;
   handoffActionPending = true;
   const phone = normalizarTelefonoChat(lead.phone_number || lead.telefono);
@@ -1627,13 +1668,17 @@ async function setAiHandoffPaused(paused) {
       : await supabaseClient.from('chat_handoffs').update({manual_until: now.toISOString(), updated_at: now.toISOString()})
           .eq('lote_id', context.loteId).eq('phone_number', phone);
     if (error) throw new Error('HANDOFF_SAVE_FAILED');
-    if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
+    if (!isCurrent()) return;
     saved = true;
     finish(paused ? 'IA pausada durante 30 minutos.' : 'IA activada.', 'success');
   } catch (_) {
-    if (isCurrentTenantContext(context) && String(activeLeadId) === String(leadId)) finish('No se pudo actualizar la atención. Revisa tu conexión.', 'error');
+    if (isCurrent()) finish('No se pudo actualizar la atención. Revisa tu conexión.', 'error');
   } finally {
     finish(); handoffActionPending = false;
+    if(!isCurrent()&&currentLote&&!catalogModeActive&&document.getElementById('drawerPro')?.classList.contains('drawer-open')){
+      const currentLead=leadsCache.find(item=>String(item.id)===String(activeLeadId));
+      if(currentLead)void refreshAiHandoffControls(currentLead);
+    }
   }
   if (saved) {
     const pauseButton = document.getElementById('btnPauseAiChat'), resumeButton = document.getElementById('btnResumeAiChat');
@@ -1651,13 +1696,14 @@ async function resumeAiForActiveChat() {
 async function refreshChatLive(leadId) {
   if (!currentLote || catalogModeActive) return;
   const context = captureTenantContext();
+  const generation = drawerGeneration;
   const lead = leadsCache.find(l => String(l.id) === String(leadId));
   if (!lead) return;
 
   const chatContainer = document.getElementById('crmChatHistoryContainer');
   if (!chatContainer) return;
-  await refreshAiHandoffControls(lead);
-  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
+  const handoffAvailable = await refreshAiHandoffControls(lead);
+  if (!isCurrentTenantContext(context) || generation !== drawerGeneration || String(activeLeadId) !== String(leadId)) return false;
 
   const phoneFilter = normalizarTelefonoChat(lead.phone_number || lead.telefono);
   const { data: messages, error: chatErr } = await supabaseClient
@@ -1667,19 +1713,20 @@ async function refreshChatLive(leadId) {
     .eq('lote_id', currentLote.id)
     .order('created_at', { ascending: true });
 
-  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
+  if (!isCurrentTenantContext(context) || generation !== drawerGeneration || String(activeLeadId) !== String(leadId)) return false;
   if (chatErr) {
     console.error('[CRM Live Chat Error]:', chatErr);
-    return;
+    chatContainer.textContent = 'No se pudo cargar la conversación. Vuelve a abrir el perfil para reintentar.';
+    return false;
   }
 
   if (!messages || messages.length === 0) {
     chatContainer.innerHTML = `
       <div class="my-auto text-center space-y-2 p-6">
-        <p class="text-[#9CA3AF] font-medium">No hay logs guardados en chat_history.</p>
+        <p class="text-[#9CA3AF] font-medium">No hay mensajes registrados para este prospecto.</p>
         <p class="text-[11px] text-[#9CA3AF] bg-[#161922] border border-[#272A30] rounded-lg p-2 max-w-xs mx-auto">Última interacción: "${escapeHtml(lead.ultimo_mensaje || 'Ninguno')}"</p>
       </div>`;
-    return;
+    return handoffAvailable !== false;
   }
 
   const despegadoDelFondo = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight > 100;
@@ -1713,12 +1760,23 @@ async function refreshChatLive(leadId) {
   if (!despegadoDelFondo) {
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
+  return handoffAvailable !== false;
 }
 
 function closeDrawer() {
+  const drawer=document.getElementById('drawerPro'),wasOpen=drawer.classList.contains('drawer-open');
+  drawerGeneration += 1;
   activeLeadId = null;
   document.getElementById('drawerPro').classList.remove('drawer-open');
+  document.getElementById('drawerPro').setAttribute('aria-hidden', 'true');
+  document.getElementById('drawerPro').removeAttribute('aria-busy');
   document.getElementById('drawerOverlay').classList.add('hidden');
+  document.getElementById('view-dashboard').inert = false;
+  let target=drawerReturnFocus?.node;
+  if(!target?.isConnected&&drawerReturnFocus)target=[...document.querySelectorAll('.btn-ver-perfil')].find(button=>button.getAttribute('data-lead-id')===drawerReturnFocus.leadId&&button.getClientRects().length);
+  if(wasOpen)(target?.isConnected?target:document.querySelector('[data-section="section-panel"]'))?.focus();
+  document.getElementById('drawerPro').inert = true;
+  drawerReturnFocus = null;
 }
 
 // ------------------------------------------------------------
@@ -1743,7 +1801,7 @@ function initDrawerTabs() {
 
     // Mostrar panel seleccionado
     const panel = document.getElementById(tabId);
-    if (panel) panel.style.display = 'flex';
+    if (panel) panel.style.display = tabId === 'tab-chat' ? 'flex' : 'block';
 
     // Activar botón correspondiente
     const btn = document.querySelector(`[data-drawer-tab="${tabId}"]`);
@@ -2579,6 +2637,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   on('closeDrawerBtn',  'click', closeDrawer);
   on('drawerOverlay',   'click', closeDrawer);
+  document.addEventListener('keydown',event=>{
+    const drawer=document.getElementById('drawerPro');
+    if(!drawer?.classList.contains('drawer-open'))return;
+    if(event.key==='Escape'){event.preventDefault();closeDrawer();return;}
+    if(event.key!=='Tab')return;
+    const controls=[...drawer.querySelectorAll('button,input,select,textarea,a[href]')].filter(element=>!element.disabled&&element.getClientRects().length);
+    const first=controls[0],last=controls[controls.length-1];
+    if(!drawer.contains(document.activeElement)){event.preventDefault();first?.focus();}
+    else if(event.shiftKey&&(document.activeElement===first||document.activeElement===document.getElementById('drawerTitle'))){event.preventDefault();last?.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+  });
   on('btnPauseAiChat', 'click', pauseAiForActiveChat);
   on('btnResumeAiChat', 'click', resumeAiForActiveChat);
 

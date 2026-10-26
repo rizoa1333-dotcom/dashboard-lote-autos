@@ -877,22 +877,23 @@
 
   <!-- ============ DRAWER CRM (FICHA DE LEAD) ============ -->
   <div id="drawerOverlay" class="fixed inset-0 bg-black/60 z-40 hidden backdrop-blur-xs transition-opacity"></div>
-  <aside id="drawerPro" class="fixed top-0 right-0 h-full w-full lg:w-[85vw] bg-[#0F1219] border-l border-[#272A30] z-50 transform translate-x-full flex flex-col shadow-2xl transition-transform duration-300">
+  <aside id="drawerPro" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true" inert class="fixed top-0 right-0 h-full w-full lg:w-[85vw] bg-[#0F1219] border-l border-[#272A30] z-50 transform translate-x-full flex flex-col shadow-2xl transition-transform duration-300">
 
     <!-- Header -->
     <div class="px-4 md:px-6 h-14 md:h-16 bg-[#12151C] border-b border-[#272A30] flex items-center justify-between flex-shrink-0 z-10 gap-3">
       <div class="min-w-0">
-        <p class="font-bold text-sm md:text-base tracking-tight flex items-center gap-2">
+        <p id="drawerTitle" tabindex="-1" class="font-bold text-sm md:text-base tracking-tight flex items-center gap-2">
           <span class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full flex-shrink-0" style="background: var(--success);"></span>
           <span class="truncate">Expediente del Prospecto</span>
         </p>
         <p class="text-[10px] text-[#9CA3AF] font-mono">ID: <span id="crmLeadIdDisplay" class="font-bold">---</span></p>
       </div>
-      <button id="closeDrawerBtn" class="w-9 h-9 flex-shrink-0 rounded-xl border border-[#272A30] bg-[#161922] flex items-center justify-center text-[#9CA3AF] hover:text-[#F5F5F4] transition cursor-pointer">
+      <button id="closeDrawerBtn" type="button" aria-label="Cerrar perfil" class="w-9 h-9 flex-shrink-0 rounded-xl border border-[#272A30] bg-[#161922] flex items-center justify-center text-[#9CA3AF] hover:text-[#F5F5F4] transition cursor-pointer">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
+    <p id="drawerLoadStatus" role="status" aria-live="polite" class="action-status px-4"></p>
     <!-- Tabs móvil (ocultos en desktop) -->
     <div class="flex lg:hidden border-b border-[#272A30] bg-[#12151C] flex-shrink-0">
       <button data-drawer-tab="tab-datos" class="drawer-tab-btn active flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">👤 Datos</button>
@@ -904,7 +905,7 @@
     <div class="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
 
       <!-- COLUMNA 1 — Datos del Lead -->
-      <div id="tab-datos" class="drawer-tab-content w-full lg:w-80 bg-[#12151C] lg:border-r border-[#272A30] p-5 overflow-y-auto space-y-4 flex-shrink-0 lg:flex hidden lg:block">
+      <div id="tab-datos" class="drawer-tab-content w-full lg:w-80 bg-[#12151C] lg:border-r border-[#272A30] p-5 overflow-y-auto space-y-4 flex-shrink-0 flex-col lg:flex hidden lg:block">
         <div class="text-center pb-4 border-b border-[#272A30]">
           <div class="w-14 h-14 mx-auto rounded-2xl bg-[#F5F5F4] text-[#0F1219] flex items-center justify-center font-bold text-xl mb-2 font-mono" id="crmAvatarInitials">--</div>
           <h4 id="drawerNombre" class="font-bold text-base truncate">---</h4>

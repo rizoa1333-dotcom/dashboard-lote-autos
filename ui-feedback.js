@@ -6,7 +6,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function () {
   const pendingButtons = new WeakSet();
 
-  function beginSubmit(button, status, pendingText, pendingMessage) {
+  function beginSubmit(button, status, pendingText, pendingMessage, isCurrent = () => true) {
     if (button && (button.disabled || pendingButtons.has(button))) return null;
     const originalText = button?.textContent || '';
     const originalNodes = button?.childNodes ? Array.from(button.childNodes) : null;
@@ -29,14 +29,15 @@
     return function finishSubmit(message, state = 'success') {
       if (finished) return;
       finished = true;
-      if (button) {
+      const updateUi = isCurrent();
+      if (button && updateUi) {
         button.disabled = false;
         button.removeAttribute('aria-busy');
         if (originalNodes && button.replaceChildren) button.replaceChildren(...originalNodes);
         else button.textContent = originalText;
-        pendingButtons.delete(button);
       }
-      if (status) {
+      if (button) pendingButtons.delete(button);
+      if (status && updateUi) {
         status.setAttribute('role', state === 'error' ? 'alert' : 'status');
         status.setAttribute('aria-live', state === 'error' ? 'assertive' : 'polite');
         status.textContent = message || '';

@@ -131,6 +131,7 @@ const supabaseMock = String.raw`(() => {
     order() { return this; }
     limit() { return this; }
     single() { this.one = true; return this; }
+    maybeSingle() { this.one = true; return this; }
     insert(payload) { this.op = 'insert'; this.payload = payload; return this; }
     update(payload) { this.op = 'update'; this.payload = payload; return this; }
     delete() { this.op = 'delete'; return this; }
@@ -659,5 +660,74 @@ test.describe('respuesta y estados de acciones',()=>{
    await page.evaluate(()=>window.__finishConfig({data:{...window.__fakeState.lote,nombre:'Lote actualizado'},error:null}));
    await expect(button).toBeEnabled();
   }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+ });
+});
+
+test.describe('perfil de prospecto',()=>{
+ let server,origin;
+ test.beforeAll(async()=>{server=require('../../server').listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));origin='http://127.0.0.1:'+server.address().port;});
+ test.afterAll(async()=>{server?.closeAllConnections();if(server)await new Promise(r=>server.close(r));});
+ async function profilePage(page){
+  await page.route('https://n8n-production-97a4.up.railway.app/**',r=>r.fulfill({json:{}}));
+  await setupPage(page,{user:{id:'user-qa-001'},access_token:'mock'},null,'',origin);
+  await page.evaluate(()=>{
+   stopSync();currentLote.plan_status='active';renderSubscriptionStatus();
+   leadsCache=[{id:'lead-a',nombre:'Ana Prueba',phone_number:'523121110001',status:'Calificado',created_at:new Date().toISOString()},{id:'lead-b',nombre:'Bruno Prueba',phone_number:'523121110002',status:'Calificado',created_at:new Date().toISOString()}];renderLeadsTable();
+  });
+ }
+ test('Ver Perfil abre el panel dentro de la pantalla y permite cerrarlo',async({page})=>{
+  await profilePage(page);await page.locator('.btn-ver-perfil[data-lead-id="lead-a"]:visible').first().click();
+  await expect(page.locator('#drawerPro')).toHaveClass(/drawer-open/);
+  await expect.poll(()=>page.locator('#drawerPro').evaluate(el=>el.getBoundingClientRect().left)).toBeLessThan(1200);
+  await expect(page.locator('#drawerNombre')).toHaveText('Ana Prueba');await page.locator('#closeDrawerBtn').click();await expect(page.locator('#drawerOverlay')).toBeHidden();
+ });
+ test('el perfil abre inmediatamente aunque el historial tarde y Escape lo cierra',async({page})=>{
+  await profilePage(page);await page.evaluate(()=>{refreshChatLive=()=>new Promise(r=>{window.__releaseProfileChat=r;});});
+  await page.locator('.btn-ver-perfil[data-lead-id="lead-a"]:visible').first().click();
+  await expect(page.locator('#drawerPro')).toHaveClass(/drawer-open/,{timeout:1000});await expect(page.locator('#drawerNombre')).toHaveText('Ana Prueba');
+  await page.keyboard.press('Escape');await expect(page.locator('#drawerOverlay')).toBeHidden();await page.evaluate(()=>window.__releaseProfileChat());await expect(page.locator('#drawerOverlay')).toBeHidden();
+ });
+ test('movil y Shift Tab conservan el perfil accesible dentro de pantalla',async({page})=>{
+  await profilePage(page);await page.setViewportSize({width:390,height:844});
+  await page.evaluate(()=>{window.__openingProfile=openDrawer('lead-a');});await page.evaluate(()=>window.__openingProfile);
+  await expect.poll(()=>page.locator('#drawerPro').evaluate(el=>Math.abs(el.getBoundingClientRect().left))).toBeLessThan(1);
+  const fields=await page.evaluate(()=>({name:document.getElementById('drawerNombre').getBoundingClientRect().bottom,phone:document.getElementById('drawerTelefono').getBoundingClientRect().top}));
+  expect(fields.phone).toBeGreaterThan(fields.name);
+  await page.locator('#drawerTitle').focus();await page.keyboard.press('Shift+Tab');
+  expect(await page.evaluate(()=>document.getElementById('drawerPro').contains(document.activeElement))).toBe(true);
+  expect(await page.evaluate(()=>document.getElementById('view-dashboard').inert)).toBe(true);
+  await page.screenshot({path:path.resolve(__dirname,'../../.qa/evidence/profile-mobile.png'),fullPage:true});
+  await page.keyboard.press('Escape');await expect(page.locator('#drawerOverlay')).toBeHidden();expect(await page.evaluate(()=>document.getElementById('view-dashboard').inert)).toBe(false);
+ });
+ test('un documento tardio no sustituye el expediente de otro prospecto',async({page})=>{
+  await profilePage(page);await page.evaluate(()=>{
+   leadsCache[0].url_ine='doc-a';leadsCache[1].url_ine='doc-b';
+   crearUrlDocumentoPrivado=value=>value==='doc-a'?new Promise(resolve=>{window.__releaseDocA=resolve;}):Promise.resolve(value==='doc-b'?'https://storage.test/b.jpg':'');
+   window.__openingA=openDrawer('lead-a');
+  });
+  await page.evaluate(()=>openDrawer('lead-b'));await expect(page.locator('#drawerNombre')).toHaveText('Bruno Prueba');
+  await page.evaluate(async()=>{window.__releaseDocA('https://storage.test/a.jpg');await window.__openingA;});
+  await expect(page.locator('#drawerExpedienteDocs a')).toHaveAttribute('href','https://storage.test/b.jpg');await expect(page.locator('#drawerNombre')).toHaveText('Bruno Prueba');
+ });
+ test('fallo de historial conserva datos basicos y permite cerrar el perfil',async({page})=>{
+  await profilePage(page);await page.evaluate(()=>{refreshChatLive=async()=>{throw Error('fixture');};});
+  await page.locator('.btn-ver-perfil[data-lead-id="lead-a"]:visible').first().click();await expect(page.locator('#drawerLoadStatus')).toHaveAttribute('role','alert');
+  await expect(page.locator('#drawerNombre')).toHaveText('Ana Prueba');await expect(page.locator('#crmChatHistoryContainer')).toContainText('No se pudo cargar');await expect(page.locator('#drawerPro')).not.toHaveAttribute('aria-busy','true');
+  await expect.poll(()=>page.locator('#drawerPro').evaluate(el=>el.getBoundingClientRect().right-innerWidth)).toBeLessThanOrEqual(1);
+  await page.screenshot({path:path.resolve(__dirname,'../../.qa/evidence/profile-desktop.png'),fullPage:true});
+  await page.locator('#closeDrawerBtn').click();await expect(page.locator('#drawerOverlay')).toBeHidden();
+ });
+ test('cerrar sesion limpia tambien el perfil y descarta sus respuestas tardias',async({page})=>{
+  await profilePage(page);await page.evaluate(()=>{refreshChatLive=()=>new Promise(resolve=>{window.__releaseChat=resolve;});window.__pendingProfile=openDrawer('lead-a');});
+  await page.evaluate(()=>clearTenantContext());await page.evaluate(async()=>{window.__releaseChat();await window.__pendingProfile;});
+  await expect(page.locator('#drawerOverlay')).toBeHidden();await expect(page.locator('#drawerNombre')).toBeEmpty();await expect(page.locator('#drawerTelefono')).toBeEmpty();await expect(page.locator('#drawerExpedienteDocs')).toBeEmpty();
+ });
+ test('pausa pendiente de otro perfil no sobrescribe botones ni estado del actual',async({page})=>{
+  await profilePage(page);await page.evaluate(()=>{
+   const original=supabaseClient.from;supabaseClient.from=table=>{const query=original(table);if(table==='chat_handoffs')query.upsert=()=>new Promise(resolve=>{window.__releasePause=resolve;});return query;};
+  });
+  await page.locator('.btn-ver-perfil[data-lead-id="lead-a"]:visible').first().click();await expect(page.locator('#btnPauseAiChat')).toBeEnabled();await page.locator('#btnPauseAiChat').click();
+  await page.locator('#closeDrawerBtn').click();await page.locator('.btn-ver-perfil[data-lead-id="lead-b"]:visible').first().click();await expect(page.locator('#drawerNombre')).toHaveText('Bruno Prueba');
+  await page.evaluate(()=>window.__releasePause({error:null}));await expect(page.locator('#crmAiHandoffStatus')).toHaveText('IA activa');await expect(page.locator('#btnPauseAiChat')).toBeEnabled();await expect(page.locator('#btnPauseAiChat')).toHaveText('Pausar IA · 30 min');
  });
 });

@@ -104,3 +104,11 @@ test('subidas limitadas mantienen orden, no exceden dos solicitudes y contabiliz
  assert.equal(max,2);assert.deepEqual(result.map(r=>r.status),['fulfilled','rejected','fulfilled']);
  assert.equal(result[0].value,'first');assert.deepEqual(progress,[1,2,3]);
 });
+
+test('terminar una accion antigua libera su bloqueo sin cambiar la interfaz de otro contexto',()=>{
+ const button=fakeElement('Pausar'),status=fakeElement('');
+ const finish=beginSubmit(button,status,'Pausando','Guardando',()=>false);
+ status.textContent='Estado de otra conversación';finish('Mensaje viejo');
+ assert.equal(status.textContent,'Estado de otra conversación');
+ button.disabled=false;assert.equal(typeof beginSubmit(button,status,'Nuevo'),'function');
+});

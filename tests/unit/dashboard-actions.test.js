@@ -9,7 +9,7 @@ function fixture(name){
  const nodes={loginEmail:element('qa@example.com'),loginPassword:element('fake-only'),loginError:element(),configNombreLote:element('Nombre nuevo'),configPhoneLote:element('523121234567'),configStatus:element()};
  const button=element();button.textContent='Guardar';
  const context={window:{VeloDriveUI:ui},document:{getElementById:id=>nodes[id]},console:{error(){}},currentLote:{id:'lot-a'},currentUser:null,
-  captureTenantContext:()=>({loteId:context.currentLote?.id}),isCurrentTenantContext:c=>c.loteId===context.currentLote?.id,renderConfigLote(){},checkSessionAndLote:async()=>true};
+  drawerGeneration:0,captureTenantContext:()=>({loteId:context.currentLote?.id}),isCurrentTenantContext:c=>c.loteId===context.currentLote?.id,renderConfigLote(){},checkSessionAndLote:async()=>true};
  const start=source.indexOf('async function '+name+'(');assert.ok(start>=0,name+' debe existir');
  const next=source.indexOf('\nasync function ',start+1);
  vm.createContext(context);vm.runInContext(source.slice(start,next<0?source.length:next),context);
