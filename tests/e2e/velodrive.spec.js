@@ -127,6 +127,7 @@ const supabaseMock = String.raw`(() => {
     constructor(table) { this.table = table; this.op = 'select'; this.filters = []; this.payload = null; }
     select(columns = '*') { this.columns = columns; return this; }
     eq(key, value) { this.filters.push([key, String(value)]); return this; }
+    gte() { return this; }
     order() { return this; }
     limit() { return this; }
     single() { this.one = true; return this; }
@@ -163,7 +164,7 @@ const supabaseMock = String.raw`(() => {
       if (this.op === 'update') {
         for (const row of matches) Object.assign(row, this.payload);
         if (state.updates[key] !== undefined) state.updates[key] += matches.length;
-        if(this.one)return {data:matches.length===1?{id:matches[0].id}:null,error:matches.length===1?null:{message:'Expected one updated row'}};
+        if(this.one)return {data:matches.length===1?{...matches[0]}:null,error:matches.length===1?null:{message:'Expected one updated row'}};
         return { data: null, error: null };
       }
       if (this.op === 'delete') {
@@ -682,4 +683,86 @@ test('Checkout Session permite redirigir al dominio oficial de Stripe',async({pa
    await redirigirAStripeCheckout(currentLote).catch(error=>{window.__checkoutError=error.message;});
  });
  await expect.poll(()=>destination).toBe('https://checkout.stripe.com/c/pay/cs_test_only');
+});
+
+test.describe('respuesta y estados de acciones',()=>{
+ const session={user:{id:'user-qa-001'},access_token:'mock'};
+ test('configuracion bloquea doble submit y comunica progreso y exito',async({page})=>{
+  await setupPage(page,session);
+  await page.evaluate(()=>{stopSync();document.getElementById('section-configuracion').classList.remove('hidden');});
+  await page.locator('#configNombreLote').fill('Lote actualizado');
+  const button=page.locator('#configForm button[type=submit]');await button.click();
+  await expect(button).toHaveAttribute('aria-busy','true');
+  await expect(page.locator('#configStatus')).toContainText('Guardando');
+  await page.locator('#configForm').evaluate(form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  await expect(page.locator('#configStatus')).toContainText('Configuración guardada');
+  await expect(button).toBeEnabled();
+  expect(await page.evaluate(()=>window.__fakeState.queries.filter(q=>q.table==='lotes'&&q.op==='update').length)).toBe(1);
+  await expect(page.locator('#configNombreLote')).toHaveValue('Lote actualizado');
+ });
+ test('configuracion offline conserva entradas y muestra error accesible',async({page,context})=>{
+  await setupPage(page,session);
+  await page.evaluate(()=>{stopSync();document.getElementById('section-configuracion').classList.remove('hidden');});
+  await page.locator('#configNombreLote').fill('No perder este nombre');await context.setOffline(true);
+  await page.locator('#configForm button[type=submit]').click();
+  await expect(page.locator('#configStatus')).toHaveAttribute('role','alert');
+  await expect(page.locator('#configStatus')).toContainText('No se pudo guardar');
+  await expect(page.locator('#configNombreLote')).toHaveValue('No perder este nombre');
+  await expect(page.locator('#configForm button[type=submit]')).toBeEnabled();
+ });
+ test('inventario inicia gastos sin esperar a la respuesta de autos',async({page})=>{
+  await setupPage(page,session);
+  await page.evaluate(()=>{stopSync();window.__fakeState.queries=[];window.__fakeState.holdReads=true;window.__parallelRead=fetchCars();});
+  await expect.poll(()=>page.evaluate(()=>window.__fakeState.queries.some(q=>q.table==='car_expenses'))).toBe(true);
+  await page.evaluate(async()=>{window.__fakeState.holdReads=false;window.__fakeState.releaseRead();await window.__parallelRead;});
+ });
+ test('login bloquea envios repetidos mientras valida las credenciales',async({page})=>{
+  await setupPage(page);
+  await page.evaluate(()=>{window.__loginCount=0;supabaseClient.auth.signInWithPassword=async()=>{window.__loginCount++;await new Promise(r=>{window.__finishLogin=r;});return {data:{},error:{message:'Credenciales inválidas'}};};});
+  await page.locator('#loginEmail').fill('qa@example.com');await page.locator('#loginPassword').fill('invalid-password');
+  const button=page.locator('#loginForm button[type=submit]');await button.click();await expect(button).toHaveAttribute('aria-busy','true');
+  await page.locator('#loginForm').evaluate(form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  expect(await page.evaluate(()=>window.__loginCount)).toBe(1);await page.evaluate(()=>window.__finishLogin());
+  await expect(page.locator('#loginError')).toHaveAttribute('role','alert');await expect(button).toBeEnabled();
+ });
+ test('generar texto y subir fotos no dejan controles bloqueados por cruces de acciones',async({page})=>{
+  await setupPage(page,{...session,seedCars:[{id:21,lote_id:'lote-qa-001',brand:'Honda',model:'Civic'}]});
+  await page.evaluate(()=>{
+   stopSync();carsCache=window.__fakeState.cars;marketingSelectedCarId=21;
+   document.getElementById('section-marketing').classList.remove('hidden');
+   generarCopyIA=()=>new Promise(resolve=>{window.__finishCopy=resolve;});
+  });
+  await page.locator('#btnGenerarCopy').click();await expect(page.locator('#btnGenerarCopy')).toBeDisabled();
+  await page.evaluate(()=>subirMediaMarketing([new File(['fixture'],'fixture.jpg',{type:'image/jpeg'})]));
+  await expect(page.locator('#marketingStatusText')).toContainText('termine de generar');
+  await page.evaluate(()=>window.__finishCopy('Texto terminado'));
+  await expect(page.locator('#btnGenerarCopy')).toBeEnabled();
+  await expect(page.locator('#btnPublicarRedes')).toBeEnabled();
+ });
+ test('progreso visible con CSS real, sin desbordamiento movil y respetando movimiento reducido',async({page})=>{
+  const server=require('../../server').listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+  try{
+   await page.route('https://n8n-production-97a4.up.railway.app/**',route=>route.fulfill({json:{}}));
+   await setupPage(page,session,null,'','http://127.0.0.1:'+server.address().port);
+   await page.evaluate(()=>{
+    stopSync();document.querySelectorAll('.dashboard-section').forEach(section=>section.classList.add('hidden'));
+    document.getElementById('section-configuracion').classList.remove('hidden');
+    const query={eq:()=>query,select:()=>query,single:()=>new Promise(resolve=>{window.__finishConfig=resolve;})};
+    const original=supabaseClient.from;
+    supabaseClient.from=table=>table==='lotes'?{update:()=>query}:original(table);
+   });
+   const button=page.locator('#configForm button[type=submit]');await button.click();
+   await expect(button).toHaveAttribute('aria-busy','true');
+   expect(await button.evaluate(element=>getComputedStyle(element,'::before').animationName)).toBe('velodrive-busy');
+   await page.screenshot({path:path.resolve(__dirname,'../../.qa/evidence/loading-desktop.png'),fullPage:true});
+   await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});
+   await expect.poll(()=>page.locator('#sidebar').evaluate(element=>element.getBoundingClientRect().right)).toBeLessThanOrEqual(1);
+   await button.scrollIntoViewIfNeeded();
+   expect(await button.evaluate(element=>getComputedStyle(element,'::before').animationName)).toBe('none');
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+   await page.screenshot({path:path.resolve(__dirname,'../../.qa/evidence/loading-mobile.png'),fullPage:true});
+   await page.evaluate(()=>window.__finishConfig({data:{...window.__fakeState.lote,nombre:'Lote actualizado'},error:null}));
+   await expect(button).toBeEnabled();
+  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+ });
 });

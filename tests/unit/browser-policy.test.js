@@ -16,7 +16,7 @@ test('el HTML aplica CSP sin scripts inline/eval y todos los scripts se sirven d
 test('los recursos de SDK y CSS son archivos propios con MIME correcto, sin fallback HTML',async()=>{
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
  try{const port=server.address().port;
- for(const [path,type] of [['/vendor/supabase-2.118.0.js','javascript'],['/assets/utilities.css','text/css'],['/app-config.js','javascript'],['/registration-wizard.js','javascript'],['/vehicle-finance.js','javascript']]){
+ for(const [path,type] of [['/vendor/supabase-2.118.0.js','javascript'],['/assets/utilities.css','text/css'],['/assets/feedback.css','text/css'],['/app-config.js','javascript'],['/registration-wizard.js','javascript'],['/vehicle-finance.js','javascript']]){
  const r=await get(port,path);assert.equal(r.status,200);assert.match(r.headers['content-type'],new RegExp(type));assert.doesNotMatch(r.body,/<!DOCTYPE html>/i);
  }
  }finally{await new Promise(r=>server.close(r));}

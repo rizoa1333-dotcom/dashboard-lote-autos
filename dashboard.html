@@ -17,6 +17,7 @@
 
   <link rel="stylesheet" href="/assets/utilities.css">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/assets/feedback.css">
   <style>
     
     /* ── WIZARD REGISTRO ── */
@@ -378,11 +379,11 @@
 
     <form id="loginForm" class="space-y-4">
       <div>
-        <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">Correo electrónico</label>
+        <label for="loginEmail" class="block text-xs font-medium text-[#9CA3AF] uppercase tracking-wider">Correo electrónico</label>
         <input type="email" id="loginEmail" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
       </div>
       <div>
-        <label class="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">Contraseña</label>
+        <label for="loginPassword" class="block text-xs font-medium text-[#9CA3AF] uppercase tracking-wider">Contraseña</label>
         <input type="password" id="loginPassword" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
       </div>
 
@@ -390,7 +391,7 @@
         Iniciar Sesión
       </button>
       <div class="text-center"><button type="button" id="forgotPasswordBtn" class="text-xs text-[#D4A843] underline">¿Olvidaste tu contraseña?</button></div>
-      <div id="loginError" class="text-xs text-[#A9584A] text-center font-medium"></div>
+      <div id="loginError" role="status" aria-live="polite" class="action-status text-center font-medium"></div>
     </form>
 
     <p class="text-center text-xs text-[#9CA3AF]">¿Eres un lote nuevo? <button type="button" id="to-registro-btn" class="text-[#F5F5F4] font-medium underline">Regístrate aquí</button></p>
@@ -514,6 +515,7 @@
       </header>
 
       <main class="p-5 md:p-10 space-y-8 flex-1 overflow-y-auto">
+        <p id="dashboardSyncStatus" role="status" aria-live="polite" class="action-status"></p>
 
         <!-- ===================== MONITOR GENERAL ===================== -->
         <section id="section-panel" class="dashboard-section space-y-8">
@@ -589,6 +591,7 @@
             </div>
           </div>
 
+          <p id="importStatus" role="status" aria-live="polite" class="action-status internal-only"></p>
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <h3 class="font-bold text-sm uppercase tracking-wider text-xs internal-only">Unidades de Negocio Registradas</h3>
@@ -851,16 +854,17 @@
             <h3 class="font-bold text-sm mb-4 uppercase tracking-wider text-xs">Datos de la Cuenta Multi-Tenant</h3>
             <form id="configForm" class="space-y-3">
               <div>
-                <label class="text-xs font-semibold text-[#9CA3AF] uppercase">Nombre Comercial del Lote</label>
-                <input type="text" id="configNombreLote" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
+                <label for="configNombreLote" class="text-xs font-semibold text-[#9CA3AF] uppercase">Nombre Comercial del Lote</label>
+                <input type="text" id="configNombreLote" required class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
               </div>
               <div>
-                <label class="text-xs font-semibold text-[#9CA3AF] uppercase">Instancia de WhatsApp Vinculada</label>
+                <label for="configPhoneLote" class="text-xs font-semibold text-[#9CA3AF] uppercase">Instancia de WhatsApp Vinculada</label>
                 <input type="text" id="configPhoneLote" class="w-full mt-1 px-3 py-2 rounded-lg border text-sm">
               </div>
               <button type="submit" class="btn-primary text-xs px-4 py-2 rounded-lg font-medium mt-2">
                 Guardar Configuración
               </button>
+              <p id="configStatus" role="status" aria-live="polite" class="action-status"></p>
             </form>
           </div>
 
@@ -869,7 +873,7 @@
             <p class="text-xs text-[#9CA3AF]">Contraseña, documentos legales y gestión de tu plan.</p>
             <button type="button" id="changePasswordBtn" class="btn-ghost text-xs px-4 py-2 rounded-lg">Cambiar contraseña</button>
             <button type="button" id="manageSubscriptionBtn" class="btn-ghost text-xs px-4 py-2 rounded-lg">Gestionar o cancelar plan</button>
-            <p id="subscriptionManageMessage" role="status" class="text-xs text-[#9CA3AF]"></p>
+            <p id="subscriptionManageMessage" role="status" aria-live="polite" class="action-status"></p>
             <div class="flex flex-wrap gap-3 text-xs">
               <button type="button" data-legal-open="privacidad" class="underline text-[#D4A843]">Aviso de privacidad</button>
               <button type="button" data-legal-open="terminos" class="underline text-[#D4A843]">Términos del servicio</button>

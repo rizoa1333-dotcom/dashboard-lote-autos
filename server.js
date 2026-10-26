@@ -270,6 +270,7 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 // server.js, package.json, archivos de configuración ni flujos de n8n.
 for (const [url, relativeFile, mime] of [
   ['/assets/utilities.css', 'public/assets/utilities.css', 'text/css'],
+  ['/assets/feedback.css', 'public/assets/feedback.css', 'text/css'],
   ['/vendor/supabase-2.118.0.js', 'public/vendor/supabase-2.118.0.js', 'application/javascript'],
   ['/app-config.js', 'app-config.js', 'application/javascript'],
   ['/vehicle-finance.js', 'vehicle-finance.js', 'application/javascript'],

@@ -46,6 +46,8 @@ function showActionToast(message, state = 'success') {
   const toast = document.getElementById('actionToast');
   if (!toast) return;
   toast.textContent = message;
+  toast.setAttribute('role', state === 'error' ? 'alert' : 'status');
+  toast.setAttribute('aria-live', state === 'error' ? 'assertive' : 'polite');
   toast.dataset.state = state;
   toast.style.borderColor = state === 'error' ? 'var(--danger)' : 'var(--success)';
   toast.classList.remove('hidden');
@@ -85,7 +87,11 @@ const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.
 // Variables de Control Global
 let currentUser = null;
 let currentLote = null;
-let syncIntervalId = null;
+const syncScheduler = window.VeloDriveUI.createRefreshScheduler({
+  run: () => fetchAndRenderAll(),
+  canRun: () => Boolean(currentUser && currentLote && !document.hidden && navigator.onLine),
+  intervalMs: 10000
+});
 let passwordRecoveryActive = false;
 let directPasswordChange = false;
 
@@ -103,15 +109,19 @@ let citasCalendarioMes = new Date();
 let citasDiaSeleccionado = null;
 let editingCarId = null;
 let activeLeadId = null;
+let handoffActionPending = false;
 let carImageUrls = [];
+let carEditorVersion = 0;
 
 let marketingSelectedCarId = null;
 let marketingImageUrls = [];
+let marketingUploadPending = false;
+let socialActionPending = false;
 
 let catalogModeActive = false;
 let tenantContextVersion = 0;
 const sessionRequests = window.VeloDriveUI.createRequestScope(window.fetch.bind(window));
-const privateReads = window.VeloDriveUI.createRequestScope((input, options) => sessionRequests.fetch(input, options));
+const privateReads = window.VeloDriveUI.createRequestScope((input, options) => sessionRequests.fetch(input, options), 20000);
 const CATALOG_CAR_COLUMNS = 'id,lote_id,brand,model,year,price,status,image_url,image_urls,caracteristicas,enganche_minimo,kilometraje,transmision';
 function captureTenantContext() { return { version: tenantContextVersion, loteId: currentLote?.id, catalog: catalogModeActive }; }
 function isCurrentTenantContext(context) {
@@ -203,31 +213,53 @@ function showView(viewId) {
 }
 
 function stopSync() {
-  if (syncIntervalId) {
-    clearInterval(syncIntervalId);
-    syncIntervalId = null;
-  }
+  syncScheduler.stop();
 }
 
 function startSync() {
   stopSync();
-  fetchAndRenderAll();
+  void syncScheduler.start();
   checarEstatusWhatsApp();
-  syncIntervalId = setInterval(fetchAndRenderAll, 10000);
 }
+
+function setSyncStatus(message, state = 'idle') {
+  const status = document.getElementById('dashboardSyncStatus');
+  if (!status) return;
+  if (state === 'loading' && ['success', 'error'].includes(status.dataset.state)) return;
+  if (status.textContent === message && status.dataset.state === state) return;
+  status.textContent = message;
+  status.dataset.state = state;
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopSync();
+  else if (currentLote) void syncScheduler.start();
+});
+window.addEventListener('offline', () => {
+  stopSync();
+  setSyncStatus('Sin conexión. Los datos pueden estar desactualizados.', 'error');
+});
+window.addEventListener('online', () => { if (currentLote) void syncScheduler.start(); });
 
 async function fetchAndRenderAll() {
   if (!currentUser || !currentLote) {
     stopSync();
     return;
   }
+  const context = captureTenantContext();
+  setSyncStatus('Actualizando datos…', 'loading');
   try {
-    await Promise.all(catalogModeActive ? [fetchCars()] : [fetchLeads(), fetchCars(), fetchCitasReal()]);
+    const results = await Promise.all(catalogModeActive ? [fetchCars()] : [fetchLeads(), fetchCars(), fetchCitasReal()]);
+    if (!isCurrentTenantContext(context)) return;
     if (activeLeadId && !catalogModeActive) {
       await refreshChatLive(activeLeadId);
     }
+    if (!isCurrentTenantContext(context)) return;
+    setSyncStatus(results.some(value => value === false)
+      ? 'No se actualizaron todos los datos. Revisa tu conexión.'
+      : 'Datos actualizados.', results.some(value => value === false) ? 'error' : 'success');
   } catch (err) {
-    console.error('[Sync Core] Error de refresco automatizado:', err);
+    if (isCurrentTenantContext(context)) setSyncStatus('No se pudo actualizar. Revisa tu conexión.', 'error');
   }
 }
 
@@ -246,7 +278,7 @@ async function fetchLeads() {
   if (!isCurrentTenantContext(context)) return;
   if (error) {
     console.error('[Leads Engine] Error de consulta:', error);
-    return;
+    return false;
   }
   leadsCache = data || [];
   renderLeadsTable();
@@ -254,6 +286,7 @@ async function fetchLeads() {
   procesarMetricasBI();
   renderPipelineKanban();
   calcularOportunidadesRescatadas();
+  return true;
 }
 
 function calcularOportunidadesRescatadas() {
@@ -303,7 +336,7 @@ async function fetchCitasReal() {
   if (!isCurrentTenantContext(context)) return;
   if (error) {
     console.error('[Citas Engine] Error de consulta a tabla citas:', error);
-    return;
+    return false;
   }
   citasCache = data || [];
   const hoyClave = claveDiaMx(new Date());
@@ -318,6 +351,7 @@ async function fetchCitasReal() {
   renderCitasCalendario();
   renderCounters();
   renderPipelineKanban();
+  return true;
 }
 
 function renderCounters() {
@@ -819,11 +853,13 @@ async function fetchCars() {
   if (!currentLote) return false;
   const context = captureTenantContext();
   const readGeneration=++carsReadGeneration;
-  let result;
-  try{result=await supabaseClient.from('cars')
-    .select(context.catalog ? CATALOG_CAR_COLUMNS : '*')
-    .eq('lote_id', context.loteId).order('created_at', { ascending: false });}
-  catch{result={data:null,error:true};}
+  const read = query => Promise.resolve(query).catch(() => ({data:null,error:true}));
+  const [result, expenses] = await Promise.all([
+    read(supabaseClient.from('cars').select(context.catalog ? CATALOG_CAR_COLUMNS : '*')
+      .eq('lote_id', context.loteId).order('created_at', { ascending: false })),
+    context.catalog ? null : read(supabaseClient.from('car_expenses').select('*')
+      .eq('lote_id', context.loteId).order('created_at', { ascending: false }))
+  ]);
   const {data,error}=result;
   if (!isCurrentTenantContext(context)) return false;
   if(readGeneration!==carsReadGeneration)return carsReadCommitted===carsReadGeneration;
@@ -834,12 +870,6 @@ async function fetchCars() {
     carExpensesCache = [];
     carExpensesAvailable=false;
   } else {
-    let expenses;
-    try{expenses=await supabaseClient.from('car_expenses').select('*')
-      .eq('lote_id', context.loteId).order('created_at', { ascending: false });}
-    catch{expenses={data:null,error:true};}
-    if (!isCurrentTenantContext(context)) return false;
-    if(readGeneration!==carsReadGeneration)return carsReadCommitted===carsReadGeneration;
     carsCache = data || [];
     carExpensesCache = expenses.error ? [] : expenses.data || [];
     carExpensesAvailable=!expenses.error&&Array.isArray(expenses.data);
@@ -1131,6 +1161,7 @@ function renderCars() {
       const car = carsCache.find(c => String(c.id) === String(carId));
       if (!car) return;
 
+      carEditorVersion += 1;
       editingCarId = car.id;
 
       document.getElementById('carBrand').value = car.brand || '';
@@ -1395,28 +1426,76 @@ function updateBtnPublicarLabel() {
   setTimeout(() => { btnPublicar.textContent = '🚀 Publicar con IA en Redes Sociales'; btnPublicar.style.opacity = '1'; }, 120);
 }
 
+async function uploadPhotoBatch(files, context, progress) {
+  if (!files.length || files.length > 20) throw new Error('Selecciona entre 1 y 20 fotos por subida.');
+  const extensions = {'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
+  return window.VeloDriveUI.mapLimited(files, 2, async file => {
+    if (!isCurrentTenantContext(context)) throw new Error('TENANT_CHANGED');
+    if (!extensions[file.type] || file.size < 1 || file.size > 10 * 1024 * 1024) throw new Error('INVALID_IMAGE');
+    const filePath = `${context.loteId}/${crypto.randomUUID()}.${extensions[file.type]}`;
+    const bucket = supabaseClient.storage.from('car-images');
+    const { error } = await bucket.upload(filePath, file);
+    if (error) throw new Error('PHOTO_UPLOAD_FAILED');
+    if (!isCurrentTenantContext(context)) throw new Error('TENANT_CHANGED');
+    return bucket.getPublicUrl(filePath).data.publicUrl;
+  }, progress);
+}
+
 async function subirMediaMarketing(files) {
-  const statusText = document.getElementById('marketingStatusText');
-  const imageFiles = files.filter(f => f.type.startsWith('image/'));
-
-  if (statusText) { statusText.textContent = `Subiendo ${files.length} archivo(s) a la nube... ⏳`; statusText.style.color = 'var(--amber-strong)'; }
-
-  const subir = async (file) => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `marketing_${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
-    const filePath = `${currentLote.id}/${fileName}`;
-    const { error } = await supabaseClient.storage.from('car-images').upload(filePath, file);
-    if (error) return null;
-    return supabaseClient.storage.from('car-images').getPublicUrl(filePath).data.publicUrl;
-  };
-
-  for (const file of imageFiles) {
-    const url = await subir(file);
-    if (url) marketingImageUrls.push(url);
+  if (!currentLote || marketingUploadPending) return;
+  if (document.getElementById('btnGenerarCopy')?.disabled) {
+    const status = document.getElementById('marketingStatusText');
+    if (status) status.textContent = 'Espera a que termine de generar el texto antes de subir fotos.';
+    return;
   }
+  const context = captureTenantContext(), selectedCar = marketingSelectedCarId;
+  const status = document.getElementById('marketingStatusText');
+  const finish = window.VeloDriveUI.beginSubmit(document.getElementById('btnPublicarRedes'), status, 'Subiendo fotos…', 'Preparando las fotos…');
+  if (!finish) return;
+  marketingUploadPending = true;
+  const controls = ['marketingFileInput','marketingCarSelect','btnGenerarCopy'].map(id => document.getElementById(id)).filter(Boolean);
+  const disabled = controls.map(control => control.disabled);
+  controls.forEach(control => { control.disabled = true; });
+  try {
+    const results = await uploadPhotoBatch(files, context, count => {
+      if (isCurrentTenantContext(context)) status.textContent = `Subiendo fotos: ${count} de ${files.length} procesadas…`;
+    });
+    if (!isCurrentTenantContext(context) || String(selectedCar) !== String(marketingSelectedCarId)) return;
+    const urls = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+    marketingImageUrls.push(...urls); renderMarketingThumbs();
+    const failed = results.length - urls.length;
+    finish(failed ? `${urls.length} foto(s) subidas; ${failed} no se pudieron subir. Revisa formato (JPG, PNG o WebP), tamaño máximo de 10 MB y conexión. Reintenta solo las faltantes.` : 'Fotos listas. Puedes generar el texto y publicar.', failed ? 'error' : 'success');
+  } catch (error) {
+    if (isCurrentTenantContext(context)) finish(error.message === 'PHOTO_UPLOAD_FAILED' ? 'No se pudieron subir las fotos.' : 'Selecciona entre 1 y 20 fotos JPG, PNG o WebP de hasta 10 MB.', 'error');
+  } finally {
+    finish(); marketingUploadPending = false;
+    controls.forEach((control,index) => { control.disabled = disabled[index]; });
+  }
+}
 
-  renderMarketingThumbs();
-  if (statusText) { statusText.textContent = 'Archivos listos. Ahora genera el contenido con IA. 🖼️'; statusText.style.color = 'var(--success)'; }
+async function subirFotosVehiculo(event) {
+  const input = event.target, files = Array.from(input.files || []);
+  if (!currentLote || !files.length || input.disabled) return;
+  const context = captureTenantContext(), editorVersion = carEditorVersion;
+  const status = document.getElementById('uploadStatusText');
+  const finish = window.VeloDriveUI.beginSubmit(document.getElementById('btnSubmitCarForm'), status, 'Subiendo fotos…', 'Preparando fotos del vehículo…');
+  if (!finish) return;
+  input.disabled = true;
+  try {
+    const results = await uploadPhotoBatch(files, context, count => {
+      if (isCurrentTenantContext(context) && editorVersion === carEditorVersion) status.textContent = `Subiendo fotos: ${count} de ${files.length} procesadas…`;
+    });
+    if (!isCurrentTenantContext(context) || editorVersion !== carEditorVersion) return;
+    const urls = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+    carImageUrls.push(...urls);
+    const urlInput = document.getElementById('carImageUrl');
+    if (urlInput) urlInput.value = carImageUrls[0] || '';
+    renderCarThumbs();
+    const failed = results.length - urls.length;
+    finish(failed ? `${urls.length} foto(s) subidas; ${failed} fallaron. Usa JPG, PNG o WebP de hasta 10 MB. Reintenta solo las faltantes.` : `${urls.length} foto(s) listas. Guarda el vehículo para conservar los cambios.`, failed ? 'error' : 'success');
+  } catch (_) {
+    if (isCurrentTenantContext(context) && editorVersion === carEditorVersion) finish('No se pudieron subir las fotos. Selecciona entre 1 y 20 imágenes de hasta 10 MB.', 'error');
+  } finally { finish(); input.disabled = false; input.value = ''; }
 }
 
 function renderMarketingThumbs() {
@@ -1475,17 +1554,23 @@ function initMarketingModule() {
   });
 
   btnGenerar.addEventListener('click', async () => {
+    if (btnGenerar.disabled || marketingUploadPending || !currentLote) return;
     const car = carsCache.find(c => String(c.id) === String(marketingSelectedCarId));
     if (!car) { alert('Selecciona una unidad del inventario primero.'); return; }
 
-    btnGenerar.disabled = true;
-    btnGenerar.textContent = '⏳ Generando copy...';
+    const context = captureTenantContext();
+    const finish = window.VeloDriveUI.beginSubmit(btnGenerar, statusText, 'Generando texto…', 'Preparando el texto del vehículo…');
+    if (!finish) return;
     try {
-      copyText.value = await generarCopyIA(car);
-      if (statusText) { statusText.textContent = 'Contenido generado. Puedes editarlo antes de publicar.'; statusText.style.color = 'var(--text-dim)'; }
+      const copy = await generarCopyIA(car);
+      if (!isCurrentTenantContext(context)) return;
+      if (String(marketingSelectedCarId) !== String(car.id)) { finish('Seleccionaste otro vehículo. Genera su texto antes de publicar.', 'error'); return; }
+      copyText.value = copy;
+      finish('Contenido generado. Puedes editarlo antes de publicar.', 'success');
+    } catch (_) {
+      if (isCurrentTenantContext(context)) finish('No se pudo generar el texto. Intenta de nuevo.', 'error');
     } finally {
-      btnGenerar.disabled = false;
-      btnGenerar.textContent = '✨ Generar Copy con IA';
+      finish();
     }
   });
 
@@ -1646,7 +1731,7 @@ async function refreshAiHandoffControls(lead) {
     .eq('lote_id', currentLote.id)
     .eq('phone_number', phone)
     .maybeSingle();
-  if (!isCurrentTenantContext(context)) return;
+  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(lead.id) || handoffActionPending) return;
   if (error) {
     status.textContent = 'Aplica la configuración SQL';
     status.className = 'text-[10px] font-bold text-amber-400';
@@ -1668,34 +1753,48 @@ async function refreshAiHandoffControls(lead) {
   if (resumeButton) { resumeButton.classList.toggle('hidden', !paused); resumeButton.disabled = !paused; }
 }
 
-async function pauseAiForActiveChat() {
+async function setAiHandoffPaused(paused) {
   const lead = leadsCache.find(item => String(item.id) === String(activeLeadId));
-  if (!lead || !currentLote) return;
+  if (!lead || !currentLote || catalogModeActive || handoffActionPending) return;
+  const context = captureTenantContext(), leadId = activeLeadId;
+  const status = document.getElementById('crmAiHandoffStatus');
+  const button = document.getElementById(paused ? 'btnPauseAiChat' : 'btnResumeAiChat');
+  const finish = window.VeloDriveUI.beginSubmit(button, status, paused ? 'Pausando…' : 'Activando…', 'Actualizando atención de la conversación…');
+  if (!finish) return;
+  handoffActionPending = true;
   const phone = normalizarTelefonoChat(lead.phone_number || lead.telefono);
   const now = new Date();
-  const { error } = await supabaseClient.from('chat_handoffs').upsert({
-    lote_id: currentLote.id,
-    phone_number: phone,
-    manual_until: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
-    last_activity: now.toISOString(),
-    updated_at: now.toISOString(),
-    pause_reason: 'manual_dashboard'
-  }, { onConflict: 'lote_id,phone_number' });
-  if (error) { alert('No se pudo pausar la IA. Confirma que aplicaste el SQL de intervención.'); return; }
-  await refreshAiHandoffControls(lead);
-  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
+  let saved = false;
+  try {
+    if (!phone) throw new Error('INVALID_CHAT_PHONE');
+    const { error } = paused
+      ? await supabaseClient.from('chat_handoffs').upsert({
+          lote_id: context.loteId, phone_number: phone,
+          manual_until: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
+          last_activity: now.toISOString(), updated_at: now.toISOString(), pause_reason: 'manual_dashboard'
+        }, { onConflict: 'lote_id,phone_number' })
+      : await supabaseClient.from('chat_handoffs').update({manual_until: now.toISOString(), updated_at: now.toISOString()})
+          .eq('lote_id', context.loteId).eq('phone_number', phone);
+    if (error) throw new Error('HANDOFF_SAVE_FAILED');
+    if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
+    saved = true;
+    finish(paused ? 'IA pausada durante 30 minutos.' : 'IA activada.', 'success');
+  } catch (_) {
+    if (isCurrentTenantContext(context) && String(activeLeadId) === String(leadId)) finish('No se pudo actualizar la atención. Revisa tu conexión.', 'error');
+  } finally {
+    finish(); handoffActionPending = false;
+  }
+  if (saved) {
+    const pauseButton = document.getElementById('btnPauseAiChat'), resumeButton = document.getElementById('btnResumeAiChat');
+    if (pauseButton) pauseButton.disabled = paused;
+    if (resumeButton) { resumeButton.disabled = !paused; resumeButton.classList?.toggle('hidden', !paused); }
+  }
 }
 
+async function pauseAiForActiveChat() { return setAiHandoffPaused(true); }
+
 async function resumeAiForActiveChat() {
-  const lead = leadsCache.find(item => String(item.id) === String(activeLeadId));
-  if (!lead || !currentLote) return;
-  const phone = normalizarTelefonoChat(lead.phone_number || lead.telefono);
-  const { error } = await supabaseClient.from('chat_handoffs').update({
-    manual_until: new Date().toISOString(), updated_at: new Date().toISOString()
-  }).eq('lote_id', currentLote.id).eq('phone_number', phone);
-  if (error) { alert('No se pudo reactivar la IA para esta conversación.'); return; }
-  await refreshAiHandoffControls(lead);
-  if (!isCurrentTenantContext(context) || String(activeLeadId) !== String(leadId)) return;
+  return setAiHandoffPaused(false);
 }
 
 async function refreshChatLive(leadId) {
@@ -2068,7 +2167,7 @@ async function conectarRedesSociales() {
   if (!currentLote || !N8N_REDES_WEBHOOK_URL) { alert('Falta configurar N8N_REDES_WEBHOOK_URL en dashboard.js.'); return; }
   const btnConectar = document.getElementById('btnConectarRedes');
   const statusText = document.getElementById('redesStatusText');
-  if (btnConectar.disabled) return;
+  if (btnConectar.disabled || socialActionPending) return;
 
   // Abrir la pestaña durante el gesto de clic evita que el navegador bloquee
   // la ventana cuando la respuesta de n8n llega después de una espera de red.
@@ -2080,6 +2179,11 @@ async function conectarRedesSociales() {
   connectWindow.opener = null;
 
   btnConectar.disabled = true;
+  socialActionPending = true;
+  btnConectar.setAttribute('aria-busy', 'true');
+  statusText.setAttribute('role', 'status');
+  statusText.setAttribute('aria-live', 'polite');
+  statusText.textContent = 'Preparando conexión segura…';
   btnConectar.textContent = 'Generando enlace seguro...';
 
   try {
@@ -2101,8 +2205,11 @@ async function conectarRedesSociales() {
   } catch (err) {
     console.error('[Redes Sociales] Error al conectar:', err);
     connectWindow.close();
+    statusText.setAttribute('role', 'alert');
     statusText.textContent = err.message || 'No se pudo generar el enlace. Intenta de nuevo.';
   } finally {
+    socialActionPending = false;
+    btnConectar.removeAttribute('aria-busy');
     btnConectar.disabled = false;
     btnConectar.textContent = 'Conectar o gestionar redes';
   }
@@ -2113,8 +2220,14 @@ async function verificarRedesSociales() {
   const btnVerificar = document.getElementById('btnVerificarRedes');
   const statusText = document.getElementById('redesStatusText');
   const badge = document.getElementById('redesEstadoBadge');
+  if (btnVerificar.disabled || socialActionPending) return;
 
+  socialActionPending = true;
   btnVerificar.disabled = true;
+  btnVerificar.setAttribute('aria-busy', 'true');
+  statusText.setAttribute('role', 'status');
+  statusText.setAttribute('aria-live', 'polite');
+  statusText.textContent = 'Consultando conexión de Facebook e Instagram…';
   btnVerificar.textContent = 'Verificando...';
 
   try {
@@ -2137,8 +2250,11 @@ async function verificarRedesSociales() {
     statusText.textContent = `${platforms.facebook ? 'Facebook conectado' : 'Facebook pendiente'}. ${platforms.instagram ? 'Instagram conectado' : 'Instagram pendiente'}.`;
   } catch (err) {
     console.error('[Redes Sociales] Error al verificar:', err);
+    statusText.setAttribute('role', 'alert');
     statusText.textContent = 'Error al verificar. Intenta de nuevo.';
   } finally {
+    socialActionPending = false;
+    btnVerificar.removeAttribute('aria-busy');
     btnVerificar.disabled = false;
     btnVerificar.textContent = 'Ya conecté mis cuentas — Verificar';
   }
@@ -2200,33 +2316,56 @@ async function checkSessionAndLote() {
   }
 }
 
+async function handleConfigSubmit(e) {
+  e.preventDefault();
+  if (!currentLote) return;
+  const context = captureTenantContext();
+  const status = document.getElementById('configStatus');
+  const finish = window.VeloDriveUI.beginSubmit(e.target.querySelector('button[type="submit"]'), status, 'Guardando…', 'Guardando configuración…');
+  if (!finish) return;
+  try {
+    const nombre = document.getElementById('configNombreLote').value.trim();
+    if (!nombre) throw new Error('INVALID_NAME');
+    const { data, error } = await supabaseClient.from('lotes').update({
+      nombre, whatsapp_number: document.getElementById('configPhoneLote').value.trim()
+    }).eq('id', context.loteId).select().single();
+    if (!isCurrentTenantContext(context)) return;
+    if (error || data?.id !== context.loteId) throw new Error('CONFIG_SAVE_FAILED');
+    currentLote = data;
+    renderConfigLote();
+    finish('Configuración guardada.', 'success');
+  } catch (_) {
+    if (isCurrentTenantContext(context)) finish('No se pudo guardar. Revisa los datos y tu conexión.', 'error');
+  } finally { finish(); }
+}
+
 async function handleLoginSubmit(e) {
   e.preventDefault();
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
   const errorEl = document.getElementById('loginError');
   const btnLogin = e.target.querySelector('button[type="submit"]');
-  if (errorEl) errorEl.textContent = '';
-  if (btnLogin) { btnLogin.disabled = true; btnLogin.textContent = 'Iniciando sesión...'; }
+  const finish = window.VeloDriveUI.beginSubmit(btnLogin, errorEl, 'Iniciando sesión…', 'Validando tu acceso…');
+  if (!finish) return;
 
   try {
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) {
       console.error('[Login] Error Supabase:', error);
-      if (errorEl) errorEl.textContent = error.message || 'Credenciales no válidas.';
+      finish(error.message || 'Credenciales no válidas.', 'error');
       return;
     }
     if (!data || !data.user) {
-      if (errorEl) errorEl.textContent = 'No se pudo autenticar. Intenta de nuevo.';
+      finish('No se pudo autenticar. Intenta de nuevo.', 'error');
       return;
     }
     currentUser = data.user;
     await checkSessionAndLote();
   } catch (err) {
     console.error('[Login] Excepción:', err);
-    if (errorEl) errorEl.textContent = 'Error de conexión. Verifica tu internet.';
+    finish('Error de conexión. Verifica tu internet.', 'error');
   } finally {
-    if (btnLogin) { btnLogin.disabled = false; btnLogin.textContent = 'Iniciar Sesión'; }
+    finish();
   }
 }
 
@@ -2408,8 +2547,10 @@ async function handlePasswordRecoverySubmit(event) {
   const recoveryLink = passwordRecoveryActive || directPasswordChange || new URLSearchParams(window.location.search).get('type') === 'recovery';
   const message = document.getElementById('recoveryMessage');
   const button = document.getElementById('recoverySubmitBtn');
-  if (message) { message.textContent = ''; message.className = 'text-xs text-center'; }
-  if (button) button.disabled = true;
+  if (message) message.className = 'action-status text-center';
+  const finish = window.VeloDriveUI.beginSubmit(button, message, 'Procesando…', recoveryLink ? 'Actualizando tu contraseña…' : 'Solicitando enlace de recuperación…');
+  if (!finish) return;
+  let outcome = 'success';
   try {
     if (recoveryLink) {
       const password = document.getElementById('newPassword').value;
@@ -2430,32 +2571,37 @@ async function handlePasswordRecoverySubmit(event) {
       if (message) { message.textContent = 'Si existe una cuenta con ese correo, recibirás un enlace para cambiar la contraseña.'; message.classList.add('text-[#4B8B72]'); }
     }
   } catch (error) {
+    outcome = 'error';
     if (message) { message.textContent = error.message || 'No se pudo completar la solicitud.'; message.classList.add('text-[#A9584A]'); }
   } finally {
-    if (button) button.disabled = false;
+    finish(message?.textContent || '', outcome);
   }
 }
 
 async function handleManageSubscription() {
   const status = document.getElementById('subscriptionManageMessage');
   const button = document.getElementById('manageSubscriptionBtn');
-  if (button) button.disabled = true;
-  if (status) status.textContent = '';
+  const context = captureTenantContext();
+  const finish = window.VeloDriveUI.beginSubmit(button, status, 'Abriendo facturación…', 'Preparando el portal seguro de Stripe…');
+  if (!finish) return;
   try {
     const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
     if (sessionError || !sessionData?.session?.access_token) throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
     const response = await sessionRequests.fetch('/api/stripe-portal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionData.session.access_token}` },
-      body: JSON.stringify({ lote_id: currentLote?.id })
+      body: JSON.stringify({ lote_id: context.loteId }),
+      signal: AbortSignal.timeout(15000)
     });
     const result = await response.json();
+    if (!isCurrentTenantContext(context)) return;
     if (!response.ok || !result.url) throw new Error(result.message || 'No se pudo abrir el portal de Stripe.');
+    if (new URL(result.url).origin !== 'https://billing.stripe.com') throw new Error('El enlace de facturación no es válido.');
     window.location.assign(result.url);
   } catch (error) {
-    if (status) status.textContent = error.message || 'No se pudo abrir el portal de Stripe.';
+    if (isCurrentTenantContext(context)) finish(error.message || 'No se pudo abrir el portal de Stripe.', 'error');
   } finally {
-    if (button) button.disabled = false;
+    finish();
   }
 }
 
@@ -2588,18 +2734,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   on('btnPauseAiChat', 'click', pauseAiForActiveChat);
   on('btnResumeAiChat', 'click', resumeAiForActiveChat);
 
-  on('configForm', 'submit', async (e) => {
-    e.preventDefault();
-    const { data, error } = await supabaseClient.from('lotes').update({
-      nombre:           document.getElementById('configNombreLote').value.trim(),
-      whatsapp_number:  document.getElementById('configPhoneLote').value.trim()
-    }).eq('id', currentLote.id).select().single();
-    if (!error) { currentLote = data; renderConfigLote(); alert('Lote guardado.'); }
-  });
+  on('configForm', 'submit', handleConfigSubmit);
 
   const modalCar = document.getElementById('modalCarOverlay');
 
   on('btnAbrirModalCar', 'click', () => {
+    carEditorVersion += 1;
     editingCarId = null;
     carImageUrls = [];
     const form = document.getElementById('formNuevoCar');
@@ -2621,6 +2761,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   on('btnCerrarModalCar', 'click', () => {
+    carEditorVersion += 1;
     if (modalCar) modalCar.classList.add('hidden');
     document.getElementById('btnAbrirModalCar')?.focus();
   });
@@ -2779,12 +2920,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnImportar.addEventListener('click', () => fileInputExcel.click());
     fileInputExcel.addEventListener('change', function(e) {
       const file = e.target.files[0];
-      if (!file) return;
+      if (!file || !currentLote || catalogModeActive || fileInputExcel.disabled) return;
+      const context = captureTenantContext();
+      const finish = window.VeloDriveUI.beginSubmit(btnImportar, document.getElementById('importStatus'), 'Importando…', 'Leyendo el archivo CSV…');
+      if (!finish) return;
+      if (file.size > 2 * 1024 * 1024) { finish('El CSV debe pesar hasta 2 MB.', 'error'); fileInputExcel.value = ''; return; }
+      fileInputExcel.disabled = true;
       const reader = new FileReader();
+      reader.onerror = () => { finish('No se pudo leer el archivo CSV.', 'error'); fileInputExcel.disabled = false; fileInputExcel.value = ''; };
       reader.onload = async function(event) {
+        let persisted = false;
+        try {
         const text = event.target.result;
         const lineas = text.split('\n');
-        if (lineas.length <= 1) return;
+        if (lineas.length <= 1 || lineas.length > 502) throw new Error('CSV_ROWS_INVALID');
         const headers = lineas[0].split(',').map(h => h.trim().toLowerCase());
         const autosParaInsertar = [];
         for (let i = 1; i < lineas.length; i++) {
@@ -2792,7 +2941,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const celdas = lineas[i].split(',').map(c => c.trim());
           if (celdas.length >= 4) {
             autosParaInsertar.push({
-              lote_id: currentLote.id,
+              lote_id: context.loteId,
               brand: celdas[headers.indexOf('marca')] || celdas[headers.indexOf('brand')] || 'Genérico',
               model: celdas[headers.indexOf('modelo')] || celdas[headers.indexOf('model')] || 'Unidad',
               year: parseInt(celdas[headers.indexOf('año')]) || parseInt(celdas[headers.indexOf('year')]) || new Date().getFullYear(),
@@ -2805,44 +2954,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
           }
         }
-        if (autosParaInsertar.length > 0) {
+        if (!isCurrentTenantContext(context)) return;
+        if (autosParaInsertar.length > 0 && autosParaInsertar.length <= 500) {
+          document.getElementById('importStatus').textContent = `Guardando ${autosParaInsertar.length} vehículos…`;
           const { error } = await supabaseClient.from('cars').insert(autosParaInsertar);
-          if (error) { alert('Error en formato del CSV. Valida tus columnas.'); console.error(error); }
-          else { alert(`¡Éxito! Se cargaron ${autosParaInsertar.length} autos.`); await fetchCars(); }
-        }
-        fileInputExcel.value = '';
+          if (error) throw new Error('CSV_INSERT_FAILED');
+          persisted = true;
+          const fresh = await fetchCars();
+          if (isCurrentTenantContext(context)) finish(fresh ? `Se importaron ${autosParaInsertar.length} vehículos.` : 'Importación guardada. No se pudo actualizar la vista; actualiza el inventario sin importar otra vez.', fresh ? 'success' : 'error');
+        } else throw new Error('CSV_EMPTY');
+        } catch (_) {
+          if (isCurrentTenantContext(context)) finish(persisted ? 'Importación guardada. Actualiza el inventario sin importar otra vez.' : 'No se confirmó la importación. Revisa el formato y el inventario antes de intentar otra vez. Máximo 500 vehículos.', 'error');
+        } finally { finish(); fileInputExcel.value = ''; fileInputExcel.disabled = false; }
       };
-      reader.readAsText(file);
+      try { reader.readAsText(file); }
+      catch (_) { finish('No se pudo leer el CSV.', 'error'); fileInputExcel.value = ''; fileInputExcel.disabled = false; }
     });
   }
 
   // Upload de fotos de autos
   const imageInput = document.getElementById('carImageFile');
-  if (imageInput) {
-    imageInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files);
-      if (!files.length) return;
-      const statusText = document.getElementById('uploadStatusText');
-      if (statusText) { statusText.textContent = `Subiendo ${files.length} foto(s) a la nube... ⏳`; statusText.style.color = 'var(--amber-strong)'; }
-      for (const file of files) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
-        const filePath = `${currentLote.id}/${fileName}`;
-        const { error } = await supabaseClient.storage.from('car-images').upload(filePath, file);
-        if (error) {
-          if (statusText) { statusText.textContent = 'Fallo de Storage. Valida permisos del Bucket.'; statusText.style.color = 'var(--danger)'; }
-          continue;
-        }
-        const { data: publicUrlData } = supabaseClient.storage.from('car-images').getPublicUrl(filePath);
-        carImageUrls.push(publicUrlData.publicUrl);
-      }
-      const urlEl = document.getElementById('carImageUrl');
-      if (urlEl) urlEl.value = carImageUrls[0] || '';
-      renderCarThumbs();
-      if (statusText) { statusText.textContent = `${carImageUrls.length} foto(s) lista(s). 🖼️`; statusText.style.color = 'var(--success)'; }
-      imageInput.value = '';
-    });
-  }
+  if (imageInput) imageInput.addEventListener('change', subirFotosVehiculo);
 
   // Submit form de unidad: muestra el progreso y bloquea envíos repetidos.
   on('formNuevoCar', 'submit', async (e) => {

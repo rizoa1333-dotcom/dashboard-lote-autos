@@ -1,0 +1,21 @@
+button[aria-busy="true"] { cursor: progress; }
+button[aria-busy="true"]::before {
+  content: "";
+  display: inline-block;
+  width: .85em;
+  height: .85em;
+  margin-inline-end: .5em;
+  vertical-align: -.1em;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: velodrive-busy .8s linear infinite;
+}
+.action-status { min-height: 1.5em; font-size: .8125rem; color: #D1D5DB; }
+.action-status[data-state="error"] { color: #FF9885; }
+.action-status[data-state="success"] { color: #8BCAB0; }
+#dashboardSyncStatus { margin-block: 0; }
+@keyframes velodrive-busy { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  button[aria-busy="true"]::before { animation: none; }
+}
