@@ -1,0 +1,10 @@
+{
+  "name": "velodrive-n8n-security-overlay",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@simple-git/argv-parser": "2.0.1",
+    "handlebars": "4.7.10",
+    "simple-git": "4.0.2"
+  }
+}

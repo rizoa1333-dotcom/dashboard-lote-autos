@@ -1,5 +1,27 @@
 # Runtime n8n: cambio aplicado el 2026-10-24
 
+## Despliegue de seguridad vigente
+
+Despliegue `4d3efb9b-c096-4d29-b7db-853b47e37f4f`: **SUCCESS**,
+27Oct2026 UTC (26Oct por la noche en Mexico). Construido mediante el Dockerfile
+de esta carpeta sobre la base oficial fijada, con el conjunto corregido descrito
+abajo. La imagen oficial sin parches del apartado siguiente es el estado anterior.
+
+Verificacion posterior: readiness HTTP 200; solicitud vacia sin autenticacion
+al webhook de WhatsApp HTTP 401. Se conservaron por comparacion 16 workflows,
+3 activos con las mismas versiones, 5 credenciales, 311 migraciones y las huellas
+de las 27 variables configuradas. No se consultaron conversaciones.
+
+La inspeccion adicional de hashes del contenedor por SSH no pudo completarse:
+Railway rechazo la autenticacion de la clave temporal registrada. La clave se
+revoco y se eliminaron sus archivos; Railway confirmo cero claves registradas.
+Por tanto, el escaneo 0 CRITICAL / 27 HIGH corresponde al artefacto local probado,
+no a un nuevo SBOM extraido del contenedor productivo.
+
+El cambio se desplego exclusivamente en el servicio existente de n8n, sin crear
+servicios cloud adicionales ni modificar Evolution. Los hallazgos HIGH, la
+promocion de Evolution y la recuperacion completa siguen pendientes.
+
 Servicio existente, sin servicios cloud adicionales:
 
 - Imagen oficial: `n8nio/n8n@sha256:d02752c6ab446ae9db8deec2f9cc887c378f77cdcad31650814df936b7386dfb`.
@@ -46,6 +68,44 @@ La version4.0.1 incluye argv-parser2.0.0, que no basta; la rama corregida debe
 incluir argv-parser2.0.1. Ver [cambios oficiales](https://github.com/steveukx/git-js/blob/main/simple-git/CHANGELOG.md).
 Handlebars corregido4.7.10 requiere pruebas del correo y consumidores de plantillas.
 No se modifico la imagen productiva por esta inspeccion.
+
+## Preparacion del parche — 26Oct2026
+
+Nuevo escaneo de la misma imagen oficial, con base de avisos actualizada el
+26Oct19:14UTC: **4 CRITICAL / 29 HIGH**. Los dos hallazgos adicionales son
+libcurl 8.22.0-r0 (CVE-2026-92392; correccion 8.23.0-r0) y toml 3.0.0
+(CVE-2026-114142; correccion 5.0.1). El ultimo implica un cambio mayor que
+requiere identificar y probar consumidores; no sustituirlo globalmente a ciegas.
+
+`package.json` define un conjunto independiente con versiones exactas:
+simple-git 4.0.2, argv-parser 2.0.1 y Handlebars 4.7.10.
+`harden-runtime.cjs` adapta el import del nodo Git y autoriza explicitamente
+las variables que usan Git, source control y promociones. Exige las huellas
+SHA256 de los tres archivos oficiales; rechaza cambios de version y de
+estructura. No desactiva globalmente el guard de entorno de simple-git.
+
+Validacion de la candidata `velodrive-n8n-security:qa-20261026b`:
+
+- Lock independiente generado por npm; Dockerfile conserva la base oficial
+  exacta y UID 1000. No cambia dependencias del dashboard.
+- Prueba sin red de la clase Git real: repositorio local, commit y status.
+- Promociones: nombre de rama valido/invalido y configuracion token/SSH.
+- Source control: import dinamico nombrado y configuracion HTTPS/SSH.
+- Doce plantillas reales de correo, express-handlebars y LangChain;
+  comprobacion de escape HTML y bloqueo de propiedades heredadas.
+- Workflow real local: limite HTTP y de respuesta gzip, cancelacion temprana.
+- Respaldo nuevo por TLS verificado y cifrado directo AES256GCM. Restauracion
+  sin Internet: 16 workflows desactivados, 5 credenciales descifrables,
+  311 migraciones sin cambios, readiness correcto y UID 1000.
+- Suite unitaria completa: 205 pruebas aprobadas; revision independiente
+  sin bloqueantes. No se repitieron los E2E del dashboard por esta imagen.
+- Escaneo del artefacto exacto: **0 CRITICAL / 27 HIGH**. Los HIGH siguen
+  pendientes; esta correccion no constituye una certificacion de seguridad.
+
+La primera descarga fue bloqueada por el limite de revision automatica;
+se reanudo por el mecanismo normal cuando estuvo disponible. No se eludio.
+El despliegue y su resultado se registran por separado al terminar la
+comprobacion de produccion. Una subida del dashboard no actualiza esta imagen.
 
 Referencia anterior de despliegue: 8a411ab9-370e-4e29-95e6-29adfef8f09b.
 Railway expone deploymentRollback(id); su disponibilidad se consulto, pero no se
