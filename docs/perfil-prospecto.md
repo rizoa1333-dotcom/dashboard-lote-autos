@@ -27,3 +27,39 @@ cierre de sesion y pausa pendiente en una conversacion anterior. Datos ficticios
 no se modificaron conversaciones ni documentos de produccion en estas pruebas.
 Trabajo de render O(n) respecto a mensajes/documentos mostrados; guardas y cierre
 son O(1) salvo busqueda del boton de retorno en la lista de leads renderizada.
+
+## Desplazamiento tactil — 27 de octubre de 2026
+
+Se reprodujo el fallo comunicado por el usuario: los paneles Datos, Docs y Chat
+superaban la altura de su contenedor flex. El recorte exterior ocultaba contenido
+y el gesto no desplazaba el area esperada. Tres pruebas con CSS real fallaron
+antes de corregir la altura; otra detecto el cierre de solo 36px de ancho.
+
+Correccion: `min-height: 0` en paneles e historial; por debajo de 1024px los
+paneles ocupan el espacio restante con `flex: 1 1 0%`. Datos y Docs controlan su
+scroll; Chat conserva el scroll en el historial. Encabezado, pestanas y cierre
+permanecen disponibles. No cambia la consulta ni el aislamiento de conversaciones.
+
+Se incorporan semantica tablist/tab/tabpanel, seleccion y paneles inactivos inert,
+flechas/Home/End y recorrido circular del dialogo. Al ampliar a escritorio se
+retiran estilos inline de ocultacion y se recupera el foco si la barra movil
+desaparece. El cierre tiene 44x44 CSS px en movil. El texto secundario del perfil
+pasa de contraste 3.63:1 a 6.91:1 frente a #161922.
+
+Revision mediante ui-ux-pro-max: guia de objetivos tactiles, separacion y foco;
+la busqueda especifica del scroll no devolvio una guia pertinente. La solucion
+de altura se basa en la reproduccion y en mediciones del DOM, no en ese resultado.
+Se conserva el estilo existente.
+
+Cobertura nueva: gestos tactiles emulados de Chromium sobre Datos/Docs/Chat,
+320x568, 390x640 y 844x390, cambio a escritorio, teclado y navegacion por siete
+modulos con taps sin forzar clics. Se comprueba tambien WebKit con perfiles,
+geometria, teclado y navegacion; no equivale a una prueba en un iPhone fisico.
+La revision independiente detecto dos regresiones de foco que se corrigieron y
+se cubrieron con pruebas que primero fallaron. No se modifico styles.css ni el
+trabajo independiente de web-premium.
+
+Verificacion final de esta revision: 205 unitarias y 54 E2E de Chromium
+aprobadas, mas 13 comprobaciones de perfil/navegacion/teclado en WebKit.
+Incluye nueve escenarios nuevos de interaccion movil. Revision independiente
+final sin bloqueantes tras corregir sus observaciones de foco.

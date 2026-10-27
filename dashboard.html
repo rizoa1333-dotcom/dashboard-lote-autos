@@ -895,17 +895,17 @@
 
     <p id="drawerLoadStatus" role="status" aria-live="polite" class="action-status px-4"></p>
     <!-- Tabs móvil (ocultos en desktop) -->
-    <div class="flex lg:hidden border-b border-[#272A30] bg-[#12151C] flex-shrink-0">
-      <button data-drawer-tab="tab-datos" class="drawer-tab-btn active flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">👤 Datos</button>
-      <button data-drawer-tab="tab-chat" class="drawer-tab-btn flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">💬 Chat</button>
-      <button data-drawer-tab="tab-docs" class="drawer-tab-btn flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">📎 Docs</button>
+    <div role="tablist" aria-label="Secciones del perfil" class="flex lg:hidden border-b border-[#272A30] bg-[#12151C] flex-shrink-0">
+      <button id="drawerTabDatos" type="button" role="tab" aria-controls="tab-datos" aria-selected="true" data-drawer-tab="tab-datos" class="drawer-tab-btn active flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">👤 Datos</button>
+      <button id="drawerTabChat" type="button" role="tab" aria-controls="tab-chat" aria-selected="false" tabindex="-1" data-drawer-tab="tab-chat" class="drawer-tab-btn flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">💬 Chat</button>
+      <button id="drawerTabDocs" type="button" role="tab" aria-controls="tab-docs" aria-selected="false" tabindex="-1" data-drawer-tab="tab-docs" class="drawer-tab-btn flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center">📎 Docs</button>
     </div>
 
     <!-- Contenido: 3 columnas en desktop, tabs en móvil -->
     <div class="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
 
       <!-- COLUMNA 1 — Datos del Lead -->
-      <div id="tab-datos" class="drawer-tab-content w-full lg:w-80 bg-[#12151C] lg:border-r border-[#272A30] p-5 overflow-y-auto space-y-4 flex-shrink-0 flex-col lg:flex hidden lg:block">
+      <div id="tab-datos" role="tabpanel" aria-labelledby="drawerTabDatos" class="drawer-tab-content w-full lg:w-80 bg-[#12151C] lg:border-r border-[#272A30] p-5 overflow-y-auto space-y-4 flex-shrink-0 flex-col lg:flex hidden lg:block">
         <div class="text-center pb-4 border-b border-[#272A30]">
           <div class="w-14 h-14 mx-auto rounded-2xl bg-[#F5F5F4] text-[#0F1219] flex items-center justify-center font-bold text-xl mb-2 font-mono" id="crmAvatarInitials">--</div>
           <h4 id="drawerNombre" class="font-bold text-base truncate">---</h4>
@@ -941,7 +941,7 @@
       </div>
 
       <!-- COLUMNA 2 — Chat -->
-      <div id="tab-chat" class="drawer-tab-content flex-1 bg-[#0F1219] flex flex-col min-w-0 lg:border-r border-[#272A30] hidden lg:flex">
+      <div id="tab-chat" role="tabpanel" aria-labelledby="drawerTabChat" class="drawer-tab-content flex-1 bg-[#0F1219] flex flex-col min-w-0 lg:border-r border-[#272A30] hidden lg:flex">
         <div class="px-3 md:px-4 py-2 min-h-10 bg-[#12151C] border-b border-[#272A30] flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
           <p class="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider flex items-center gap-1.5">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -961,7 +961,7 @@
       </div>
 
       <!-- COLUMNA 3 — Expediente -->
-      <div id="tab-docs" class="drawer-tab-content w-full lg:w-72 bg-[#12151C] p-5 overflow-y-auto space-y-4 flex-shrink-0 hidden lg:block" style="-webkit-overflow-scrolling: touch;">
+      <div id="tab-docs" role="tabpanel" aria-labelledby="drawerTabDocs" class="drawer-tab-content w-full lg:w-72 bg-[#12151C] p-5 overflow-y-auto space-y-4 flex-shrink-0 hidden lg:block" style="-webkit-overflow-scrolling: touch;">
         <div>
           <h5 class="text-xs font-bold uppercase tracking-wider mb-1">📎 Expediente Digital</h5>
           <p class="text-[11px] text-[#9CA3AF]">Documentos indexados automáticamente por n8n</p>

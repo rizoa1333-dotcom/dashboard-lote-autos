@@ -17,6 +17,26 @@ button[aria-busy="true"]::before {
 #dashboardSyncStatus { margin-block: 0; }
 /* Tailwind uses the independent translate property; transform alone does not reset it. */
 #drawerPro.drawer-open { translate: 0 0 !important; }
+#drawerPro .drawer-tab-content,
+#crmChatHistoryContainer { min-height: 0; }
+#crmChatHistoryContainer {
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+#drawerPro [class~="text-[#6B7280]"] { color: var(--text-dim); }
+@media (max-width: 1023px) {
+  #drawerPro .drawer-tab-content {
+    flex: 1 1 0%;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  #drawerPro #tab-chat { overflow: hidden; }
+  #closeDrawerBtn { min-width: 44px; min-height: 44px; }
+}
 @keyframes velodrive-busy { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   button[aria-busy="true"]::before { animation: none; }

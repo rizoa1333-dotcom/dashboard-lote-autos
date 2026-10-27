@@ -152,7 +152,7 @@ const supabaseMock = String.raw`(() => {
       if (this.op !== 'select' && !navigator.onLine) return { data: null, error: { message: 'Failed to fetch: offline' } };
       if (this.op === 'insert' || this.op === 'update') await delay(450);
       const key = this.table === 'cars' ? 'cars' : this.table === 'car_expenses' ? 'expenses' : null;
-      const rows = key ? state[key] : this.table === 'lotes' ? [state.lote] : [];
+      const rows = key ? state[key] : this.table === 'lotes' ? [state.lote] : this.table === 'chat_history' ? (state.chatMessages || []) : [];
       const matches = rows.filter((row) => this.filters.every(([field, value]) => String(row[field]) === value));
       if (this.op === 'insert') {
         const values = Array.isArray(this.payload) ? this.payload : [this.payload];
@@ -174,7 +174,7 @@ const supabaseMock = String.raw`(() => {
         if (state.deletes[key] !== undefined) state.deletes[key] += matches.length;
         return { data: null, error: null };
       }
-      const selected = this.table === 'lotes' ? matches : rows;
+      const selected = ['lotes','chat_history'].includes(this.table) ? matches : rows;
       const data = this.columns && this.columns !== '*' ? selected.map(row => Object.fromEntries(this.columns.split(',').map(column => [column, row[column]]))) : selected;
       return { data: this.one ? (data[0] || null) : data, error: null };
     }
@@ -729,5 +729,94 @@ test.describe('perfil de prospecto',()=>{
   await page.locator('.btn-ver-perfil[data-lead-id="lead-a"]:visible').first().click();await expect(page.locator('#btnPauseAiChat')).toBeEnabled();await page.locator('#btnPauseAiChat').click();
   await page.locator('#closeDrawerBtn').click();await page.locator('.btn-ver-perfil[data-lead-id="lead-b"]:visible').first().click();await expect(page.locator('#drawerNombre')).toHaveText('Bruno Prueba');
   await page.evaluate(()=>window.__releasePause({error:null}));await expect(page.locator('#crmAiHandoffStatus')).toHaveText('IA activa');await expect(page.locator('#btnPauseAiChat')).toBeEnabled();await expect(page.locator('#btnPauseAiChat')).toHaveText('Pausar IA · 30 min');
+ });
+});
+
+test.describe('interaccion tactil del perfil',()=>{
+ test.use({viewport:{width:390,height:640},hasTouch:true,isMobile:true});
+ let server,origin;
+ test.beforeAll(async()=>{server=require('../../server').listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));origin='http://127.0.0.1:'+server.address().port;});
+ test.afterAll(async()=>{server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));});
+ async function openMobileProfile(page){
+  await page.route('https://n8n-production-97a4.up.railway.app/**',route=>route.fulfill({json:{}}));
+  await setupPage(page,{user:{id:'user-qa-001'},access_token:'mock'},null,'',origin);
+  await page.evaluate(()=>{
+   stopSync();currentLote.plan_status='active';renderSubscriptionStatus();
+   leadsCache=[{id:'touch-lead',nombre:'Prospecto de prueba',phone_number:'523121110001',notes:'Notas extensas del expediente. '.repeat(150),ultimo_mensaje:'Mensaje extenso del prospecto. '.repeat(150),status:'Calificado'}];
+   window.__fakeState.chatMessages=Array.from({length:40},(_,i)=>({lote_id:currentLote.id,phone_number:'3121110001',role:i%2?'assistant':'user',message:'Mensaje '+i+' de la conversación de prueba. '.repeat(4)}));renderLeadsTable();
+  });
+  await page.locator('.btn-ver-perfil:visible').first().tap();
+  await expect(page.locator('#drawerPro')).toHaveClass(/drawer-open/);
+  await expect(page.locator('#drawerPro')).not.toHaveAttribute('aria-busy','true');
+  await expect.poll(()=>page.locator('#drawerPro').evaluate(el=>Math.abs(el.getBoundingClientRect().left))).toBeLessThan(1);
+ }
+ async function swipe(page,locator,direction){
+  const box=await locator.boundingBox();const client=await page.context().newCDPSession(page);
+  const x=Math.round(box.x+box.width/2),start=Math.round(box.y+(direction==='up'?0.8:0.2)*box.height),end=Math.round(box.y+(direction==='up'?0.2:0.8)*box.height);
+  try{
+   await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y:start}]});
+   for(let i=1;i<=8;i++){await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:Math.round(start+(end-start)*i/8)}]});await page.evaluate(()=>new Promise(requestAnimationFrame));}
+   await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  }finally{await client.detach();}
+ }
+ for(const tab of ['datos','docs'])test('desplaza '+tab+' con el dedo sin quedar recortado',async({page})=>{
+  await openMobileProfile(page);await page.locator('[data-drawer-tab="tab-'+tab+'"]').tap();
+  const panel=page.locator('#tab-'+tab);
+  expect(await panel.evaluate(el=>el.clientHeight<=el.parentElement.clientHeight+1)).toBe(true);
+  await swipe(page,panel,'up');await expect.poll(()=>panel.evaluate(el=>el.scrollTop)).toBeGreaterThan(20);
+  await expect(page.locator('#closeDrawerBtn')).toBeInViewport();
+  await page.screenshot({path:path.resolve(__dirname,'../../.qa/evidence/profile-touch-'+tab+'.png')});
+ });
+ test('desplaza la conversacion hacia mensajes anteriores sin mover todo el perfil',async({page})=>{
+  await openMobileProfile(page);await page.locator('[data-drawer-tab="tab-chat"]').tap();
+  const history=page.locator('#crmChatHistoryContainer');
+  await expect(history.locator('.self-start')).toHaveCount(20);
+  expect(await page.locator('#tab-chat').evaluate(el=>el.clientHeight<=el.parentElement.clientHeight+1)).toBe(true);
+  await expect.poll(()=>history.evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
+  const before=await history.evaluate(el=>el.scrollTop);await swipe(page,history,'down');
+  await expect.poll(()=>history.evaluate(el=>el.scrollTop)).toBeLessThan(before-20);
+  await expect(page.locator('#closeDrawerBtn')).toBeInViewport();
+ });
+ test('restaura las tres columnas al pasar de telefono a escritorio',async({page})=>{
+  await openMobileProfile(page);await page.locator('[data-drawer-tab="tab-docs"]').tap();
+  await page.locator('[data-drawer-tab="tab-docs"]').focus();
+  await page.setViewportSize({width:1365,height:900});
+  for(const id of ['tab-datos','tab-chat','tab-docs'])await expect(page.locator('#'+id)).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>document.getElementById('drawerPro').contains(document.activeElement))).toBe(true);
+ });
+ test('Tab y Shift Tab permanecen dentro del perfil y omiten pestanas inactivas',async({page})=>{
+  await openMobileProfile(page);
+  for(const tab of ['datos','docs']){
+   await page.locator('[data-drawer-tab="tab-'+tab+'"]').tap();
+   await page.locator('#tab-'+tab).focus();await page.keyboard.press('Tab');
+   await expect(page.locator('#closeDrawerBtn')).toBeFocused();
+   await page.keyboard.press('Shift+Tab');await expect(page.locator('#tab-'+tab)).toBeFocused();
+  }
+ });
+ test('pestanas con teclado y boton de cerrar con area tactil suficiente',async({page})=>{
+  await openMobileProfile(page);
+  const close=await page.locator('#closeDrawerBtn').boundingBox();expect(close.width).toBeGreaterThanOrEqual(44);expect(close.height).toBeGreaterThanOrEqual(44);
+  const first=page.locator('[data-drawer-tab="tab-datos"]');await first.focus();await page.keyboard.press('ArrowRight');
+  await expect(page.locator('[data-drawer-tab="tab-chat"]')).toBeFocused();await expect(page.locator('#tab-chat')).toBeVisible();
+  await page.keyboard.press('Escape');await expect(page.locator('#drawerOverlay')).toBeHidden();
+ });
+ for(const viewport of [{width:320,height:568},{width:844,height:390}])test('pantallas compactas '+viewport.width+'x'+viewport.height+' mantienen panel y cierre accesibles',async({page})=>{
+  await page.setViewportSize(viewport);await openMobileProfile(page);
+  for(const tab of ['datos','docs','chat']){
+   await page.locator('[data-drawer-tab="tab-'+tab+'"]').tap();
+   expect(await page.locator('#tab-'+tab).evaluate(el=>el.clientHeight<=el.parentElement.clientHeight+1)).toBe(true);
+   await expect(page.locator('#closeDrawerBtn')).toBeInViewport();
+  }
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.locator('#closeDrawerBtn').tap();await expect(page.locator('#drawerOverlay')).toBeHidden();
+ });
+ test('navega por los modulos desde el menu tactil sin clics forzados',async({page})=>{
+  await openMobileProfile(page);await page.locator('#closeDrawerBtn').tap();
+  for(const section of ['inventario','marketing','pipeline','citas','analiticas','ventas','configuracion']){
+   await page.locator('#openSidebar').tap();
+   await page.locator('[data-section="section-'+section+'"]').tap();
+   await expect(page.locator('#section-'+section)).toBeVisible();await expect(page.locator('#overlay')).toBeHidden();
+   await expect.poll(()=>page.locator('#sidebar').evaluate(el=>el.getBoundingClientRect().right)).toBeLessThanOrEqual(1);
+  }
  });
 });

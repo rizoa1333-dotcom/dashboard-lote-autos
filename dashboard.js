@@ -1788,42 +1788,64 @@ function closeDrawer() {
 // DRAWER TABS — navegación móvil entre Datos / Chat / Docs
 // ============================================================
 function initDrawerTabs() {
-  const tabs = document.querySelectorAll('.drawer-tab-btn');
+  const tabs = [...document.querySelectorAll('.drawer-tab-btn')];
   if (!tabs.length) return;
+  const desktop = window.matchMedia('(min-width: 1024px)');
+  let activeTab = 'tab-datos';
+
+  function renderTabs() {
+    document.querySelectorAll('.drawer-tab-content').forEach(panel => {
+      const visible = desktop.matches || panel.id === activeTab;
+      if (desktop.matches) panel.style.removeProperty('display');
+      else panel.style.display = visible ? (panel.id === 'tab-chat' ? 'flex' : 'block') : 'none';
+      panel.inert = !visible;
+      panel.setAttribute('aria-hidden', String(!visible));
+      panel.tabIndex = visible ? 0 : -1;
+    });
+    tabs.forEach(button => {
+      const selected = button.dataset.drawerTab === activeTab;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+    });
+  }
 
   function activarTab(tabId) {
-    // Ocultar todos los paneles
-    document.querySelectorAll('.drawer-tab-content').forEach(el => {
-      el.style.display = 'none';
-    });
-    // Desactivar todos los botones
-    tabs.forEach(btn => btn.classList.remove('active'));
-
-    // Mostrar panel seleccionado
-    const panel = document.getElementById(tabId);
-    if (panel) panel.style.display = tabId === 'tab-chat' ? 'flex' : 'block';
-
-    // Activar botón correspondiente
-    const btn = document.querySelector(`[data-drawer-tab="${tabId}"]`);
-    if (btn) btn.classList.add('active');
-
-    // Si es el chat, hacer scroll al fondo
-    if (tabId === 'tab-chat') {
+    if (!tabs.some(button => button.dataset.drawerTab === tabId)) return;
+    activeTab = tabId;
+    renderTabs();
+    if (!desktop.matches && tabId === 'tab-chat') {
       const chat = document.getElementById('crmChatHistoryContainer');
       if (chat) setTimeout(() => { chat.scrollTop = chat.scrollHeight; }, 50);
     }
   }
 
   tabs.forEach(btn => {
-    btn.addEventListener('click', () => {
-      activarTab(btn.getAttribute('data-drawer-tab'));
+    btn.addEventListener('click', () => activarTab(btn.dataset.drawerTab));
+    btn.addEventListener('keydown', event => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const index = tabs.indexOf(btn);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      activarTab(tabs[next].dataset.drawerTab);
+      tabs[next].focus();
     });
   });
-
-  // Al abrir el drawer, activar tab de datos por defecto (solo en móvil)
-  window._activarDrawerTabDatos = () => {
-    if (window.innerWidth < 1024) activarTab('tab-datos');
-  };
+  desktop.addEventListener('change', () => {
+    renderTabs();
+    const drawer = document.getElementById('drawerPro');
+    if (drawer.classList.contains('drawer-open')) {
+      const focused = document.activeElement;
+      if (desktop.matches && (focused === document.body || focused?.matches('.drawer-tab-btn'))) {
+        document.getElementById(activeTab)?.focus();
+      } else if (focused?.closest('.drawer-tab-content[inert]')) {
+        tabs.find(button => button.dataset.drawerTab === activeTab)?.focus();
+      }
+    }
+  });
+  window._activarDrawerTabDatos = () => activarTab('tab-datos');
+  renderTabs();
 }
 
 function initCatalogMode() {
@@ -2642,7 +2664,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(!drawer?.classList.contains('drawer-open'))return;
     if(event.key==='Escape'){event.preventDefault();closeDrawer();return;}
     if(event.key!=='Tab')return;
-    const controls=[...drawer.querySelectorAll('button,input,select,textarea,a[href]')].filter(element=>!element.disabled&&element.getClientRects().length);
+    const controls=[...drawer.querySelectorAll('button,input,select,textarea,a[href],[tabindex]')]
+      .filter(element=>!element.disabled&&element.tabIndex>=0&&!element.closest('[inert]')&&element.getClientRects().length);
     const first=controls[0],last=controls[controls.length-1];
     if(!drawer.contains(document.activeElement)){event.preventDefault();first?.focus();}
     else if(event.shiftKey&&(document.activeElement===first||document.activeElement===document.getElementById('drawerTitle'))){event.preventDefault();last?.focus();}
