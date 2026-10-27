@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { adaptGitNode, adaptSourceControl, adaptPromotions, verifyOverlayManifest, hardenRuntime } = require('../../infra/security-lab/n8n/harden-runtime.cjs');
+const { adaptGitNode, adaptSourceControl, adaptPromotions, verifyOverlayManifest, hardenRuntime, planPackageSlots } = require('../../infra/security-lab/n8n/harden-runtime.cjs');
+const completeManifest = require('../../infra/security-lab/n8n/package.json');
 
 test('n8n Git adapter uses the named API without changing other defaults', () => {
   const source = 'const simple_git_1 = __importDefault(require("simple-git"));\nconst git = (0, simple_git_1.default)(gitOptions).env(cleanEnv);\n';
@@ -33,12 +34,11 @@ test('n8n runtime rejects a different vendor source before changing files', () =
     const overlay = path.join(temporary, 'overlay');
     const gitFile = path.join(root, 'node_modules/.pnpm/n8n-nodes-base@test/node_modules/n8n-nodes-base/dist/nodes/Git/Git.node.js');
     fs.mkdirSync(path.dirname(gitFile), { recursive: true });
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({version:'2.44.6'}));
     fs.mkdirSync(overlay);
     const source = 'module.exports = { unrelated: true };';
     fs.writeFileSync(gitFile, source);
-    fs.writeFileSync(path.join(overlay, 'package.json'), JSON.stringify({ dependencies: {
-      'simple-git': '4.0.2', handlebars: '4.7.10', '@simple-git/argv-parser': '2.0.1',
-    } }));
+    fs.writeFileSync(path.join(overlay, 'package.json'), JSON.stringify(completeManifest));
     assert.throws(() => hardenRuntime(root, overlay), /GIT_SOURCE_HASH_MISMATCH/);
     assert.equal(fs.readFileSync(gitFile, 'utf8'), source);
     assert.deepEqual(fs.readdirSync(overlay), ['package.json']);
@@ -53,11 +53,23 @@ test('n8n Git adapter rejects upstream changes rather than silently patching', (
 });
 
 test('n8n overlay requires corrected exact package versions', () => {
-  const manifest = { dependencies: { 'simple-git': '4.0.2', handlebars: '4.7.10', '@simple-git/argv-parser': '2.0.1' } };
+  const manifest = structuredClone(completeManifest);
   assert.equal(verifyOverlayManifest(manifest), true);
   for (const version of ['4.0.1', '^4.0.2', '3.36.0']) {
     assert.throws(() => verifyOverlayManifest({ dependencies: { ...manifest.dependencies, 'simple-git': version } }), /OVERLAY_VERSION/);
   }
   assert.throws(() => verifyOverlayManifest({ dependencies: { ...manifest.dependencies, handlebars: '4.7.9' } }), /OVERLAY_VERSION/);
   assert.throws(() => verifyOverlayManifest({ dependencies: { ...manifest.dependencies, '@simple-git/argv-parser': '2.0.0' } }), /OVERLAY_VERSION/);
+});
+
+test('HTTP patch replaces both redirect copies and keeps Undici 6 and 7 separate', () => {
+  const entries = ['simple-git@3.36.0_supports-color@8.1.1','handlebars@4.7.9','@simple-git+argv-parser@1.1.1',
+    'body-parser@2.3.0_supports-color@8.1.1','multer@2.3.0','follow-redirects@1.16.0_debug@4.3.4','follow-redirects@1.16.0_debug@4.4.3',
+    'undici@6.29.0','undici@7.29.1'];
+  const slots = planPackageSlots(entries);
+  assert.equal(slots.filter(slot=>slot.packageName==='follow-redirects').length,2);
+  assert.equal(slots.find(slot=>slot.directory==='undici@6.29.0').overlayName,'undici-v6');
+  assert.equal(slots.find(slot=>slot.directory==='undici@7.29.1').overlayName,'undici-v7');
+  assert.throws(()=>planPackageSlots(entries.filter(entry=>!entry.includes('debug@4.4.3'))),/PACKAGE_LAYOUT_DRIFT/);
+  assert.throws(()=>planPackageSlots([...entries,'undici@6.30.0']),/PACKAGE_LAYOUT_DRIFT/);
 });

@@ -1,6 +1,69 @@
-# Runtime n8n: cambio aplicado el 2026-10-24
+# Runtime n8n: despliegues y remediacion
 
-## Despliegue de seguridad vigente
+## Despliegue vigente — 27Oct2026
+
+Servicio existente, despliegue `5ac7174f-61a9-4995-be51-038e097ce638`: **SUCCESS**.
+Base oficial estable n8n **2.45.4**, fijada a
+`sha256:80e23ced901f0e22597d4f3464e3aaf9d835372262ea6f08ef760d8ca35df25c`.
+Se conservan las correcciones oficiales de Git, Handlebars y Nodemailer.
+Los hashes de los consumidores Git se verifican sin adaptar su codigo en esta base.
+Los adaptadores 2.44.6 se retienen solo para reproducir la candidata historica.
+
+Parches adicionales, instalados desde lock independiente:
+
+| Paquete | Version efectiva |
+| --- | --- |
+| body-parser | 2.4.0 |
+| multer | 2.5.0 |
+| follow-redirects | 1.16.1 en ambas copias |
+| undici | 6.29.1 y 7.30.1, manteniendo separadas las ramas |
+| brotli-libs | 1.2.1-r0 |
+| libcurl | 8.23.0-r0 |
+
+La base del proveedor carece de apk. Se copian temporalmente apk/libapk desde una
+imagen oficial fijada por digest, se actualizan los dos paquetes con versiones
+exactas y se retiran las herramientas. La candidata final conserva UID 1000;
+la prueba comprueba que `/opt/velodrive-apk` no existe.
+
+Pruebas reales sin Internet: JSON gzip valido 200, corrupto 400, limite
+descomprimido 413; multipart valido y limite de foto 413; retirada de cabeceras
+sensibles tras redireccion en las dos copias; ambas ramas Undici; Git, source
+control HTTPS/SSH, 13 plantillas de correo, express-handlebars y LangChain.
+Workflow local de n8n: rechazo y cancelacion temprana de respuestas grandes y gzip.
+
+Respaldo fresco cifrado por TLS verificado y restauracion aislada. Las cinco
+migraciones nuevas (311 a 316) se revisaron; el estado de partida no contiene
+filas en agents/agent_history. Las huellas de workflows y credenciales se
+conservan. La imagen anterior arranco sobre el esquema migrado sin retroceder
+la base. Esto valida la reversion para el estado probado; usar funciones nuevas
+de agentes, skills o promociones puede cambiar esa compatibilidad. No se ejecutan
+migraciones DOWN destructivas como prueba ni sobre produccion.
+
+Verificacion posterior: 16 workflows, 3 activos con las mismas versiones,
+5 credenciales, 316 migraciones y las huellas de las 27 variables conservadas.
+Readiness HTTP 200 y webhook WhatsApp sin autenticacion HTTP 401. Cero ejecuciones
+nuevas/en curso al iniciar el cambio; no se leyo execution_data.
+
+Escaneo del artefacto local exacto con base de avisos 27Oct13:12UTC:
+**0 CRITICAL / 12 HIGH**, frente a 27 HIGH de la candidata anterior.
+Es un escaneo de la candidata, no un SBOM extraido del contenedor servido.
+
+Pendientes abiertos, sin overrides globales para ocultarlos:
+
+| Paquete | HIGH | Condicion pendiente |
+| --- | ---: | --- |
+| @azure/msal-node | 2 | Probar intercambios OAuth simulados y conservar la rama 3 separada |
+| MCP SDK/server | 4 | Versiones alineadas, limites explicitos y transportes concurrentes |
+| toml | 4 | Probar parser 5.0.1 y el consumidor Snowflake |
+| markdown-it | 1 | Comprobar tambien los bundles del editor ya compilados |
+| zod | 1 | Migracion coordinada o backport; v4 rompe consumidores v3 |
+
+La prueba Zod v4 mostro perdida silenciosa de restricciones con zod-to-json-schema;
+por ello no se sustituye globalmente. Un `.max()` aplicado a arrays v3 tampoco
+limita el trabajo previo: hacen falta presupuestos antes de validar cada entrada
+alcanzable. La revision de estos 12 avisos sigue abierta.
+
+## Despliegue anterior — 26Oct2026
 
 Despliegue `4d3efb9b-c096-4d29-b7db-853b47e37f4f`: **SUCCESS**,
 27Oct2026 UTC (26Oct por la noche en Mexico). Construido mediante el Dockerfile

@@ -4,7 +4,12 @@
   "private": true,
   "dependencies": {
     "@simple-git/argv-parser": "2.0.1",
+    "body-parser": "2.4.0",
+    "follow-redirects": "1.16.1",
     "handlebars": "4.7.10",
-    "simple-git": "4.0.2"
+    "multer": "2.5.0",
+    "simple-git": "4.0.2",
+    "undici-v6": "npm:undici@6.29.1",
+    "undici-v7": "npm:undici@7.30.1"
   }
 }

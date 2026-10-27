@@ -5,7 +5,26 @@ const crypto = require('node:crypto');
 const GIT_SOURCE_SHA256 = '4f83e5249d7d69e796e2cc1ccf55d732ee429e14041623e4c55207693474eb44';
 const SOURCE_CONTROL_SHA256 = '69400823fe736395e4a7f5d7900156ff227bd1efcc0db7317f130369cfa5d155';
 const PROMOTIONS_SHA256 = '6ed0d413363b14b72e45eb6444ed797ffe72f0e77a0a1a8ba04c7de328fb3922';
-const VERSION_PINS = Object.freeze({ 'simple-git': '4.0.2', handlebars: '4.7.10', '@simple-git/argv-parser': '2.0.1' });
+const VERSION_PINS = Object.freeze({ 'simple-git': '4.0.2', handlebars: '4.7.10', '@simple-git/argv-parser': '2.0.1',
+  'body-parser': '2.4.0', 'follow-redirects': '1.16.1', multer: '2.5.0', 'undici-v6': 'npm:undici@6.29.1', 'undici-v7': 'npm:undici@7.30.1' });
+const PACKAGE_SLOTS = Object.freeze([
+  {packageName:'simple-git',prefix:'simple-git@',overlayName:'simple-git',version:'4.0.2',copies:1},
+  {packageName:'handlebars',prefix:'handlebars@',overlayName:'handlebars',version:'4.7.10',copies:1},
+  {packageName:'@simple-git/argv-parser',prefix:'@simple-git+argv-parser@',overlayName:'@simple-git/argv-parser',version:'2.0.1',copies:1},
+  {packageName:'body-parser',prefix:'body-parser@',overlayName:'body-parser',version:'2.4.0',copies:1},
+  {packageName:'multer',prefix:'multer@',overlayName:'multer',version:'2.5.0',copies:1},
+  {packageName:'follow-redirects',prefix:'follow-redirects@',overlayName:'follow-redirects',version:'1.16.1',copies:2},
+  {packageName:'undici',prefix:'undici@6.',overlayName:'undici-v6',version:'6.29.1',copies:1},
+  {packageName:'undici',prefix:'undici@7.',overlayName:'undici-v7',version:'7.30.1',copies:1},
+]);
+
+function planPackageSlots(entries) {
+  return PACKAGE_SLOTS.flatMap(slot => {
+    const directories = entries.filter(entry => entry.startsWith(slot.prefix));
+    if (directories.length !== slot.copies) throw new Error(`PACKAGE_LAYOUT_DRIFT: ${slot.packageName}`);
+    return directories.map(directory => ({ ...slot, directory }));
+  });
+}
 
 function adaptGitNode(source) {
   const previousImport = 'const simple_git_1 = __importDefault(require("simple-git"));';
@@ -36,35 +55,37 @@ function verifyOverlayManifest(manifest) {
 
 function hardenRuntime(root, overlay) {
   verifyOverlayManifest(JSON.parse(fs.readFileSync(path.join(overlay, 'package.json'), 'utf8')));
+  const vendorVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+  if (!['2.44.6','2.45.4'].includes(vendorVersion)) throw new Error('UNREVIEWED_VENDOR_VERSION');
   const store = path.join(root, 'node_modules/.pnpm');
   const entries = fs.readdirSync(store);
   const nodes = entries.filter(name => name.startsWith('n8n-nodes-base@'));
   if (nodes.length !== 1) throw new Error('NODES_BASE_DRIFT');
   const gitFile = path.join(store, nodes[0], 'node_modules/n8n-nodes-base/dist/nodes/Git/Git.node.js');
   const source = fs.readFileSync(gitFile, 'utf8');
-  if (crypto.createHash('sha256').update(source).digest('hex') !== GIT_SOURCE_SHA256) {
+  const gitHash = vendorVersion === '2.45.4' ? '04a45bb1048744bd95a69cc62fffc3e125555e8572fdce8875abcf31499c3e3b' : GIT_SOURCE_SHA256;
+  if (crypto.createHash('sha256').update(source).digest('hex') !== gitHash) {
     throw new Error('GIT_SOURCE_HASH_MISMATCH');
   }
-  const adapted = adaptGitNode(source);
+  const adapted = vendorVersion === '2.45.4' ? source : adaptGitNode(source);
   const consumerPatches = [
     { file: gitFile, adapted },
-    { file: path.join(root, 'dist/modules/source-control.ee/source-control-git.service.ee.js'), hash: SOURCE_CONTROL_SHA256, adapt: adaptSourceControl },
-    { file: path.join(root, 'dist/modules/promotions.ee/promotions-git.service.js'), hash: PROMOTIONS_SHA256, adapt: adaptPromotions },
+    { file: path.join(root, 'dist/modules/source-control.ee/source-control-git.service.ee.js'), hash: vendorVersion === '2.45.4' ? '9fafc0c69f7402aca0814b566596e3ba5275361ffec4b3b32caff911d1dac667' : SOURCE_CONTROL_SHA256, adapt: adaptSourceControl },
+    { file: path.join(root, 'dist/modules/promotions.ee/promotions-git.service.js'), hash: vendorVersion === '2.45.4' ? 'e49172c5ba00809a955e864c979d8da1008b8131491b2dfc6a2c253e754860de' : PROMOTIONS_SHA256, adapt: adaptPromotions },
   ];
   for (const patch of consumerPatches.slice(1)) {
     const text = fs.readFileSync(patch.file, 'utf8');
     if (crypto.createHash('sha256').update(text).digest('hex') !== patch.hash) throw new Error('GIT_SOURCE_HASH_MISMATCH');
-    patch.adapted = patch.adapt(text);
+    patch.adapted = vendorVersion === '2.45.4' ? text : patch.adapt(text);
   }
   const replacements = [];
-  for (const [name, version] of Object.entries(VERSION_PINS)) {
-    const target = path.join(overlay, 'node_modules', name);
+  for (const slot of planPackageSlots(entries)) {
+    const { packageName: name, version } = slot;
+    const target = path.join(overlay, 'node_modules', slot.overlayName);
     const installed = JSON.parse(fs.readFileSync(path.join(target, 'package.json'), 'utf8'));
     if (installed.version !== version) throw new Error(`INSTALLED_VERSION: ${name}`);
-    const prefix = `${name.replace('/', '+')}@`;
-    const copies = entries.filter(entry => entry.startsWith(prefix));
-    if (copies.length !== 1) throw new Error(`PACKAGE_LAYOUT_DRIFT: ${name}`);
-    replacements.push({ old: path.join(store, copies[0], 'node_modules', name), target });
+    if (installed.name !== name) throw new Error(`INSTALLED_PACKAGE_NAME: ${name}`);
+    replacements.push({ old: path.join(store, slot.directory, 'node_modules', name), target });
   }
   // A vendor change must fail the build before files are modified.
   for (const patch of consumerPatches) fs.writeFileSync(patch.file, patch.adapted);
@@ -72,10 +93,22 @@ function hardenRuntime(root, overlay) {
     fs.rmSync(replacement.old, { recursive: true, force: false });
     fs.cpSync(replacement.target, replacement.old, { recursive: true, dereference: true });
     const nested = path.join(replacement.old, 'node_modules');
-    if (fs.existsSync(nested)) throw new Error('OVERLAY_NESTED_DEPENDENCIES_DRIFT');
-    fs.symlinkSync(path.join(overlay, 'node_modules'), nested, 'dir');
+    fs.mkdirSync(nested, { recursive: true });
+    const sharedModules = path.join(overlay, 'node_modules');
+    const linkDependency = (name, parent) => {
+      const destination = path.join(parent, name);
+      if (!fs.existsSync(destination)) fs.symlinkSync(path.join(sharedModules, path.relative(nested, destination)), destination, 'dir');
+    };
+    for (const entry of fs.readdirSync(sharedModules, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      if (entry.name.startsWith('@')) {
+        const scope = path.join(nested, entry.name);
+        fs.mkdirSync(scope, { recursive: true });
+        for (const dependency of fs.readdirSync(path.join(sharedModules, entry.name))) linkDependency(dependency, scope);
+      } else linkDependency(entry.name, nested);
+    }
   }
 }
 
 if (require.main === module) hardenRuntime('/usr/local/lib/node_modules/n8n', '/opt/velodrive-security');
-module.exports = { adaptGitNode, adaptSourceControl, adaptPromotions, verifyOverlayManifest, hardenRuntime };
+module.exports = { adaptGitNode, adaptSourceControl, adaptPromotions, verifyOverlayManifest, hardenRuntime, planPackageSlots };
