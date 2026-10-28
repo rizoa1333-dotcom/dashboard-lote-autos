@@ -7,7 +7,7 @@ RUN LD_LIBRARY_PATH=/opt/velodrive-apk /opt/velodrive-apk/apk add --no-cache 'br
 WORKDIR /opt/velodrive-security
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
-COPY harden-runtime.cjs ./harden-runtime.cjs
+COPY harden-runtime.cjs mcp-patches.cjs mcp-input-guard.cjs ./
 RUN node ./harden-runtime.cjs
 USER node
 WORKDIR /home/node

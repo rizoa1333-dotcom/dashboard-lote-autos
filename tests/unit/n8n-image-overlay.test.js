@@ -65,11 +65,21 @@ test('n8n overlay requires corrected exact package versions', () => {
 test('HTTP patch replaces both redirect copies and keeps Undici 6 and 7 separate', () => {
   const entries = ['simple-git@3.36.0_supports-color@8.1.1','handlebars@4.7.9','@simple-git+argv-parser@1.1.1',
     'body-parser@2.3.0_supports-color@8.1.1','multer@2.3.0','follow-redirects@1.16.0_debug@4.3.4','follow-redirects@1.16.0_debug@4.4.3',
-    'undici@6.29.0','undici@7.29.1'];
+    'undici@6.29.0','undici@7.29.1','toml@4.2.0','@azure+msal-node@3.8.4','@azure+msal-node@5.1.5','@azure+msal-node@5.6.0',
+    '@modelcontextprotocol+sdk@1.31.0_zod@3.25.76','@modelcontextprotocol+server@2.0.0','@modelcontextprotocol+core@2.0.0',
+    '@modelcontextprotocol+node@2.0.0_server@2.0.0','zod@3.25.76'];
   const slots = planPackageSlots(entries);
   assert.equal(slots.filter(slot=>slot.packageName==='follow-redirects').length,2);
   assert.equal(slots.find(slot=>slot.directory==='undici@6.29.0').overlayName,'undici-v6');
   assert.equal(slots.find(slot=>slot.directory==='undici@7.29.1').overlayName,'undici-v7');
+  assert.equal(slots.filter(slot=>slot.packageName==='@azure/msal-node').length,2);
+  assert.equal(slots.find(slot=>slot.directory==='@azure+msal-node@3.8.4'),undefined);
+  assert.equal(slots.find(slot=>slot.packageName==='toml').version,'5.0.1');
+  assert.equal(slots.find(slot=>slot.packageName==='@modelcontextprotocol/sdk').version,'1.32.0');
+  assert.equal(slots.find(slot=>slot.packageName==='@modelcontextprotocol/server').version,'2.3.0');
+  assert.equal(slots.find(slot=>slot.packageName==='@modelcontextprotocol/core').version,'2.3.0');
+  assert.equal(slots.find(slot=>slot.packageName==='@modelcontextprotocol/node').version,'2.1.0');
+  assert.equal(slots.find(slot=>slot.packageName==='zod'),undefined);
   assert.throws(()=>planPackageSlots(entries.filter(entry=>!entry.includes('debug@4.4.3'))),/PACKAGE_LAYOUT_DRIFT/);
   assert.throws(()=>planPackageSlots([...entries,'undici@6.30.0']),/PACKAGE_LAYOUT_DRIFT/);
 });

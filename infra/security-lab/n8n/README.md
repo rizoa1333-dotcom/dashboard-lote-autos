@@ -1,6 +1,13 @@
 # Runtime n8n: despliegues y remediacion
 
-## Despliegue vigente — 27Oct2026
+Actualizacion 28Oct2026: [despliegue MCP y evidencia](../../../docs/n8n-security-release-2026-10-28.md).
+El recuento del artefacto local actualizado es 0 CRITICAL / 2 HIGH; los resultados
+historicos inferiores no sustituyen ese informe. Despliegue
+`917ba2cb-dbf8-4c9f-a0a2-103d75b9a55a` SUCCESS, configuracion conservada y respuesta
+real de WhatsApp confirmada por el usuario. El constructor requiere 2.45.4; los adaptadores 2.44.6
+se conservan solo como funciones para pruebas historicas, no como base admitida.
+
+## Despliegue anterior — 27Oct2026
 
 Servicio existente, despliegue `5ac7174f-61a9-4995-be51-038e097ce638`: **SUCCESS**.
 Base oficial estable n8n **2.45.4**, fijada a
