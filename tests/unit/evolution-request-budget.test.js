@@ -2,8 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const express = require('express');
-const { createRequestBudget, parserErrorHandler } = require('../../infra/security-lab/evolution/request-budget.cjs');
-const { hardenHttpParsing } = require('../../infra/security-lab/evolution/harden-media.cjs');
+const { createRequestBudget, parserErrorHandler, health } = require('../../infra/security-lab/evolution/request-budget.cjs');
+const { hardenHttpParsing, hardenHealthRoute } = require('../../infra/security-lab/evolution/harden-media.cjs');
 
 async function fixture(t, options = {}) {
   const app = express();
@@ -107,4 +107,27 @@ test('invalid JSON has a neutral error without reflecting the submitted content'
   const response = await fetch(f.url + '/echo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"secret":"DO_NOT_REFLECT",oops' });
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: 'INVALID_REQUEST_BODY' });
+});
+
+test('health remains accessible without Origin while business CORS stays strict', async t => {
+  const app = express();
+  if (health) app.get('/health', health);
+  app.use((req, _res, next) => next(req.headers.origin === 'https://allowed.example' ? undefined : new Error('CORS_BLOCK')));
+  app.get('/business', (_req, res) => res.sendStatus(401));
+  app.use((_error, _req, res, _next) => res.status(500).json({ error: 'CORS_BLOCK' }));
+  const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const response = await fetch(base + '/health'); assert.equal(response.status, 200); assert.equal(response.headers.get('cache-control'), 'no-store'); assert.deepEqual(await response.json(), { status: 'ok' });
+  assert.equal((await fetch(base + '/business')).status, 500);
+  assert.equal((await fetch(base + '/business', { headers: { Origin: 'https://allowed.example' } })).status, 401);
+});
+
+test('native health route is registered before the unchanged CORS middleware', () => {
+  assert.equal(typeof hardenHealthRoute, 'function');
+  const source = 'await new yt(E).onModuleInit(),s.use((0,Ll.default)({origin(r,a){ORIGINAL_CORS}})';
+  const result = hardenHealthRoute(source);
+  assert.ok(result.includes('s.get("/health",VeloDriveRequestBudget.health),s.use((0,Ll.default)'));
+  assert.ok(result.includes('ORIGINAL_CORS'));
+  assert.throws(() => hardenHealthRoute('changed source'), /MEDIA_CONSUMER_DRIFT/);
 });

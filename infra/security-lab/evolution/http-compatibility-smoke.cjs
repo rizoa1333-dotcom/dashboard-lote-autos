@@ -6,6 +6,7 @@ const headers={'Content-Type':'application/json',Origin:origin};
 async function post(body,extra={}){return fetch(base+'/message/sendText/LOCAL_FAKE',{method:'POST',headers:{...headers,...extra},body,signal:AbortSignal.timeout(5000)});}
 let stage='oversized-json';
 (async()=>{
+ const root=await fetch(base+'/health',{signal:AbortSignal.timeout(5000)});assert.equal(root.status,200);assert.equal(root.headers.get('cache-control'),'no-store');assert.deepEqual(await root.json(),{status:'ok'});
  const oversized=await post(JSON.stringify({media:'x'.repeat(1024*1024)}));assert.equal(oversized.status,413);assert.equal((await oversized.json()).error,'REQUEST_TOO_LARGE');
  stage='normal-auth'; const normal=await post(JSON.stringify({number:'LOCAL_FAKE',text:'LOCAL_FIXTURE_ONLY'}));assert.equal(normal.status,404);await normal.text();
  stage='invalid-json'; const invalid=await post('{"secret":"DO_NOT_REFLECT",oops');assert.equal(invalid.status,400);assert.deepEqual(await invalid.json(),{error:'INVALID_REQUEST_BODY'});
@@ -20,5 +21,5 @@ let stage='oversized-json';
  const healthy=await fetch(base+'/instance/fetchInstances',{headers:{Origin:origin,apikey:process.env.AUTHENTICATION_API_KEY},signal:AbortSignal.timeout(5000)});assert.equal(healthy.status,200);await healthy.text();
  }finally{for(const req of pending)req.destroy();}
  let restored=false;for(let i=0;i<10;i++){const r=await post('{}');await r.text();if(r.status===404){restored=true;break;}await new Promise(resolve=>setTimeout(resolve,25));}assert.ok(restored);
- console.log(JSON.stringify({oversizedJson:413,normalMetadataUnknownInstance:404,invalidJsonNeutral:400,chunkedJson:413,inflatedJson:413,deepForm:400,tooManyFormParameters:413,saturated:503,authenticatedReadDuringSaturation:200,abortReleasesCapacity:true,productionData:false}));
+ console.log(JSON.stringify({healthRoot:200,oversizedJson:413,normalMetadataUnknownInstance:404,invalidJsonNeutral:400,chunkedJson:413,inflatedJson:413,deepForm:400,tooManyFormParameters:413,saturated:503,authenticatedReadDuringSaturation:200,abortReleasesCapacity:true,productionData:false}));
 })().catch(error=>{console.error(JSON.stringify({kind:'HTTP_BOUNDARY_FAILURE',stage,actual:typeof error.actual==='number'?error.actual:undefined,expected:typeof error.expected==='number'?error.expected:undefined}));process.exitCode=1});

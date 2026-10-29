@@ -143,7 +143,7 @@ UID 1000 y autenticación 401/401/200. El escaneo del 28 de octubre de esta imag
 indicó 0 CRITICAL / 1 HIGH. Los identificadores históricos de arriba no sustituyen
 los del artefacto final siguiente.
 
-### Artefacto HTTP final verificado el 29 de octubre
+### Artefacto HTTP previo del 29 de octubre (sustituido)
 
 | Referencia | Valor |
 |---|---|
@@ -179,3 +179,40 @@ Multipart no pertenece al nuevo presupuesto: las rutas examinadas autentican
 antes de Multer, pero su memoryStorage no tiene un fileSize explícito. Permanece
 un riesgo autenticado y no se declara todo el tráfico HTTP acotado. No se
 parchean funciones no utilizadas solamente para reducir el contador del escáner.
+
+## Candidata final con sonda de salud
+
+La sonda de Railway no envía Origin. La raíz del proveedor devuelve 500 con el
+CORS estricto del ensayo, por lo que no sirve como condición de despliegue.
+Se añade exclusivamente `GET /health` antes de CORS y los parsers, con respuesta
+fija sin datos del negocio y Cache-Control: no-store. Las rutas de negocio
+conservan la política anterior. Es **liveness**, no prueba de disponibilidad de
+Postgres, Redis ni WhatsApp. La aceptación consulta además la conexión WhatsApp
+en memoria mediante connectionState; un estado open persistido no es suficiente.
+
+| Referencia de la candidata seleccionada | Valor |
+|---|---|
+| Imagen fuente | `sha256:5d2e9ab237047be39c8b59a46060a98725084d88ca7ec01938266401ab050faa` |
+| Artefacto congelado | `sha256:2a18b97bd8f1c603dabbcd75feed9c77eb53845ba007363f3b30c7dfa3150881` |
+| Archivo comprimido SHA-256 | `842c720e5cbf504dfb7407bc59f6a512acb9059b9610c2ceaa4a2ac670d083d7` |
+| Equivalencia | 43,510 entradas; 1,221,818,859 bytes |
+
+Pasaron 233 pruebas de aplicación, la equivalencia completa de archivos/config,
+el arranque aislado con 57 migraciones de igual checksum, la sonda sin Origin,
+la aceptación del proceso principal UID 1000 y los casos HTTP anteriores.
+Escaneo exacto con base del 29 de octubre: cero críticos y altos. Esa cifra no
+elimina los avisos medios ni los riesgos manuales ya descritos.
+
+El procedimiento de corte incorpora comprobación de todos los despliegues del
+servicio, cancelación de construcciones pendientes y comprobación de exclusión
+antes y después de aceptar una versión. Una subida intentada sin ID remoto
+confirmado bloquea la recuperación automática, aunque el cliente termine con
+código cero. El registro tolera fallos durante recuperación y se dispone de un
+procedimiento independiente que rechaza actuar mientras el orquestador o sus
+procesos auxiliares sigan activos. El inventario de procesos falla cerrado.
+Estas comprobaciones no se describen como un bloqueo distribuido frente a otros
+administradores: la ventana requiere un único operador de despliegue.
+
+**Todavía pendiente en este punto:** ejecutar el checkpoint coordinado y el
+corte, aceptar la conexión del proceso nuevo y obtener la prueba real del usuario.
+No se ha restaurado ni borrado ningún dato productivo para preparar esta ronda.

@@ -49,4 +49,10 @@ function parserErrorHandler(error, _req, res, next) {
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ error: status === 413 ? 'REQUEST_TOO_LARGE' : 'INVALID_REQUEST_BODY' }));
 }
-module.exports = { createRequestBudget, middleware: createRequestBudget(), parserErrorHandler };
+function health(_req, res) {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');
+  res.end('{"status":"ok"}');
+}
+module.exports = { createRequestBudget, middleware: createRequestBudget(), parserErrorHandler, health };

@@ -55,6 +55,7 @@ function hardenEvolutionMedia(source) {
   const count = direct.count;
   if (count !== 10) throw new Error('MEDIA_CONSUMER_DRIFT');
   result = hardenHttpParsing(result);
+  result = hardenHealthRoute(result);
   return 'const VeloDriveMedia=require("../security/secure-media.cjs");\nconst VeloDriveRequestBudget=require("../security/request-budget.cjs");\n' + result;
 }
 
@@ -71,4 +72,9 @@ function hardenHttpParsing(source) {
     ',(0,at.urlencoded)({extended:!0,limit:"136mb"}),(0,at.json)({limit:"136mb"}),',
     ',VeloDriveRequestBudget.middleware,(0,at.urlencoded)({extended:!0,limit:"64kb",parameterLimit:1000,depth:8}),(0,at.json)({limit:"1mb"}),VeloDriveRequestBudget.parserErrorHandler,');
 }
-module.exports = { hardenBaileysMedia, hardenEvolutionMedia, rewriteDirectMediaCalls, hardenHttpParsing };
+function hardenHealthRoute(source) {
+  return replaceOnce(source,
+    'await new yt(E).onModuleInit(),s.use((0,Ll.default)',
+    'await new yt(E).onModuleInit(),s.get("/health",VeloDriveRequestBudget.health),s.use((0,Ll.default)');
+}
+module.exports = { hardenBaileysMedia, hardenEvolutionMedia, rewriteDirectMediaCalls, hardenHttpParsing, hardenHealthRoute };
