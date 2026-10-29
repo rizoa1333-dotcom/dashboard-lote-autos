@@ -63,3 +63,21 @@ a bases ni modifica servicios; la restauracion requiere un procedimiento separad
 La verificacion cuesta O(B) tiempo y O(M) memoria, donde B es el total y M el
 mayor archivo; cada archivo esta limitado a 64 MiB. La derivacion de contraseña
 requiere aproximadamente 128 MiB mas sobrecarga y usa un limite de 256 MiB.
+
+## Ensayo adicional del 29 de octubre
+
+Se generaron nuevas copias AES-256-GCM de Postgres Evolution, Redis y estructura
+de instancias. Las claves y la configuración están protegidas por DPAPI del
+usuario Windows actual. Se revocó el acceso SSH temporal después de copiarlas.
+
+La restauración aislada autenticó las tres copias y comprobó 57 migraciones,
+una instancia, una sesión con credenciales, un webhook, cinco claves Redis sin
+caducidad y dos directorios sin archivos. Se ejecutó la migración de la candidata
+HTTP final sin alterar el historial. No se arrancaron sesiones de WhatsApp, no se
+publicaron puertos y se retiraron los contenedores de restauración al finalizar.
+
+Son **instantáneas independientes tomadas con producción activa**. No sustituyen
+el checkpoint coordinado del corte ni prueban una transacción entre Postgres y
+Redis. Tampoco actualizan automáticamente el paquete USB del 25 de octubre:
+la custodia portable de las claves nuevas sigue pendiente. Esta distinción debe
+conservarse en cualquier afirmación de recuperabilidad del servicio.

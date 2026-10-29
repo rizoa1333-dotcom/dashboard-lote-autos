@@ -5,7 +5,10 @@ como despliegue activo `5cee1b80-06ea-4514-bf39-78451a88d989`, del 23 de octubre
 Faltan checkpoint coordinado, ensayo de reversión y aceptación real después del
 cambio. Este informe no certifica recuperación completa de VeloDrive.
 
-## Artefacto y trazabilidad
+## Artefacto previo y trazabilidad
+
+**Referencia histórica, sustituida por la revisión HTTP posterior. No promover
+este artefacto anterior**, aunque sus comprobaciones multimedia hayan pasado.
 
 | Referencia | Valor |
 |---|---|
@@ -73,6 +76,12 @@ con credenciales, un webhook y 57 migraciones; cero proxies por instancia activo
 No leyó conversaciones ni valores de credenciales. El acceso SSH temporal quedó
 revocado después de la comprobación. El proceso actual informa Node 24.15.0 y
 UID 0; la candidata se ensayó con Node 24.22.1 y UID 1000.
+El preflight detectó que los dos directorios vacíos de instancias eran propiedad
+de root y no admitían escritura por UID 1000. Se respaldó cifrada su estructura
+y se cambiaron exclusivamente esos dos propietarios a 1000:1000. La comprobación
+posterior conservó cantidades, huella de configuración y huella de migraciones;
+cero archivos regulares y enlaces simbólicos. No es un respaldo de la sesión:
+las credenciales continúan en Postgres.
 
 ## Riesgos y puertas pendientes
 
@@ -83,6 +92,10 @@ UID 0; la candidata se ensayó con Node 24.22.1 y UID 1000.
 2. **Recuperación coordinada:** respaldar Postgres, Redis, instancias y
    configuración con las escrituras detenidas; restaurar la copia en aislamiento
    y tener identificado el regreso al despliegue anterior antes de la promoción.
+   La API de Railway confirmó `canRedeploy` y `canRollback` para el despliegue
+   actual. Se descartó SIGSTOP: congelar Node no demuestra que haya terminado una
+   operación lógica entre almacenes. El binario del proveedor no contiene un
+   manejador explícito de SIGTERM/SIGINT; no se atribuye drenaje a esa señal.
 3. **Prueba productiva:** no se declara probado el acceso a medios reales por los
    fixtures. Después del despliegue hacen falta respuesta WhatsApp y documento
    ficticio, sin ejecutar otra copia con la misma sesión.
@@ -95,3 +108,74 @@ UID 0; la candidata se ensayó con Node 24.22.1 y UID 1000.
 El procesamiento de una descarga cuesta O(B) tiempo y hasta O(B) memoria al
 bufferizar, con B limitado a 16 MiB y cuatro operaciones activas. Ese límite no
 equivale a un límite global de memoria del proceso ni a una prueba de carga.
+
+## Revisión posterior: presupuestos HTTP antes del parser
+
+El análisis de consumidores confirmó un problema independiente de Zod: el
+proveedor registra JSON y URL-encoded con 136 MiB antes del guard de autenticación.
+La candidata `qa-20261028-http2`, imagen
+`sha256:d2c802f9a616ae7e350b7cf5d8b8971a7142096edcd27b5bdb0bbea487c65da1`,
+añade un middleware delante de esos parsers, sin modificar otros módulos:
+
+- JSON: 1 MiB, incluido contenido descomprimido; URL-encoded: 64 KiB,
+  1,000 parámetros y ocho niveles de anidamiento.
+- Cuatro solicitudes de esos tipos pendientes como máximo y 15 segundos para
+  recibir el cuerpo. El plazo se retira al terminar la recepción; no cancela
+  automáticamente una operación posterior. Un cliente desconectado libera su
+  cupo, por lo que esto no constituye un límite global de trabajos en ejecución.
+- Respuestas 413/400 para tamaño o formato, 408 para recepción incompleta y
+  503 con Retry-After cuando no hay cupo. Los errores del parser no reflejan el
+  contenido recibido.
+- Las transferencias multimedia grandes deben usar las rutas de URL protegidas;
+  JSON base64 de más de 1 MiB queda rechazado deliberadamente.
+
+Verificación: **231 pruebas unitarias aprobadas**. En el programa real arrancado
+con Postgres ficticio se comprobaron JSON grande, fragmentado y gzip expandido
+(413), JSON inválido sin reflejo (400), formulario profundo (400), exceso de
+parámetros (413), cuatro cuerpos incompletos y rechazo del quinto (503), lectura
+autenticada durante la saturación (200), y recuperación de cupos tras abortar.
+La instancia ficticia inexistente retorna 404 para una solicitud normal: el guard
+de existencia precede al de clave en esa ruta. No se cambió ese comportamiento
+para acomodar la prueba.
+
+Se repitieron las comprobaciones multimedia, compatibilidad, 57 migraciones,
+UID 1000 y autenticación 401/401/200. El escaneo del 28 de octubre de esta imagen
+indicó 0 CRITICAL / 1 HIGH. Los identificadores históricos de arriba no sustituyen
+los del artefacto final siguiente.
+
+### Artefacto HTTP final verificado el 29 de octubre
+
+| Referencia | Valor |
+|---|---|
+| Imagen final | `sha256:efc13aa5980554ae97a984cf66591a55e700dfd0d9b3605b7d07db14cd3f05fe` |
+| SHA-256 del archivo comprimido | `fa30eef2e4fa2cd37441fa3a705bff06d3e900e8522191f3925f9fb47d3f7276` |
+| Entradas y contenido comparados | 43,510 entradas; 1,221,818,620 bytes |
+| Migraciones frente a producción | 57; mismo hash de nombres y checksums |
+
+La imagen congelada pasó comparación completa de configuración y archivos, el
+smoke multimedia y general y el arranque con los casos HTTP anteriores. La suite
+completa volvió a pasar sus 231 pruebas el 29 de octubre. Todavía no está
+desplegada: resta el corte con respaldo coordinado y aceptación real.
+
+Escaneo de esta imagen con base **29 de octubre, 13:09 UTC**: **0 CRITICAL,
+0 HIGH, 29 MEDIUM y 1 LOW**. La lista de capas del informe corresponde a la
+imagen final. El inventario sigue incluyendo Zod 3.25.76, pero la base nueva ya
+no devuelve el aviso anterior para ese paquete. No se atribuye ese cambio de
+clasificación a una actualización de Zod ni se da por reparado su comportamiento
+observado. La revisión manual siguiente permanece relevante.
+
+### Alcance del aviso Zod y otros límites
+
+El esquema vulnerable identificado está en `@jimp/plugin-color`, método de
+convolución: matrices anidadas sin límite. El ejecutable de Evolution examinado
+usa Jimp para miniaturas con dimensiones escalares constantes. Baileys prefiere
+Sharp; su fallback Jimp usa lectura, resize y crop. No se identificó en esos
+consumidores una ruta externa a la matriz vulnerable ni llamadas del ejecutable
+a los helpers Zod opcionales de OpenAI. Eso **no demuestra ausencia universal de
+explotación y no cierra el aviso**. Una prueba de 32 elementos ficticios confirmó
+acumulación de errores O(n); añadir `.max()` en Zod 3 no evita ese recorrido.
+
+Multipart no pertenece al nuevo presupuesto: las rutas examinadas autentican
+antes de Multer, pero su memoryStorage no tiene un fileSize explícito. Permanece
+un riesgo autenticado y no se declara todo el tráfico HTTP acotado. No se
+parchean funciones no utilizadas solamente para reducir el contador del escáner.

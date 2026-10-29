@@ -23,7 +23,8 @@
 - [x] Rescan the existing candidate with the current vulnerability database. Result: 0 critical, 4 high, including three npm Undici notices and legacy Zod.
 - [x] Write a failing test for a version/layout-gated npm Undici replacement; implement the smallest controlled overlay and pin its lock.
 - [x] Trace actual inbound/outbound media consumers and automatic previews; document auth and URL provenance, then write denial/compatibility tests before changing each reachable unsafe boundary.
-- [x] Build the final local image; test npm/Prisma migrations, media, HTTP, authentication and concurrent state. Scan the exact final image. Frozen release also passed configuration/filesystem equivalence and the same runtime tests; see the release report.
+- [x] Build the final local image; test npm/Prisma migrations, media, HTTP, authentication and concurrent state. Scan the exact final image. The replacement frozen HTTP artifact passed configuration/filesystem equivalence, 231 unit tests, HTTP scenarios, 57 matching migrations and media/runtime tests on October 29; see the release report.
+- [x] Close the newly found 136 MiB pre-authentication parser exposure with bounded JSON/forms, concurrency/deadline controls, neutral errors and real HTTP tests. Authenticated multipart is a separate residual risk.
 - [x] Obtain independent review; resolve blockers before promotion. Source and frozen artifact approved for recovery/cutover preparation, not yet for production acceptance.
 - [ ] Verify a new coordinated encrypted Postgres/Redis checkpoint, instance files and configuration; restore in isolation and validate rollback without reconnecting real sessions.
 - [ ] Promote the verified artifact to the existing service; verify settings, migration counts, authentication and a real user-controlled WhatsApp/document canary. Record any remaining blockers honestly.

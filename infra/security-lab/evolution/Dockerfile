@@ -19,6 +19,7 @@ RUN npm install --global --ignore-scripts --no-audit --no-fund npm@12.2.1 \
 FROM assemble AS patched
 COPY harden-media.cjs /tmp/harden-media.cjs
 COPY secure-media.cjs ./security/secure-media.cjs
+COPY request-budget.cjs ./security/request-budget.cjs
 RUN node /tmp/harden-media.cjs \
     && node --check dist/main.js \
     && node --check node_modules/baileys/lib/Utils/messages-media.js \
