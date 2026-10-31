@@ -26,7 +26,10 @@
 - [x] Build the final local image; test npm/Prisma migrations, media, HTTP, authentication and concurrent state. Scan the exact final image. The replacement frozen HTTP artifact passed configuration/filesystem equivalence, 231 unit tests, HTTP scenarios, 57 matching migrations and media/runtime tests on October 29; see the release report.
 - [x] Close the newly found 136 MiB pre-authentication parser exposure with bounded JSON/forms, concurrency/deadline controls, neutral errors and real HTTP tests. Authenticated multipart is a separate residual risk.
 - [x] Obtain independent review; resolve blockers before promotion. Source and frozen artifact approved for recovery/cutover preparation, not yet for production acceptance.
-- [ ] Verify a new coordinated encrypted Postgres/Redis checkpoint, instance files and configuration; restore in isolation and validate rollback without reconnecting real sessions.
+- [x] Verify a coordinated encrypted Postgres/Redis checkpoint, instance files and configuration; restore in isolation and validate image-only rollback. Completed during attempt 3; no restored real sessions started. A fresh checkpoint is required for the next promotion because production resumed writes.
+- [x] Diagnose rejected delivery in an isolated build-only Railway project; delete it. Confirmed 413 for the 370 MB upload, then accepted the 77 MB reconstruction context with no application runtime.
+- [x] Address newly published October 31 HIGH findings in follow-redirects and decode-uri-component, including the scoped CJS/ESM compatibility bridge. Source image passed URI, compatibility, boot and fresh scan; final reduced image remains a separate gate.
+- [ ] Rebuild and verify the final reduced image including /tmp permissions, full equivalence, exact-image scan and runtime checks.
 - [ ] Promote the verified artifact to the existing service; verify settings, migration counts, authentication and a real user-controlled WhatsApp/document canary. Record any remaining blockers honestly.
 
 ## Release gates

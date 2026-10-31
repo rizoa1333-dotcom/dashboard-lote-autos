@@ -1,0 +1,21 @@
+FROM --platform=linux/amd64 evoapicloud/evolution-api@sha256:966625532d9076a2381e973a271307d107e6f070450de3abeeea8bd18be07252 AS vendor
+FROM --platform=linux/amd64 node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS reconstruct
+COPY --from=vendor / /vd-base/
+COPY manifest.json payload.bin.gz reconstruct-filesystem.cjs /tmp/vd-reconstruct/
+RUN VELODRIVE_RECONSTRUCTION_BUILD=1 node /tmp/vd-reconstruct/reconstruct-filesystem.cjs construct /tmp/vd-reconstruct/manifest.json /tmp/vd-reconstruct/payload.bin.gz /vd-root
+
+FROM --platform=linux/amd64 scratch
+COPY --from=reconstruct /vd-root/ /
+COPY manifest.json reconstruct-filesystem.cjs /tmp/vd-verify/
+RUN ["/bin/sh", "-c", "VELODRIVE_RECONSTRUCTION_BUILD=1 /usr/local/bin/node /tmp/vd-verify/reconstruct-filesystem.cjs verify /tmp/vd-verify/manifest.json && rm /tmp/vd-verify/manifest.json /tmp/vd-verify/reconstruct-filesystem.cjs && rmdir /tmp/vd-verify"]
+ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV NODE_VERSION="24.22.1"
+ENV YARN_VERSION="1.22.22"
+ENV DOCKER_ENV="true"
+ENV TZ="America/Sao_Paulo"
+ENV NODE_ENV="production"
+WORKDIR /evolution
+USER 1000:1000
+EXPOSE 8080
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/bin/bash","-c",". ./Docker/scripts/deploy_database.sh && npm run start:prod"]

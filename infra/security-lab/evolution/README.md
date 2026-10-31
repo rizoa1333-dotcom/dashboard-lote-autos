@@ -131,3 +131,23 @@ pago del dashboard no sustituye estas comprobaciones.
 
 La transformacion del manifiesto cuesta O(n) tiempo y espacio respecto al tamano
 del manifiesto; no procesa conversaciones ni datos de tenants.
+
+## Estado de la ronda del 31 de octubre
+
+La candidata anterior no se desplegó. El problema de transporte se reprodujo
+como HTTP 413 y el contexto reducido fue aceptado en un proyecto temporal de
+solo construcción, eliminado después. La nueva base de avisos requirió fijar
+follow-redirects 1.16.2 y decode-uri-component 0.5.1, con adaptación acotada de su
+consumidor query-string 7.1.3. El lock cambia únicamente esos dos paquetes.
+
+La fuente `qa-20261031-uri` pasó URI/Minio/redirecciones, multimedia,
+compatibilidad y arranque aislado. Su escaneo actualizado mostró cero críticos
+y altos, con avisos medios y bajos restantes. La reconstrucción reducida y su
+promoción siguen sujetas a sus propias pruebas; ver el
+[registro de versión](../../../docs/evolution-security-release-2026-10-28.md).
+
+El Dockerfile principal construye desde las dependencias fijadas. Para entregar
+una reconstrucción sin descargas se usa `Dockerfile.reconstruct` junto con un
+manifiesto y payload generados y verificados del artefacto congelado; estos
+archivos de software no se incluyen en Git. No se debe sustituir el contexto
+con credenciales ni exportaciones de datos productivos.

@@ -23,7 +23,8 @@ function hardenManifest(manifest){
     'compression@1':reference('compression'),'brace-expansion@2':'2.1.6',
     'defu@6':'6.1.5','effect@3':'3.20.0','ip-address@10':'10.3.1',
     'jws@3':'3.2.3','lodash@4':'4.18.1','minimatch@9':'9.0.7','path-to-regexp@0.1':'0.1.13',
-    'deepmerge-ts@7':'8.0.0','link-preview-js':reference('link-preview-js')};
+    'deepmerge-ts@7':'8.0.0','link-preview-js':reference('link-preview-js'),
+    'follow-redirects@1':'1.16.2','decode-uri-component@0':'0.5.1'};
   return result;
 }
 

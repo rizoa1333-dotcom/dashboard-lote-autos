@@ -111,3 +111,10 @@ test('la quinta ronda corrige parsers y ambas ramas de Undici sin migrar Zod cie
  assert.equal(out.overrides['undici@6'],'6.29.1');
  assert.equal(out.overrides.zod,undefined);
 });
+
+test('la ronda del 31 de octubre fija los dos avisos nuevos y conserva Minio',()=>{
+ const out=hardenManifest(fixture);
+ assert.equal(out.overrides['follow-redirects@1'],'1.16.2');
+ assert.equal(out.overrides['decode-uri-component@0'],'0.5.1');
+ assert.equal(out.dependencies.minio,fixture.dependencies.minio);
+});

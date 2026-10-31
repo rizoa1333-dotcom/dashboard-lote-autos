@@ -6,6 +6,7 @@ WORKDIR /evolution
 COPY --from=vendor /evolution/ ./
 COPY harden-manifest.cjs /tmp/harden-manifest.cjs
 COPY harden-npm.cjs /tmp/harden-npm.cjs
+COPY harden-uri-consumer.cjs /tmp/harden-uri-consumer.cjs
 COPY npm-security/ /opt/velodrive-npm-security/
 COPY package-lock.json ./package-lock.json
 RUN npm install --global --ignore-scripts --no-audit --no-fund npm@12.2.1 \
@@ -14,6 +15,7 @@ RUN npm install --global --ignore-scripts --no-audit --no-fund npm@12.2.1 \
     && node /tmp/harden-manifest.cjs \
     && npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
     && node /tmp/harden-manifest.cjs --disable-link-previews \
+    && node /tmp/harden-uri-consumer.cjs \
     && DATABASE_PROVIDER=postgresql npm run db:generate \
     && node -e "import('baileys').then(m=>{for(const k of ['initAuthCreds','useMultiFileAuthState','makeCacheableSignalKeyStore'])if(typeof m[k]!=='function')throw Error('BAILEYS_API_INCOMPATIBLE')})"
 FROM assemble AS patched

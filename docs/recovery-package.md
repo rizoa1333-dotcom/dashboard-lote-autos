@@ -55,8 +55,9 @@ a bases ni modifica servicios; la restauracion requiere un procedimiento separad
 - Archivo de instancias: estructura validada y extraida; dos directorios, cero archivos.
 - Las sesiones reales de WhatsApp no se arrancaron en el laboratorio.
 - **Pendiente:** respaldo completo y restauracion de Supabase, incluidos Auth y Storage.
-- **Pendiente:** checkpoint coordinado de Postgres y Redis con escrituras detenidas.
-  Las copias verificadas por separado no garantizan consistencia entre almacenes.
+- Se completó un checkpoint coordinado adicional de Postgres Evolution y Redis
+  con el servicio detenido; su alcance se precisa en el apartado siguiente.
+  Las copias anteriores verificadas por separado no garantizan esa consistencia.
 - **Pendiente:** frecuencia automatica, retencion, segunda custodia y objetivos RPO/RTO
   medidos. Un USB puntual no equivale a un plan de continuidad completo.
 
@@ -81,3 +82,23 @@ el checkpoint coordinado del corte ni prueban una transacción entre Postgres y
 Redis. Tampoco actualizan automáticamente el paquete USB del 25 de octubre:
 la custodia portable de las claves nuevas sigue pendiente. Esta distinción debe
 conservarse en cualquier afirmación de recuperabilidad del servicio.
+
+## Checkpoint coordinado del intento de corte
+
+En la ventana posterior se detuvo Evolution y se comprobaron Postgres sin
+clientes/transacciones escritores y Redis sin clientes de aplicación ni claves
+con caducidad, antes y después de copiar. Las mismas copias AES-256-GCM se
+restauraron localmente y conservaron 57 migraciones, una instancia, una sesión
+con credenciales y la configuración esperada. La copia de directorios vacíos
+precedió a la parada. No se arrancó WhatsApp en el laboratorio.
+
+Es un checkpoint coordinado de recuperación tras parada, sin prueba de vaciado
+lógico de trabajos ni transacción distribuida. Tras fallar la subida se arrancó
+la imagen anterior con los datos vigentes, sin restauración productiva, y se
+comprobó su conexión WhatsApp en memoria. Para un próximo corte se necesitan
+copias nuevas: el servicio volvió a admitir escrituras.
+
+Las claves de estas copias siguen ligadas al usuario Windows mediante DPAPI;
+no están incorporadas al USB portable. Esta limitación y la restauración
+integral pendiente de Supabase impiden afirmar recuperación completa ante la
+pérdida de este equipo.

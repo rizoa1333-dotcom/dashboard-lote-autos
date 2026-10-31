@@ -213,6 +213,111 @@ procesos auxiliares sigan activos. El inventario de procesos falla cerrado.
 Estas comprobaciones no se describen como un bloqueo distribuido frente a otros
 administradores: la ventana requiere un único operador de despliegue.
 
-**Todavía pendiente en este punto:** ejecutar el checkpoint coordinado y el
-corte, aceptar la conexión del proceso nuevo y obtener la prueba real del usuario.
-No se ha restaurado ni borrado ningún dato productivo para preparar esta ronda.
+### Resultado del intento de corte y recuperación
+
+Se completó un checkpoint coordinado de Postgres y Redis con Evolution detenido:
+sin clientes escritores, transacciones ni claves con caducidad en las
+comprobaciones de esa ventana. La restauración local de esas mismas copias
+autenticó los respaldos y verificó las 57 migraciones sin cambios, la instancia,
+la sesión y las credenciales presentes. No se arrancaron sesiones reales en el
+laboratorio. Es consistencia de recuperación tras parada; no se demostró un
+vaciado lógico de trabajos de negocio ni una transacción entre almacenes.
+
+El cliente de subida terminó sin identificador remoto. La reconciliación
+posterior no observó despliegues nuevos ni pendientes y se recuperó la imagen
+original, sin restaurar bases ni borrar datos. La recuperación
+`0a4c28d2-bf92-48c5-9e5d-350c0b40a20e` pasó autenticación 401/401/200,
+comprobación de la conexión WhatsApp en memoria como `open` y comparación de
+los hashes de configuración y migraciones. El acceso SSH temporal fue revocado.
+Las observaciones remotas no constituyen una prueba absoluta de que nunca haya
+existido una operación no visible.
+
+Una reproducción posterior en un proyecto temporal de **solo construcción**,
+sin variables de aplicación, datos, volúmenes ni ejecución de servicios,
+confirmó el rechazo **HTTP 413** de un cuerpo de 369,720,601 bytes. El proyecto
+temporal fue eliminado. Esta prueba identifica el problema de tamaño; no
+demuestra que la candidata esté desplegada.
+
+### Entrega reducida, en validación local
+
+El contexto alternativo reutiliza archivos de las dos imágenes base fijadas
+por digest y transporta solamente el contenido faltante. El manifiesto enumera
+43,511 entradas, incluido el marcador del artefacto; el payload comprimido mide
+75,087,759 bytes y el manifiesto 12,921,063 bytes. El conjunto no contiene datos
+de producción. No se descargan dependencias nuevas al reconstruir.
+
+`reconstruct-filesystem.cjs` valida rutas, límites, hashes, padres, ciclos y
+metadatos de enlaces antes de escribir. Construye un directorio nuevo, comprueba
+cada archivo y conserva los enlaces duros. La imagen final comprueba nuevamente
+el árbol completo tras la copia entre etapas. Nueve pruebas Linux pasaron,
+incluidas corrupción, exceso de expansión, enlaces a padres y archivos extra.
+
+La reconstrucción y verificación cuestan O(B + N log N) tiempo y O(N + C)
+memoria: B son los bytes leídos, N las entradas y C el búfer acotado del stream.
+El manifiesto admite como máximo 100,000 entradas, 1 GiB por archivo y 4 GiB en
+total. Su integridad se vinculará a los hashes del contexto de entrega; los
+hashes internos del manifiesto por sí solos no autentican al productor.
+
+**Pendiente:** terminar y comparar la reconstrucción completa, escanear y probar
+esa imagen exacta, validar el transporte reducido, hacer un checkpoint nuevo y
+aceptar el despliegue con una prueba real. La candidata reforzada sigue sin
+estar desplegada en este punto. La custodia portable de las claves de las
+copias nuevas y el ensayo integral de Supabase siguen pendientes por separado.
+
+## Revisión del 31 de octubre: candidata anterior sustituida
+
+La imagen reducida de la primera ronda (`33920ea4d3dd...`) llegó a construirse
+y pasó equivalencia con la fuente y arranque aislado. El transporte de
+77,172,425 bytes fue aceptado en otro proyecto temporal de solo construcción,
+que terminó con el fallo deliberado del Dockerfile y fue eliminado. No se
+ejecutaron aplicaciones ni se transfirieron datos o credenciales productivas.
+
+**No se promovió esa imagen.** El catálogo actualizado al 31 de octubre añadió
+dos avisos HIGH; además, una prueba posterior detectó que el umask del builder
+restringía `/tmp` a 01755. Se añadió `chmod` explícito y una verificación separada
+de `/tmp` como directorio real de root, modo 01777, pues ese directorio se excluye
+de la comparación del árbol de software. La prueba falla si se altera ese modo.
+
+### Dependencias corregidas
+
+| Dependencia | Antes | Candidata | Aviso |
+|---|---|---|---|
+| follow-redirects | 1.16.1 | 1.16.2 | CVE-2026-116689 |
+| decode-uri-component | 0.2.2 | 0.5.1 | CVE-2026-118664 |
+
+Avisos del mantenedor: [follow-redirects](https://github.com/follow-redirects/follow-redirects/security/advisories/GHSA-mrwp-f3q8-3g9p)
+y [decode-uri-component](https://github.com/SamVerschueren/decode-uri-component/security/advisories/GHSA-qr28-fpjm-wq7f).
+
+El diff del lock cambia únicamente esos dos registros. `query-string` 7.1.3,
+consumidor del decoder a través de Minio, requiere un adaptador CJS al export
+default de la nueva versión ESM. La modificación se detiene ante una huella,
+versión o ancla distinta; no cambia la versión de Minio. El adaptador usa la
+compatibilidad require(ESM) de la versión Node 24 fijada en la imagen.
+
+La prueba anterior reprodujo el reenvío de una cabecera ficticia al redirigir
+con `sensitiveHeaders` de otro realm y el exceso del límite de cinco segundos
+con entradas URI malformadas. La candidata pasó ambos casos. Son pruebas locales
+acotadas, no una garantía universal de latencia. También pasaron Minio,
+JPEG/PNG/WebP, las dos ramas XML, Chatwoot, Socket.IO, cifrado multimedia real de
+Baileys con datos ficticios y los controles de destinos privados.
+
+Imagen fuente revisada:
+`sha256:f748b82a9df36d0a889bd32866278642b75811571d5920fa65fdb3197960bd1f`.
+Su árbol contiene 43,511 entradas de software, con huella normalizada
+`082ee7dd0921b20e6ef481c30260ae4e37d1b53fddd164bb624d1c80e3b0a896`.
+Escaneo con catálogo del **31 de octubre, 18:53 UTC**: **0 CRITICAL / 0 HIGH /
+31 MEDIUM / 1 LOW**. No se declara resuelto el riesgo manual multipart ni los
+límites de recuperación documentados anteriormente.
+
+Pasó el arranque aislado: 57 migraciones de igual checksum, proceso UID 1000,
+autenticación 401/401/200, salud 200 y límites HTTP. La sonda de aceptación
+antigua solo consulta salud cuando encuentra el marcador del artefacto; en la
+imagen fuente ese marcador todavía no existe. Por ello esta etapa se validó
+con la solicitud directa de salud del ensayo HTTP, sin atribuir un valor 200 al
+campo no consultado. La imagen final deberá pasar la sonda con su marcador.
+
+El archivo congelado local de esta fuente tiene SHA-256
+`41759523147ecb7875e84c8e3d51abfb1dfb51293712fbe63653ebf8fa564dca`.
+**Sigue pendiente** terminar y probar su reconstrucción reducida exacta y
+promoverla con un checkpoint nuevo y aceptación real. Los resultados de la
+imagen anterior no sustituyen esas comprobaciones.
