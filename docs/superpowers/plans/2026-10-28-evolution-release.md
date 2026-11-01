@@ -29,8 +29,9 @@
 - [x] Verify a coordinated encrypted Postgres/Redis checkpoint, instance files and configuration; restore in isolation and validate image-only rollback. Completed during attempt 3; no restored real sessions started. A fresh checkpoint is required for the next promotion because production resumed writes.
 - [x] Diagnose rejected delivery in an isolated build-only Railway project; delete it. Confirmed 413 for the 370 MB upload, then accepted the 77 MB reconstruction context with no application runtime.
 - [x] Address newly published October 31 HIGH findings in follow-redirects and decode-uri-component, including the scoped CJS/ESM compatibility bridge. Source image passed URI, compatibility, boot and fresh scan; final reduced image remains a separate gate.
-- [ ] Rebuild and verify the final reduced image including /tmp permissions, full equivalence, exact-image scan and runtime checks.
-- [ ] Promote the verified artifact to the existing service; verify settings, migration counts, authentication and a real user-controlled WhatsApp/document canary. Record any remaining blockers honestly.
+- [x] Rebuild and verify the final reduced image including /tmp permissions, full equivalence, exact-image scan and runtime checks. The final directory-20261101 artifact adds only the private UID/GID 1000 instance directory; exact-layer scan has 0 CRITICAL/0 HIGH.
+- [x] Promote the verified artifact to the existing service and verify settings, migration counts, authentication and live session. Attempt 7 accepted deployment eb8862c9-ca91-4687-87ac-89597701f3f5, with fresh coordinated checkpoint and portable USB custody.
+- [ ] Confirm the real user-controlled WhatsApp/document canary after the final deployment. Record remaining recovery and authenticated multipart limits honestly.
 
 ## Release gates
 

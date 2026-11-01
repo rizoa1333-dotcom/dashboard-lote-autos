@@ -124,3 +124,30 @@ Los seis archivos son dos puntos de Evolution, no seis sistemas distintos.
 **No incluye un respaldo actual de n8n ni un respaldo completo de Supabase
 Auth/Storage.** La continuidad integral, retención y RPO/RTO medidos siguen
 pendientes; no se amplía el alcance por haber completado esta custodia.
+
+## Paquete actualizado con el checkpoint del intento 7
+
+El 1 de noviembre se creó y verificó, sin sobrescribir el paquete anterior:
+`D:\VeloDrive-recuperacion-2026-11-01-actualizado`.
+
+Incluye nueve archivos cifrados y tres instantáneas de configuración: los puntos
+coordinados de Evolution de los intentos 4, 5 y 7. El último se capturó con el
+servicio detenido y cero conexiones de aplicación en Postgres; Redis conservaba
+solo la conexión de comprobación. Pasó restauración aislada de ambos almacenes,
+57 migraciones y una sesión con credenciales, sin arrancar WhatsApp real.
+
+El sobre de claves se abrió desde el USB y los nueve archivos se autenticaron.
+No se exportaron secretos sin cifrar y se retiró el archivo temporal DPAPI de la
+frase. El formato puede abrirse sin el perfil Windows original; todavía no se ha
+ensayado físicamente en otra computadora. Conserva la frase fuera del USB.
+
+Este paquete sigue siendo específico de Evolution. No añade un respaldo actual
+de n8n ni cobertura completa de Supabase Auth/Storage, ni demuestra vaciado
+lógico de trabajos pendientes. La promoción posterior de una imagen no cambia
+la fecha ni el alcance de estos puntos de recuperación.
+
+La versión endurecida mantiene `/evolution/instances` con modo 0700 y propietario
+1000:1000. Las futuras lecturas y copias de ese directorio deben ejecutarse con
+esa identidad. No se deben ampliar sus permisos para facilitar una copia por
+SSH: el observador root de Railway carece de algunos privilegios habituales de
+root y puede recibir `EACCES` sobre ese directorio privado.

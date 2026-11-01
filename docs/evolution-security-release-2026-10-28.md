@@ -430,3 +430,33 @@ Pasaron nuevamente arranque aislado, 57 migraciones, sonda con identidad de
 aplicación, límites HTTP, compatibilidad y multimedia. La promoción del intento 7
 y la prueba real siguen pendientes; no se infiere conexión productiva por el
 solo hecho de haber arrancado con una base ficticia.
+
+## Aceptación técnica productiva del intento 7
+
+Railway confirmó `SUCCESS` para
+`eb8862c9-ca91-4687-87ac-89597701f3f5`. La aceptación del 1 de noviembre,
+21:37 UTC, comprobó una única versión ejecutándose y los siguientes controles:
+
+- Proceso de aplicación UID 1000, Node 24.22.1 y salud 200.
+- Autenticación: ausencia y clave incorrecta 401, clave válida 200.
+- Directorio real `/evolution/instances`, sin enlace, UID/GID 1000, modo 0700 y
+  acceso de escritura/búsqueda comprobado con la identidad de la aplicación.
+- Una instancia, una sesión con credenciales y un webhook; conexión de WhatsApp
+  en memoria `open`. Las 57 migraciones y la configuración mantienen sus huellas.
+- Acceso SSH temporal revocado. No se restauraron datos productivos.
+- Panel y n8n disponibles con HTTP 200 tras el corte.
+
+El escaneo local de las capas exactas de la imagen `a2704b98...`, con catálogo
+actualizado el 1 de noviembre a las 19:08 UTC, mostró 0 CRITICAL, 0 HIGH,
+31 MEDIUM y 1 LOW. Ese resultado corresponde al artefacto local comprobado y su
+contexto, no a una extracción y nuevo escaneo de la imagen remota de Railway.
+El marcador base no se usa como sustituto de esa distinción.
+
+El checkpoint fresco anterior al corte pasó restauración aislada y quedó
+incorporado al paquete portable actualizado del USB. No sustituye una copia
+completa de Supabase Auth/Storage ni un respaldo actual de n8n. La descarga
+multipart autenticada mantiene el riesgo residual ya documentado.
+
+**Pendiente:** confirmar entrega real del agente y canaria documental después
+de este corte. El estado `open` no demuestra por sí solo la ejecución de n8n ni
+la respuesta recibida en el teléfono.
