@@ -321,3 +321,52 @@ El archivo congelado local de esta fuente tiene SHA-256
 **Sigue pendiente** terminar y probar su reconstrucción reducida exacta y
 promoverla con un checkpoint nuevo y aceptación real. Los resultados de la
 imagen anterior no sustituyen esas comprobaciones.
+
+### Paquete final validado localmente
+
+La reconstrucción final `delta-uri-20261031`, imagen
+`sha256:880910ae80567ca563003d920971ca2ccfe2fd9fc651ba95808d9103834d6582`,
+pasó sus propias comprobaciones, sin reutilizar el resultado de la imagen
+anterior: equivalencia con la fuente, 43,512 entradas incluido el marcador,
+preservación de enlaces y metadatos, escritura en su `/tmp` original como UID
+1000, URI/Minio/redirecciones, multimedia, compatibilidad, arranque y las 57
+migraciones. La sonda final devolvió salud 200 con el marcador esperado.
+
+El escaneo de sus capas exactas mostró 0 CRITICAL, 0 HIGH, 31 MEDIUM y 1 LOW
+con el catálogo del 31 de octubre. Su transporte medido es de 77,179,408 bytes.
+La suite de aplicación pasó 244 pruebas en Windows, con dos casos Linux
+omitidos allí; los nueve casos del reconstructor pasaron en Linux. Los controles
+de recuperación y preparación del corte pasaron 21 pruebas adicionales.
+
+La comprobación previa de solo lectura confirmó la versión productiva original
+activa y recuperable. **Esto todavía no acredita el despliegue nuevo:** la
+promoción, el checkpoint fresco y la prueba real se registrarán por separado.
+
+## Compatibilidad con BuildKit: 1 de noviembre
+
+El intento 4 produjo y restauró en aislamiento un checkpoint coordinado nuevo.
+La subida de 77 MB fue aceptada y el build remoto llegó a reconstrucción, pero
+se detuvo con `BUILD_CONTAINER_REQUIRED`: la comprobación exigía `/.dockerenv`,
+archivo que BuildKit no garantiza. El programa de negocio nuevo no arrancó.
+La recuperación volvió a `f217b3a9-26ca-4252-9b79-d6ff9f7dae48`, imagen original,
+y comprobó sesión en memoria `open`, autenticación, migraciones y configuración
+sin cambios; revocó la clave SSH temporal y no restauró datos productivos.
+
+Se sustituyó esa heurística por una invocación explícita: Linux, flag de build,
+operaciones permitidas y rutas exactas para entradas y salida nueva `/vd-root`.
+Ese flag expresa intención de construcción, no demuestra aislamiento. Siguen
+vigentes las validaciones del grafo, la prohibición de escribir sobre `/` y la
+salida ya existente, así como los límites de bytes y archivos. Debe ejecutarse
+en un constructor aislado sin datos ni credenciales de aplicación.
+
+La corrección pasó once pruebas Linux y la suite de aplicación: 246 aprobadas,
+dos casos Linux omitidos en Windows. Se construyó con BuildKit local real
+(Buildx oficial, huella verificada), sin depender del builder antiguo. La imagen
+`sha256:456b825848cf35d3eca20aaadf023f68b7fb536333d9dbc9ba8f61effa94be7b`
+conservó el árbol y configuración de la fuente, sus 43,512 entradas con marcador,
+permisos temporales, multimedia, URI, compatibilidad, salud y 57 migraciones.
+El análisis de esas capas exactas el 1 de noviembre mostró 0 CRITICAL / 0 HIGH /
+31 MEDIUM / 1 LOW; el contexto medido ocupa 77,179,675 bytes.
+
+**Aún pendiente en este registro:** el intento 5 y la canaria real; una prueba
+local satisfactoria no se presenta como despliegue productivo aceptado.

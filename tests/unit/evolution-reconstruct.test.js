@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const zlib = require('node:zlib');
-const { validateManifest, reconstruct, verifyFilesystem } = require('../../infra/security-lab/evolution/reconstruct-filesystem.cjs');
+const { validateManifest, reconstruct, verifyFilesystem, assertBuildInvocation } = require('../../infra/security-lab/evolution/reconstruct-filesystem.cjs');
 
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const rowsDigest = rows => sha(rows.map(row => JSON.stringify(row) + '\n').join(''));
@@ -18,6 +18,19 @@ function fixture() {
     payloadSha256: sha(zlib.gzipSync('abc')), expectedDigest: rowsDigest(rows) };
 }
 function redigest(manifest) { manifest.expectedDigest = rowsDigest(manifest.rows); return manifest; }
+
+test('BuildKit invocation uses explicit build paths without relying on a Docker marker file', () => {
+  assert.equal(typeof assertBuildInvocation, 'function');
+  assert.doesNotThrow(() => assertBuildInvocation('linux', '1', ['construct', '/tmp/vd-reconstruct/manifest.json', '/tmp/vd-reconstruct/payload.bin.gz', '/vd-root']));
+  assert.doesNotThrow(() => assertBuildInvocation('linux', '1', ['verify', '/tmp/vd-verify/manifest.json']));
+});
+test('build invocation rejects a different platform, flag, input path, output root or extra argument', () => {
+  const valid = ['construct', '/tmp/vd-reconstruct/manifest.json', '/tmp/vd-reconstruct/payload.bin.gz', '/vd-root'];
+  for (const [platform, flag, args] of [['win32', '1', valid], ['linux', '', valid], ['linux', '1', ['construct', '/etc/shadow', valid[2], valid[3]]],
+    ['linux', '1', [...valid.slice(0,3), '/']], ['linux', '1', [...valid, 'extra']], ['linux', '1', ['verify', '/etc/shadow']]]) {
+    assert.throws(() => assertBuildInvocation(platform, flag, args), /BUILD_INVOCATION_REQUIRED/);
+  }
+});
 
 test('reconstruction accepts a bounded manifest with its exact digest', () => {
   assert.equal(validateManifest(fixture()).rows.size, 3);

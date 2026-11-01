@@ -240,12 +240,22 @@ async function reconstruct(manifest, options) {
   return verifyFilesystem(manifest, output);
 }
 
-module.exports = { validateManifest, reconstruct, verifyFilesystem };
+/** BuildKit does not promise /.dockerenv; constrain the operation and all writable paths instead.
+ * @param {string} platform @param {string|undefined} flag @param {string[]} args */
+function assertBuildInvocation(platform, flag, args) {
+  const construct = ['construct', '/tmp/vd-reconstruct/manifest.json', '/tmp/vd-reconstruct/payload.bin.gz', '/vd-root'];
+  const verify = ['verify', '/tmp/vd-verify/manifest.json'];
+  const allowed = expected => args.length === expected.length && args.every((value, i) => value === expected[i]);
+  if (platform !== 'linux' || flag !== '1' || (!allowed(construct) && !allowed(verify))) fail('BUILD_INVOCATION_REQUIRED');
+}
+
+module.exports = { validateManifest, reconstruct, verifyFilesystem, assertBuildInvocation };
 
 if (require.main === module) {
   (async () => {
-    if (process.platform !== 'linux' || !fs.existsSync('/.dockerenv') || process.env.VELODRIVE_RECONSTRUCTION_BUILD !== '1') fail('BUILD_CONTAINER_REQUIRED');
-    const [operation, manifestFile, payload, output = '/vd-root'] = process.argv.slice(2);
+    const args = process.argv.slice(2);
+    assertBuildInvocation(process.platform, process.env.VELODRIVE_RECONSTRUCTION_BUILD, args);
+    const [operation, manifestFile, payload, output = '/vd-root'] = args;
     if (!manifestFile || fs.statSync(manifestFile).size > 64 * 1024 ** 2) fail('MANIFEST_INPUT_LIMIT');
     const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
     const result = operation === 'construct'
