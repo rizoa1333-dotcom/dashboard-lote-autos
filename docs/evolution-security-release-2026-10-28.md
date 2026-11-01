@@ -397,3 +397,36 @@ abortar si no se puede escribir el journal.
 El intento 6 está preparado para reutilizar la imagen ya construida, con un
 checkpoint coordinado nuevo, restauración aislada y recuperación de la imagen
 anterior. **Todavía no se presenta como aceptado ni como canaria real.**
+
+## Directorio privado de instancias: 1 de noviembre
+
+El intento 6 inicial se detuvo por SSH antes de parar el servicio. Su reintento
+completó respaldo coordinado y restauración aislada; arrancó la imagen nueva y
+verificó UID 1000, salud 200, autenticación y las mismas huellas de migraciones y
+configuración. La conexión en memoria no se recuperó: el endpoint devolvía el
+nombre de instancia sin estado. El diagnóstico saneado identificó `EACCES` al
+crear `/evolution/instances`. La carpeta padre de trabajo permanece protegida y
+la imagen carecía del subdirectorio escribible por la aplicación.
+
+La aceptación rechazó esa condición y restauró la imagen anterior en
+`4ffa6da4-8029-49d2-a815-0293003b9b28`, comprobando conexión real `open` y retirando
+el acceso SSH temporal. No hubo restauración de datos productivos.
+
+La corrección crea únicamente `/evolution/instances`, UID/GID 1000 y modo 0700.
+La reconstrucción exige que no exista una ruta ni enlace previo antes de crearla.
+No se amplía la escritura del directorio de la aplicación. La prueba aislada
+falló por carpeta ausente en la imagen anterior y pasó con la nueva, incluyendo
+crear y retirar un archivo ficticio y comprobar `/tmp` 01777.
+
+La imagen BuildKit local
+`sha256:a2704b98c83f501fbc165536cc78764bbcc1fb5d63261e8d4273de8c67208c67`
+conserva la configuración y todo el árbol base; la única adición es esa carpeta
+vacía. El marcador `417595...` sigue identificando el archivo base congelado,
+**no la imagen completa con esta adición**. La huella de la imagen, el contexto
+exacto, la comparación del árbol y la comprobación explícita de permisos se
+registran por separado. El contexto medido ocupa 77,179,711 bytes.
+
+Pasaron nuevamente arranque aislado, 57 migraciones, sonda con identidad de
+aplicación, límites HTTP, compatibilidad y multimedia. La promoción del intento 7
+y la prueba real siguen pendientes; no se infiere conexión productiva por el
+solo hecho de haber arrancado con una base ficticia.

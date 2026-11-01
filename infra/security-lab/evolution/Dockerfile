@@ -35,6 +35,7 @@ COPY --from=patched --chown=1000:1000 /evolution/dist/main.js ./dist/main.js
 COPY --from=patched --chown=1000:1000 /evolution/node_modules/baileys/lib/Utils/messages-media.js ./node_modules/baileys/lib/Utils/messages-media.js
 COPY --from=patched --chown=1000:1000 /evolution/security/ ./security/
 COPY --from=assemble /usr/local/lib/node_modules/npm/ /usr/local/lib/node_modules/npm/
+RUN mkdir -p /evolution/instances && chown 1000:1000 /evolution/instances && chmod 0700 /evolution/instances
 ENV DOCKER_ENV=true TZ=America/Sao_Paulo NODE_ENV=production
 USER 1000:1000
 EXPOSE 8080

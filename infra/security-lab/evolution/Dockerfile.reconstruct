@@ -8,6 +8,7 @@ FROM --platform=linux/amd64 scratch
 COPY --from=reconstruct /vd-root/ /
 COPY manifest.json reconstruct-filesystem.cjs /tmp/vd-verify/
 RUN ["/bin/sh", "-c", "VELODRIVE_RECONSTRUCTION_BUILD=1 /usr/local/bin/node /tmp/vd-verify/reconstruct-filesystem.cjs verify /tmp/vd-verify/manifest.json && rm /tmp/vd-verify/manifest.json /tmp/vd-verify/reconstruct-filesystem.cjs && rmdir /tmp/vd-verify"]
+RUN ["/bin/sh", "-c", "test ! -e /evolution/instances && test ! -L /evolution/instances && mkdir /evolution/instances && chown 1000:1000 /evolution/instances && chmod 0700 /evolution/instances"]
 ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ENV NODE_VERSION="24.22.1"
 ENV YARN_VERSION="1.22.22"
