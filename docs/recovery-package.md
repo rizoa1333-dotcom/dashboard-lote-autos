@@ -102,3 +102,25 @@ Las claves de estas copias siguen ligadas al usuario Windows mediante DPAPI;
 no están incorporadas al USB portable. Esta limitación y la restauración
 integral pendiente de Supabase impiden afirmar recuperación completa ante la
 pérdida de este equipo.
+
+## Custodia portable de Evolution: 1 de noviembre
+
+Se creó y verificó un paquete nuevo en
+`D:\VeloDrive-recuperacion-2026-11-01`, sin sobrescribir archivos. Incluye seis
+archivos cifrados: Postgres, Redis y estructura de instancias de los checkpoints
+coordinados de los intentos 4 y 5. Ambos puntos pasaron restauración aislada,
+con 57 migraciones, una sesión con credenciales y sin arrancar WhatsApp real.
+
+Las claves y dos instantáneas de configuración están dentro de un sobre
+cifrado portable, protegido por la frase introducida personalmente en el
+formulario local. Se autenticaron las copias y se abrió el sobre leído del USB;
+el paquete no requiere DPAPI para su futura apertura. La frase nunca se mostró
+en el chat ni se escribió sin cifrar. Se retiró el archivo temporal protegido de
+la frase después de verificar la copia.
+
+La propiedad `profileIndependent` describe el formato y la verificación
+criptográfica del paquete, no una prueba física ya hecha en otra computadora.
+Los seis archivos son dos puntos de Evolution, no seis sistemas distintos.
+**No incluye un respaldo actual de n8n ni un respaldo completo de Supabase
+Auth/Storage.** La continuidad integral, retención y RPO/RTO medidos siguen
+pendientes; no se amplía el alcance por haber completado esta custodia.

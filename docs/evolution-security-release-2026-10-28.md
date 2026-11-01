@@ -370,3 +370,30 @@ El análisis de esas capas exactas el 1 de noviembre mostró 0 CRITICAL / 0 HIGH
 
 **Aún pendiente en este registro:** el intento 5 y la canaria real; una prueba
 local satisfactoria no se presenta como despliegue productivo aceptado.
+
+## Sonda de aceptación y promoción de imagen ya construida
+
+El intento 5 construyó y arrancó la candidata en Railway, pero no obtuvo
+aceptación funcional y restauró la imagen original en
+`51068a17-b376-4bac-a7a6-906d0d5bd559`. Se verificaron conexión WhatsApp `open`,
+autenticación 401/401/200 y las mismas huellas de configuración y migraciones.
+No se restauraron datos productivos; se revocó el acceso SSH temporal.
+
+El diagnóstico posterior comprobó que SSH observa como UID 0 sin
+`CAP_SYS_PTRACE`: puede leer estado de procesos, pero no el directorio de trabajo
+del proceso UID 1000. La sonda antigua interpretaba esa restricción como ausencia
+del proceso. La sonda operativa nueva ejecuta su lectura como UID/GID 1000 y
+mantiene la exigencia de directorio `/evolution`, marcador, salud y autenticación.
+No añade privilegios a la aplicación ni modifica su imagen.
+
+La reproducción Linux mostró el fallo del observador root y el éxito del
+observador con la identidad de aplicación. El arranque completo pasó también con
+esa sonda: salud 200, UID 1000, autenticación 401/401/200, límites HTTP y las 57
+migraciones. La suite de aplicación pasó 247 pruebas; tres casos específicos de
+Linux se omiten en Windows. Los controles operativos del siguiente intento
+pasaron 26 pruebas, incluyendo persistir la intención antes de la mutación y
+abortar si no se puede escribir el journal.
+
+El intento 6 está preparado para reutilizar la imagen ya construida, con un
+checkpoint coordinado nuevo, restauración aislada y recuperación de la imagen
+anterior. **Todavía no se presenta como aceptado ni como canaria real.**
