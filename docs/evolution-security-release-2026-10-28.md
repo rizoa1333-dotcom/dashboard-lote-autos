@@ -457,6 +457,12 @@ incorporado al paquete portable actualizado del USB. No sustituye una copia
 completa de Supabase Auth/Storage ni un respaldo actual de n8n. La descarga
 multipart autenticada mantiene el riesgo residual ya documentado.
 
-**Pendiente:** confirmar entrega real del agente y canaria documental después
-de este corte. El estado `open` no demuestra por sí solo la ejecución de n8n ni
-la respuesta recibida en el teléfono.
+El propietario confirmó recepción del mensaje de prueba posterior al corte.
+La revisión de agregados del lote, sin consultar conversaciones ni
+`execution_data`, encontró un evento completado, una entrada persistida, una
+respuesta persistida y cero incidentes asociados. Las filas de memoria de entrada
+y respuesta usan la referencia del mensaje entrante, diferenciadas por rol; el
+identificador de envío se conserva en el inbox durable.
+
+**Pendiente:** canaria documental posterior a este corte. La entrega de texto
+no acredita por sí sola la descarga y el guardado privado de imágenes reales.

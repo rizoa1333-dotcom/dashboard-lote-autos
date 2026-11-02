@@ -151,3 +151,14 @@ una reconstrucción sin descargas se usa `Dockerfile.reconstruct` junto con un
 manifiesto y payload generados y verificados del artefacto congelado; estos
 archivos de software no se incluyen en Git. No se debe sustituir el contexto
 con credenciales ni exportaciones de datos productivos.
+
+## Aceptación del 1 de noviembre
+
+La imagen corregida añade el directorio privado de sesión UID/GID 1000, modo
+0700. Se desplegó en `eb8862c9-ca91-4687-87ac-89597701f3f5`; la aceptación
+comprobó salud, autenticación, identidad sin privilegios, migraciones y sesión
+WhatsApp `open`. La respuesta real de texto fue confirmada por el propietario.
+La canaria documental posterior a este corte sigue pendiente. El
+[registro de versión](../../../docs/evolution-security-release-2026-10-28.md)
+separa la evidencia local de la observación remota y detalla los límites de
+recuperación y multipart autenticado; no se declara seguridad absoluta.

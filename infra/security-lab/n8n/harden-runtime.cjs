@@ -2,13 +2,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { patch: patchMcp } = require('./mcp-patches.cjs');
+const { hardenEditor } = require('./harden-editor.cjs');
 
 const GIT_SOURCE_SHA256 = '4f83e5249d7d69e796e2cc1ccf55d732ee429e14041623e4c55207693474eb44';
 const SOURCE_CONTROL_SHA256 = '69400823fe736395e4a7f5d7900156ff227bd1efcc0db7317f130369cfa5d155';
 const PROMOTIONS_SHA256 = '6ed0d413363b14b72e45eb6444ed797ffe72f0e77a0a1a8ba04c7de328fb3922';
 const VERSION_PINS = Object.freeze({ 'simple-git': '4.0.2', handlebars: '4.7.10', '@simple-git/argv-parser': '2.0.1',
-  'body-parser': '2.4.0', 'follow-redirects': '1.16.1', multer: '2.5.0', 'undici-v6': 'npm:undici@6.29.1', 'undici-v7': 'npm:undici@7.30.1',
+  'body-parser': '2.4.0', 'follow-redirects': '1.16.2', multer: '2.5.0', 'undici-v6': 'npm:undici@6.29.1', 'undici-v7': 'npm:undici@7.30.1',
   toml: '5.0.1', '@azure/msal-node': '7.1.0', '@azure/msal-common': '16.14.2',
+  '@intlify/core-base':'11.4.14','@intlify/shared':'11.4.14','vue-i18n':'11.4.14',vue:'3.5.42','markdown-it':'14.3.3',
   '@modelcontextprotocol/sdk': '1.32.0', '@modelcontextprotocol/server': '2.3.0', '@modelcontextprotocol/core': '2.3.0', '@modelcontextprotocol/node': '2.1.0', zod: '4.6.6' });
 const PACKAGE_SLOTS = Object.freeze([
   {packageName:'simple-git',prefix:'simple-git@',overlayName:'simple-git',version:'4.0.2',copies:1},
@@ -16,7 +18,7 @@ const PACKAGE_SLOTS = Object.freeze([
   {packageName:'@simple-git/argv-parser',prefix:'@simple-git+argv-parser@',overlayName:'@simple-git/argv-parser',version:'2.0.1',copies:1},
   {packageName:'body-parser',prefix:'body-parser@',overlayName:'body-parser',version:'2.4.0',copies:1},
   {packageName:'multer',prefix:'multer@',overlayName:'multer',version:'2.5.0',copies:1},
-  {packageName:'follow-redirects',prefix:'follow-redirects@',overlayName:'follow-redirects',version:'1.16.1',copies:2},
+  {packageName:'follow-redirects',prefix:'follow-redirects@',overlayName:'follow-redirects',version:'1.16.2',copies:2},
   {packageName:'undici',prefix:'undici@6.',overlayName:'undici-v6',version:'6.29.1',copies:1},
   {packageName:'undici',prefix:'undici@7.',overlayName:'undici-v7',version:'7.30.1',copies:1},
   {packageName:'toml',prefix:'toml@',overlayName:'toml',version:'5.0.1',copies:1},
@@ -25,6 +27,10 @@ const PACKAGE_SLOTS = Object.freeze([
   {packageName:'@modelcontextprotocol/server',prefix:'@modelcontextprotocol+server@',overlayName:'@modelcontextprotocol/server',version:'2.3.0',copies:1},
   {packageName:'@modelcontextprotocol/core',prefix:'@modelcontextprotocol+core@',overlayName:'@modelcontextprotocol/core',version:'2.3.0',copies:1},
   {packageName:'@modelcontextprotocol/node',prefix:'@modelcontextprotocol+node@',overlayName:'@modelcontextprotocol/node',version:'2.1.0',copies:1},
+  {packageName:'@intlify/core-base',prefix:'@intlify+core-base@',overlayName:'@intlify/core-base',version:'11.4.14',copies:1},
+  {packageName:'@intlify/shared',prefix:'@intlify+shared@',overlayName:'@intlify/shared',version:'11.4.14',copies:1},
+  {packageName:'vue-i18n',prefix:'vue-i18n@',overlayName:'vue-i18n',version:'11.4.14',copies:1},
+  {packageName:'markdown-it',prefix:'markdown-it@',overlayName:'markdown-it',version:'14.3.3',copies:1},
 ]);
 
 function planPackageSlots(entries) {
@@ -109,6 +115,7 @@ function hardenRuntime(root, overlay) {
     if (installed.name !== name) throw new Error(`INSTALLED_PACKAGE_NAME: ${name}`);
     replacements.push({ old: path.join(store, slot.directory, 'node_modules', name), target });
   }
+  hardenEditor(path.join(root,'node_modules/n8n-editor-ui/dist'),overlay);
   // A vendor change must fail the build before files are modified.
   for (const patch of consumerPatches) fs.writeFileSync(patch.file, patch.adapted);
   for (const replacement of replacements) {

@@ -1,5 +1,12 @@
 # Runtime n8n: despliegues y remediacion
 
+Actualización 2Nov2026: [candidata y controles de despliegue](../../../docs/n8n-security-release-2026-11-02.md).
+La candidata local `sha256:2df9dd6aedda924574d0c4bce676564a882b916bb6b492fc39f6243a4197b104`
+pasó el escaneo de sus capas: 0 críticos / 0 altos, catálogo 1Nov2026.
+Incluye los parches del editor y sus consumidores; este resultado local no declara
+por sí mismo una nueva imagen desplegada. La comprobación productiva previa aún
+encuentra el despliegue `917ba2cb-dbf8-4c9f-a0a2-103d75b9a55a`.
+
 Actualizacion 28Oct2026: [despliegue MCP y evidencia](../../../docs/n8n-security-release-2026-10-28.md).
 El recuento del artefacto local actualizado es 0 CRITICAL / 2 HIGH; los resultados
 historicos inferiores no sustituyen ese informe. Despliegue

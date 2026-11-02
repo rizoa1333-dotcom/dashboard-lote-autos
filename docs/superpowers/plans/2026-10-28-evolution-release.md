@@ -31,7 +31,8 @@
 - [x] Address newly published October 31 HIGH findings in follow-redirects and decode-uri-component, including the scoped CJS/ESM compatibility bridge. Source image passed URI, compatibility, boot and fresh scan; final reduced image remains a separate gate.
 - [x] Rebuild and verify the final reduced image including /tmp permissions, full equivalence, exact-image scan and runtime checks. The final directory-20261101 artifact adds only the private UID/GID 1000 instance directory; exact-layer scan has 0 CRITICAL/0 HIGH.
 - [x] Promote the verified artifact to the existing service and verify settings, migration counts, authentication and live session. Attempt 7 accepted deployment eb8862c9-ca91-4687-87ac-89597701f3f5, with fresh coordinated checkpoint and portable USB custody.
-- [ ] Confirm the real user-controlled WhatsApp/document canary after the final deployment. Record remaining recovery and authenticated multipart limits honestly.
+- [x] Confirm the real user-controlled WhatsApp text canary after the final deployment. User confirmed delivery; tenant-scoped aggregates: one completed event, one input, one reply, zero linked incidents. No conversation or n8n execution_data read.
+- [ ] Confirm the documentary image canary after the final deployment. Keep full recovery and authenticated multipart limits explicit.
 
 ## Release gates
 
