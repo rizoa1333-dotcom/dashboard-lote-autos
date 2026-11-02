@@ -3,6 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {validateRuntime}=require('../../infra/security-lab/n8n/release-acceptance.cjs');
 const {createDeployment}=require('../../infra/security-lab/n8n/release-acceptance.cjs');
 const {openJournal,assertIsolatedNetwork}=require('../../infra/security-lab/n8n/release-acceptance.cjs');
+const {awaitInactive}=require('../../infra/security-lab/n8n/release-acceptance.cjs');
 function fixture(){
  const software={version:'2.45.4',node:'fixture-node',versions:{markdown:'14.3.3'},hashes:{vendor:'reviewed',hardener:'fixed'}};
  const database={workflows:16,active:3,credentials:5,migrations:316,workflowHash:'workflows',credentialHash:'credentials',migrationHash:'migrations'};
@@ -45,4 +46,14 @@ test('restore refuses a routable network, absent member metadata or any unrelate
  assert.doesNotThrow(()=>assertIsolatedNetwork({Internal:true,Containers:{}},[]));
  assert.doesNotThrow(()=>assertIsolatedNetwork({Internal:true,Containers:{id:{Name:'owned'}}},['owned']));
  for(const network of [{Internal:false,Containers:{}},{Internal:true},{Internal:true,Containers:{id:{Name:'other'}}}])assert.throws(()=>assertIsolatedNetwork(network,['owned']));
+});
+test('retired deployment validation waits through removal bookkeeping and accepts only inactive instances',async()=>{
+ const states=[{status:'REMOVED',deploymentStopped:true,instances:[{status:'REMOVING'}]},{status:'REMOVED',deploymentStopped:false,instances:[{status:'REMOVED'}]}];
+ let reads=0,waits=0;const result=await awaitInactive(()=>states[reads++],async()=>{waits++;},3);
+ assert.equal(reads,2);assert.equal(waits,1);assert.equal(result.instances[0].status,'REMOVED');
+});
+test('a pending build or running old instance never passes retirement validation',async()=>{
+ for(const state of [{status:'BUILDING',deploymentStopped:true,instances:[]},{status:'SUCCESS',deploymentStopped:true,instances:[{status:'RUNNING'}]},{status:'SUCCESS',deploymentStopped:false,instances:[]}]){
+  let reads=0;await assert.rejects(awaitInactive(()=>{reads++;return state;},async()=>{},3),/OLD_DEPLOYMENT_NOT_INACTIVE/);assert.equal(reads,3);
+ }
 });

@@ -28,4 +28,15 @@ function assertIsolatedNetwork(network,allowedNames){
  assert.equal(network.Internal,true);assert.ok(network.Containers&&typeof network.Containers==='object'&&!Array.isArray(network.Containers));
  const allowed=new Set(allowedNames);for(const member of Object.values(network.Containers))assert.ok(allowed.has(member.Name));
 }
-module.exports={validateRuntime,createDeployment,openJournal,assertIsolatedNetwork};
+async function awaitInactive(readState,wait,checks=10){
+ assert.ok(Number.isInteger(checks)&&checks>=1&&checks<=30);
+ for(let i=0;i<checks;i++){
+  const state=await readState(),pending=['BUILDING','QUEUED','WAITING'].includes(state.status);
+  const inactive=Array.isArray(state.instances)&&state.instances.every(x=>['STOPPED','EXITED','REMOVED','CRASHED'].includes(x.status));
+  const terminal=['REMOVED','FAILED','CANCELLED','SKIPPED'].includes(state.status);
+  if(!pending&&inactive&&(state.deploymentStopped===true||terminal))return state;
+  if(i+1<checks)await wait(1000);
+ }
+ throw Error('OLD_DEPLOYMENT_NOT_INACTIVE');
+}
+module.exports={validateRuntime,createDeployment,openJournal,assertIsolatedNetwork,awaitInactive};
