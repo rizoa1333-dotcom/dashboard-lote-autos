@@ -23,6 +23,53 @@ conectar una imagen oficial antigua como sustituto del derivado endurecido.
 La canaria real de WhatsApp y la aceptación de la alerta de soporte se registran
 por separado. No se deducen de la salud HTTP ni de las pruebas del laboratorio.
 
+### Comprobación externa, correo y vinculación pendiente
+
+La comprobación HTTPS desde fuera de Railway pasó a las 15:31 UTC: salud de
+VeloDrive y n8n 200, dashboard igual a la fuente local, editor corregido servido
+con la huella esperada y vendor retirado 404. El incidente ficticio de soporte
+quedó `sent`, con referencia del emisor; esto acredita aceptación del proveedor,
+no lectura del destinatario.
+
+La prueba telefónica no obtuvo respuesta. Se inspeccionaron únicamente estados
+y referencias, sin conversaciones ni `execution_data`: no entraron mensajes
+nuevos al inbox del lote. Evolution estaba `close`, con cierre 401 registrado
+el 2 de noviembre a las 03:53:27 UTC, antes de este despliegue, y sin sesión
+autenticada guardada. Se intentó una sola reconexión, sin logout ni borrado;
+generó QR y pasó a `connecting`. El usuario informó «No se pudo vincular.
+Inténtalo más tarde». La lectura posterior aún muestra `connecting`; la presencia
+de una fila de credenciales iniciales no demuestra autenticación completada.
+No hay versión de WhatsApp forzada por configuración. Los accesos temporales
+de diagnóstico fueron revocados.
+
+**El canal WhatsApp sigue sin aceptación real.** No atribuir este rechazo al
+teléfono, a Meta o al QR sin una prueba comparativa. No repetir emparejamientos
+automáticos ni cambiar la versión de cliente a ciegas para fabricar un resultado.
+La canaria documental nueva también sigue pendiente.
+
+### Parche independiente de dependencias del servidor
+
+Una auditoría fresca detectó GHSA-6pq8-jhm2-2vcw en `qs` 6.16.0. El servidor
+no tiene una llamada identificada a stringify con `arrayFormat: comma`; se trata
+como remediación preventiva de dependencia y no como explotación demostrada de
+un endpoint de VeloDrive. El parche oficial está en 6.16.1; el rango compatible
+de Express y body-parser permite 6.16.2, fijado en el lock.
+
+La regresión falla con la versión anterior y pasa con las copias realmente
+resueltas por ambos consumidores: JSON hostil, clave `toString`, objetos sin
+prototipo y ambas opciones de codificación. La suite completa arroja 262
+aprobadas, cero fallos y tres pruebas Linux omitidas en Windows; 54 E2E aprobadas.
+La auditoría de dependencias productivas queda en cero avisos. La revisión
+independiente no encontró bloqueadores. Este resultado no sustituye los escaneos
+de las imágenes de n8n y Evolution.
+
+El repositorio ya versionaba node_modules antes del cambio. Se conserva esa
+convención para actualizar solo la copia rastreada de qs y su lock generado;
+no se eliminan otras dependencias ni se incluye styles.css o web-premium.
+El despliegue del parche de servidor se verifica por separado.
+
+Fuente del arreglo: [commit oficial de qs](https://github.com/ljharb/qs/commit/a952e75).
+
 ## Candidata final de entrega
 
 Imagen local seleccionada: `velodrive-n8n-security:qa-20261102-flat`,
