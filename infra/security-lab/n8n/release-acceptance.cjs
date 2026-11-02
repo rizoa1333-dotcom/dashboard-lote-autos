@@ -6,7 +6,7 @@ function validateRuntime(runtime,software,databaseBefore,databaseAfter,configura
  assert.ok(Array.isArray(runtime.mainNodeUids)&&runtime.mainNodeUids.length>0);assert.ok(runtime.mainNodeUids.every(uid=>uid===1000));
  assert.deepEqual(runtime.volume,{uid:1000,gid:1000,mode:'700',realPath:'/home/node/.n8n',symlink:false});
  assert.deepEqual(runtime.software,software);assert.deepEqual(runtime.http,{readiness:200,workflows:401,webhook:401});
- assert.equal(runtime.editor.releaseVisible,true);assert.equal(runtime.editor.vendorHash,software.hashes.vendor);
+ assert.equal(runtime.editor.releaseVisible,true);assert.equal(runtime.editor.vendorHash,software.hashes.vendor);assert.equal(runtime.editor.originalVendorStatus,404);
  assert.deepEqual(databaseAfter,databaseBefore);assert.equal(configurationAfter,configurationBefore);
  return true;
 }

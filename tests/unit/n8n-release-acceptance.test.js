@@ -7,10 +7,11 @@ const {awaitInactive}=require('../../infra/security-lab/n8n/release-acceptance.c
 function fixture(){
  const software={version:'2.45.4',node:'fixture-node',versions:{markdown:'14.3.3'},hashes:{vendor:'reviewed',hardener:'fixed'}};
  const database={workflows:16,active:3,credentials:5,migrations:316,workflowHash:'workflows',credentialHash:'credentials',migrationHash:'migrations'};
- return{runtime:{initUid:1000,mainNodeUids:[1000],volume:{uid:1000,gid:1000,mode:'700',realPath:'/home/node/.n8n',symlink:false},software,http:{readiness:200,workflows:401,webhook:401},editor:{releaseVisible:true,vendorHash:'reviewed'}},software,database,configuration:'same-config'};
+ return{runtime:{initUid:1000,mainNodeUids:[1000],volume:{uid:1000,gid:1000,mode:'700',realPath:'/home/node/.n8n',symlink:false},software,http:{readiness:200,workflows:401,webhook:401},editor:{releaseVisible:true,vendorHash:'reviewed',originalVendorStatus:404}},software,database,configuration:'same-config'};
 }
 test('release acceptance requires both runtime software and unchanged critical database state',()=>{const f=fixture();assert.doesNotThrow(()=>validateRuntime(f.runtime,f.software,f.database,f.database,f.configuration,f.configuration));});
 test('a healthy server with stale served browser code is rejected',()=>{const f=fixture();f.runtime.editor.vendorHash='old';assert.throws(()=>validateRuntime(f.runtime,f.software,f.database,f.database,f.configuration,f.configuration));});
+test('correct new browser code does not excuse a reachable vulnerable legacy asset',()=>{const f=fixture();f.runtime.editor.originalVendorStatus=200;assert.throws(()=>validateRuntime(f.runtime,f.software,f.database,f.database,f.configuration,f.configuration));});
 test('UID, volume permissions, unauthorized responses and missing editor release fail closed',()=>{
  for(const change of [f=>f.runtime.initUid=0,f=>f.runtime.mainNodeUids=[0],f=>f.runtime.volume.mode='755',f=>f.runtime.volume.symlink=true,f=>f.runtime.http.webhook=200,f=>f.runtime.editor.releaseVisible=false]){
   const f=fixture();change(f);assert.throws(()=>validateRuntime(f.runtime,f.software,f.database,f.database,f.configuration,f.configuration));

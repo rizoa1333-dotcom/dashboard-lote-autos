@@ -24,8 +24,14 @@ pendiente; el teléfono disponible conserva el expediente completo anterior.
 
 ## Evidencia local y decisiones del 2 de noviembre
 
-La candidata seleccionada es
+La candidata lógica revisada fue
 `sha256:2df9dd6aedda924574d0c4bce676564a882b916bb6b492fc39f6243a4197b104`.
+La candidata final de entrega es
+`sha256:047990ed7b47519c7aa18f7dfb5bcd33555402cddeb0f88dd3d9c78d4420b93d`:
+publica el mismo sistema de archivos revisado en una capa de datos completa,
+sin heredar capas del proveedor. La promoción anterior se rechazó al observar
+el vendor antiguo adicional en el contenedor remoto. La causa interna de esa
+discrepancia no queda demostrada por el escaneo local.
 Se descartó la primera candidata: Markdown 14.3.2 y el peer de Vue conservaban
 avisos altos. La seleccionada fija Markdown 14.3.3 y Vue 3.5.42, además de
 follow-redirects 1.16.2 y Vue I18n 11.4.14. El cliente Vue existente no se reemplaza;
