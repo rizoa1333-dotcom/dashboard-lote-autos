@@ -1,5 +1,28 @@
 # n8n: dependencias y editor, 2 de noviembre de 2026
 
+## Aceptación productiva del 2 de noviembre
+
+El despliegue `e6917a3f-5474-4681-8a45-72ba971cecc4` quedó aceptado a las
+15:21:57 UTC (09:21:57 en Ciudad de México). Una sola instancia activa, UID
+1000, volumen 1000:1000/0700, readiness 200 y solicitudes sin autorización a
+REST y webhook rechazadas con 401. El editor público sirve el vendor corregido
+`eeccdaaf…`; el archivo antiguo devuelve **404**.
+
+Se conservaron las huellas de los 16 workflows, cinco credenciales y 316
+migraciones, además de las 27 variables configuradas. El respaldo fresco del
+checkpoint `2026-11-02-pre-flat-security` pasó restauración aislada, comprobación
+de credenciales y reversión de imagen sin rebobinar la base. Producción no fue
+restaurada ni purgada. El acceso SSH temporal fue revocado y sus archivos retirados.
+
+La referencia residual a la imagen oficial 2.44.6 se desconectó después del
+cambio, mediante el comando de origen del servicio. La lectura posterior confirma
+origen vacío y la misma instancia corregida ejecutándose. Los futuros cambios
+de software deben subir el contexto de construcción revisado; no volver a
+conectar una imagen oficial antigua como sustituto del derivado endurecido.
+
+La canaria real de WhatsApp y la aceptación de la alerta de soporte se registran
+por separado. No se deducen de la salud HTTP ni de las pruebas del laboratorio.
+
 ## Candidata final de entrega
 
 Imagen local seleccionada: `velodrive-n8n-security:qa-20261102-flat`,
@@ -49,10 +72,10 @@ y verificó desde el USB; no se ensayó en otra computadora. La frase temporal
 protegida con DPAPI se eliminó tras exportarlo. Las fechas son independientes;
 no se declara una transacción global ni recuperación completa de Supabase.
 
-La promoción de la candidata plana y su canaria real siguen pendientes hasta
-registrar su aceptación remota; los resultados locales no sustituyen esa etapa.
+La promoción plana superó la aceptación remota descrita al inicio. Los resultados
+locales no sustituyen la canaria real pendiente.
 
-## Estado antes del despliegue
+## Estado histórico anterior a los intentos de despliegue
 
 Candidata local: `velodrive-n8n-security:qa-20261101-editor2`, imagen
 `sha256:2df9dd6aedda924574d0c4bce676564a882b916bb6b492fc39f6243a4197b104`.
@@ -108,8 +131,8 @@ observados durante las comprobaciones se retiraron por la política de retenció
 No se borraron ni se forzaron como completados desde la auditoría.
 
 La restauración del respaldo del 28 de octubre valida compatibilidad, no el
-estado actual. El respaldo nuevo, su restauración y la prueba real posterior se
-registrarán como evidencia separada antes de declarar el despliegue aceptado.
+estado actual. El respaldo nuevo y su restauración tienen evidencia separada;
+la canaria real posterior sigue siendo una comprobación adicional obligatoria.
 
 ## Límites
 

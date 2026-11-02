@@ -1,11 +1,16 @@
 # Runtime n8n: despliegues y remediacion
 
 Actualización 2Nov2026: [candidata y controles de despliegue](../../../docs/n8n-security-release-2026-11-02.md).
-La candidata local `sha256:2df9dd6aedda924574d0c4bce676564a882b916bb6b492fc39f6243a4197b104`
+La candidata final local `sha256:047990ed7b47519c7aa18f7dfb5bcd33555402cddeb0f88dd3d9c78d4420b93d`
 pasó el escaneo de sus capas: 0 críticos / 0 altos, catálogo 1Nov2026.
 Incluye los parches del editor y sus consumidores; este resultado local no declara
-por sí mismo una nueva imagen desplegada. La comprobación productiva previa aún
-encuentra el despliegue `917ba2cb-dbf8-4c9f-a0a2-103d75b9a55a`.
+por sí mismo una nueva imagen desplegada. La promoción
+`e6917a3f-5474-4681-8a45-72ba971cecc4` pasó la aceptación remota el 2 de noviembre:
+vendor corregido servido, vendor antiguo HTTP 404, proceso UID 1000 y estado
+crítico conservado. SSH temporal revocado. Se retiró el origen residual de la
+imagen 2.44.6 sin cambiar la instancia en ejecución. Los intentos anteriores
+se rechazaron; no reutilizar sus resultados como aceptación de este despliegue.
+Canaria real de WhatsApp y correo de soporte: evidencia separada en el informe.
 
 Actualizacion 28Oct2026: [despliegue MCP y evidencia](../../../docs/n8n-security-release-2026-10-28.md).
 El recuento del artefacto local actualizado es 0 CRITICAL / 2 HIGH; los resultados

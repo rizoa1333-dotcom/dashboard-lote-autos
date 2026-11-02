@@ -1,9 +1,17 @@
 # Evolution: candidata de seguridad del 28 de octubre de 2026
 
-**Estado: validada localmente; no desplegada.** La consulta a Railway conserva
+**Estado documentado al 1 de noviembre: intento 7 aceptado en producción y
+respuesta real de texto confirmada.** Véase «Aceptación técnica productiva del
+intento 7» al final. Sigue pendiente una canaria documental nueva; este informe
+no certifica recuperación completa de VeloDrive.
+
+## Estado histórico del 28 de octubre
+
+**Entonces: validada localmente; no desplegada.** La consulta a Railway conservaba
 como despliegue activo `5cee1b80-06ea-4514-bf39-78451a88d989`, del 23 de octubre.
-Faltan checkpoint coordinado, ensayo de reversión y aceptación real después del
-cambio. Este informe no certifica recuperación completa de VeloDrive.
+Faltaban checkpoint coordinado, ensayo de reversión y aceptación real después
+del cambio. Las secciones posteriores registran su evolución sin sustituir la
+evidencia de cada artefacto.
 
 ## Artefacto previo y trazabilidad
 

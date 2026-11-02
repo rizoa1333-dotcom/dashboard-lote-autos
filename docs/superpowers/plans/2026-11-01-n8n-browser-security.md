@@ -15,8 +15,11 @@ corregir consumidores concretos antes de considerar otro despliegue.
 - [x] Reproducir y corregir los casos adversariales del editor. No sustituir la
   evidencia de navegador por actualizar metadatos de paquetes Node.
 - [x] Escanear las capas finales y obtener revisión independiente.
-- [ ] Preparar respaldo actual, restauración aislada y reversión compatible antes
-  de modificar n8n productivo. Aceptar WhatsApp y alerta controlada posteriormente.
+- [x] Preparar respaldo actual, restauración aislada y reversión compatible antes
+  de modificar n8n productivo.
+- [x] Promover imagen plana; aceptar software, editor servido, permisos, estado
+  crítico y HTTP 404 del vendor antiguo. Revocar SSH temporal.
+- [ ] Aceptar WhatsApp y alerta controlada después del despliegue.
 
 La imagen Evolution del intento 7 ya está aceptada y la respuesta real de texto
 está confirmada. La canaria documental nueva necesita un expediente de prueba
@@ -62,6 +65,11 @@ el cambio de Vue es del overlay Node y sus dependencias de servidor.
 Pendiente operativo: el respaldo PostgreSQL y la clave de n8n no constituyen por
 sí solos recuperación completa del volumen binario ni de Supabase Auth/Storage.
 No se modificarán ni limpiarán expedientes existentes para fabricar una canaria.
+
+Decisión del cierre: la imagen plana quedó aceptada en producción como
+`e6917a3f-5474-4681-8a45-72ba971cecc4`. Se desconectó la referencia antigua a
+n8n 2.44.6 y se comprobó que no sustituyó ni reinició la instancia corregida.
+No se considera esa referencia la causa demostrada de los archivos duplicados.
 
 Fuentes primarias: [follow-redirects](https://github.com/follow-redirects/follow-redirects/security/advisories/GHSA-mrwp-f3q8-3g9p),
 [Vue I18n](https://github.com/intlify/vue-i18n/security/advisories/GHSA-83rm-6c8r-g728),
