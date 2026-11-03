@@ -56,6 +56,7 @@ function hardenEvolutionMedia(source) {
   if (count !== 10) throw new Error('MEDIA_CONSUMER_DRIFT');
   result = hardenHttpParsing(result);
   result = hardenHealthRoute(result);
+  result = hardenManagerCors(result);
   return 'const VeloDriveMedia=require("../security/secure-media.cjs");\nconst VeloDriveRequestBudget=require("../security/request-budget.cjs");\n' + result;
 }
 
@@ -77,4 +78,8 @@ function hardenHealthRoute(source) {
     'await new yt(E).onModuleInit(),s.use((0,Ll.default)',
     'await new yt(E).onModuleInit(),s.get("/health",VeloDriveRequestBudget.health),s.use((0,Ll.default)');
 }
-module.exports = { hardenBaileysMedia, hardenEvolutionMedia, rewriteDirectMediaCalls, hardenHttpParsing, hardenHealthRoute };
+function hardenManagerCors(source) {
+  const cors = '(0,Ll.default)({origin(r,a){let{ORIGIN:c}=E.get("CORS");return c.includes("*")||c.indexOf(r)!==-1?a(null,!0):a(new Error("Not allowed by CORS"))},methods:[...E.get("CORS").METHODS],credentials:E.get("CORS").CREDENTIALS})';
+  return replaceOnce(source, `s.use(${cors},`, `s.use(VeloDriveRequestBudget.managerCors(${cors}),`);
+}
+module.exports = { hardenBaileysMedia, hardenEvolutionMedia, rewriteDirectMediaCalls, hardenHttpParsing, hardenHealthRoute, hardenManagerCors };

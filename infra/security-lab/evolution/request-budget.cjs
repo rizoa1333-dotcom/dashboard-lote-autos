@@ -55,4 +55,17 @@ function health(_req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.end('{"status":"ok"}');
 }
-module.exports = { createRequestBudget, middleware: createRequestBudget(), parserErrorHandler, health };
+/** @param {import('express').RequestHandler} corsMiddleware @returns {import('express').RequestHandler} */
+function managerCors(corsMiddleware) {
+  if (typeof corsMiddleware !== 'function') throw new TypeError('INVALID_CORS_MIDDLEWARE');
+  return function publicManagerNavigation(req, res, next) {
+    const pathname = req.path;
+    const publicPath = typeof pathname === 'string' && pathname.length <= 1024
+      && (pathname === '/manager' || /^\/(?:manager|assets)\/[A-Za-z0-9._/-]*$/.test(pathname))
+      && !pathname.includes('//') && !/(?:^|\/)\.{1,2}(?:\/|$)/.test(pathname);
+    // Top-level navigation and same-origin static requests normally omit Origin.
+    if (req.headers.origin === undefined && (req.method === 'GET' || req.method === 'HEAD') && publicPath) return next();
+    return corsMiddleware(req, res, next);
+  };
+}
+module.exports = { createRequestBudget, middleware: createRequestBudget(), parserErrorHandler, health, managerCors };
