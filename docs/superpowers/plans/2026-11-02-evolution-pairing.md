@@ -29,12 +29,19 @@ web-premium ajenos al cambio. Sin nuevos recursos cloud de pago.
   conservando el middleware CORS original.
 - [x] Verificar el parche sobre el JavaScript compilado exacto y probar assets
   reales del Manager en laboratorio; revisión independiente antes de promover.
-- [ ] Preparar imagen desde el artefacto aceptado, escanear, restaurar y ensayar
+- [x] Preparar imagen desde el artefacto aceptado, escanear, restaurar y ensayar
   reversión antes de publicar solo el cambio necesario.
-- [ ] Comparar QR recién generado directo con el del panel; completar una
-  vinculación controlada. Si persiste, diagnosticar protocolo/versiones con
+- [x] Completar una vinculación controlada desde VeloDrive. Si el rechazo
+  persiste, comparar QR directo/panel y diagnosticar protocolo/versiones con
   evidencia del consumidor real, sin cambiar dependencias a ciegas.
-- [ ] Aceptar estado open, una entrada/una respuesta y descarga documental nueva.
+- [x] Confirmar CONECTADO en el panel, una entrada y una respuesta sin incidentes.
+- [ ] Repetir una descarga documental nueva con la sesión vinculada.
+
+Actualización 3Nov: despliegue c955d45d aceptado, panel CONECTADO y vinculación
+confirmada por el usuario. Canaria con una entrada, una respuesta, cero
+incidentes y recepción confirmada. La comparación directa del QR no se ejecutó
+porque la prueba desde el panel ya vinculó; no se atribuye una causa única.
+El paso final conserva pendiente únicamente la descarga documental nueva.
 
 ## Decisiones
 
