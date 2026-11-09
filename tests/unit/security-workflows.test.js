@@ -49,7 +49,7 @@ test('herramientas del agente solo consultan la proyección pública y conservan
 test('operaciones premium requieren plan activo antes de IA/publicación/conexión', () => {
   for (const number of [7, 8, 9, 10]) {
     const url = workflow.nodes.find(n => n.name === 'Verificar Token de Tenant' + number).parameters.url;
-    assert.ok(url.includes('plan_status=eq.active'));
+    assert.ok(url.endsWith('/rpc/resolve_tenant_webhook'));
   }
   assert.ok(workflow.nodes.find(n => n.name === 'Verificar plan del canal').parameters.url.includes('plan_status=eq.active'));
 });

@@ -20,7 +20,7 @@ function requireTrue(expression,code){return `if (${expression}) is distinct fro
  const statements=[`create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls; create schema auth; create schema storage; create schema qa; grant usage on schema public,auth,storage,qa to anon,authenticated,service_role;
  create function auth.uid() returns uuid language sql stable as $$ select (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid $$;`];
  for(const r of resources){
-  const cols=r.schema_name==='storage'?(r.resource==='objects'?[{name:'id',type:'uuid'},{name:'bucket_id',type:'text'},{name:'name',type:'text'}]:[{name:'id',type:'text'}]):extra.find(e=>e.kind==='columns'&&e.resource===r.resource)?.d;
+  const cols=r.schema_name==='storage'?(r.resource==='objects'?[{name:'id',type:'uuid'},{name:'bucket_id',type:'text'},{name:'name',type:'text'}]:[{name:'id',type:'text'},{name:'public',type:'boolean'}]):extra.find(e=>e.kind==='columns'&&e.resource===r.resource)?.d;
   assert.ok(cols);for(const c of cols)assert.match(c.type,/^(uuid|bigint|integer|text|boolean|jsonb|numeric(?:\(\d+,\d+\))?|date|timestamp with time zone|time without time zone)$/);
   const table=qi(r.schema_name)+'.'+qi(r.resource);statements.push(`create table ${table} (${cols.map(c=>qi(c.name)+' '+c.type).join(',')});`);
   if(r.d.rls)statements.push(`alter table ${table} enable row level security;`);
@@ -31,11 +31,14 @@ function requireTrue(expression,code){return `if (${expression}) is distinct fro
   }
  }
  statements.push('alter table public.lotes add primary key(id);create unique index on public.lotes(profile_id);create unique index on public.whatsapp_channels(instance_name);');
- for(const e of extra.filter(r=>r.kind==='helper')){statements.push(e.d.definition+';');statements.push(`revoke all on function ${qi(e.schema_name)}.${qi(e.resource)}(${e.resource==='foldername'?'text':''}) from public;`);for(const role of ['anon','authenticated'])if(e.d[role+'_execute'])statements.push(`grant execute on function ${qi(e.schema_name)}.${qi(e.resource)}(${e.resource==='foldername'?'text':''}) to ${role};`);}
+ for(const e of extra.filter(r=>r.kind==='helper'&&r.resource==='foldername')){statements.push(e.d.definition+';');statements.push(`revoke all on function ${qi(e.schema_name)}.${qi(e.resource)}(text) from public;`);for(const role of ['anon','authenticated'])if(e.d[role+'_execute'])statements.push(`grant execute on function ${qi(e.schema_name)}.${qi(e.resource)}(text) to ${role};`);}
  for(const r of rows.filter(r=>r.kind==='policy'&&resources.some(t=>t.schema_name===r.schema_name&&t.resource===r.resource))){
   const p=r.d;assert.ok(['ALL','SELECT','INSERT','UPDATE','DELETE'].includes(r.operation));assert.ok(['PERMISSIVE','RESTRICTIVE'].includes(p.permissive));
+  if(p.permissive==='PERMISSIVE')continue;
   statements.push(`create policy ${qi(p.name)} on ${qi(r.schema_name)}.${qi(r.resource)} as ${p.permissive} for ${r.operation} to ${p.roles.map(qi).join(',')} ${p.using?'using ('+p.using+')':''} ${p.with_check?'with check ('+p.with_check+')':''};`);
  }
+ statements.push("insert into storage.buckets(id,public) values ('documentos-leads',false),('car-images',true);");
+ statements.push(fs.readFileSync('supabase_tenant_policy_baseline.sql','utf8'));
  for(const view of extra.filter(r=>r.kind==='view')){const r=rows.find(r=>r.kind==='resource'&&r.resource===view.resource);assert.deepEqual(r.d.options,['security_invoker=true','security_barrier=true']);statements.push(`create view public.${qi(view.resource)} with(security_invoker=true,security_barrier=true) as ${view.d.definition}`);}
  for(let i=1;i<=10;i++){
   const lot=qs(tenant(i));statements.push(`insert into public.lotes(id,profile_id,nombre,plan_status) values(${lot},${qs(owner(i))},'SYNTHETIC','active');
@@ -129,6 +132,19 @@ function requireTrue(expression,code){return `if (${expression}) is distinct fro
  docker(['exec','-i',owned,'sh','-c','cat > /tmp/qa-hot.pgbench'],'begin;\nset local role service_role;\nselect qa.race_claim(:client_id + 1);\ncommit;\n');
  const hot=docker(['exec',owned,'pgbench','-n','-U','postgres','-d','qa_tenants','-c','10','-j','2','-t','1','-f','/tmp/qa-hot.pgbench']);assert.match(hot,/number of transactions actually processed: 10\/10/);assert.match(hot,/number of failed transactions: 0/);
  assert.equal(sql("select count(*)||','||count(*) filter(where acquired) from qa.race;"),'10,1');
+ sql('alter table public.cars add primary key(id);');
+ sql(fs.readFileSync('supabase_marketing_security.sql','utf8'));
+ sql('grant select,update on public.lotes,public.cars to service_role;');
+ sql(fs.readFileSync('tests/database/marketing-security-regression.sql','utf8'));
+ sql('create table qa.meta_race(client integer primary key, result jsonb not null);grant insert on qa.meta_race to service_role;');
+ docker(['exec','-i',owned,'sh','-c','cat > /tmp/qa-meta.pgbench'],`begin;
+ set local role service_role;
+ insert into qa.meta_race values (:client_id, public.claim_meta_publication(${qs(tenant(1))},1,array['instagram'],array['https://example.invalid/fixture.jpg'],'QA race'));
+ commit;\n`);
+ const metaRace = docker(['exec',owned,'pgbench','-n','-U','postgres','-d','qa_tenants','-c','10','-j','2','-t','1','-f','/tmp/qa-meta.pgbench']);
+ assert.match(metaRace,/number of transactions actually processed: 10\/10/);
+ assert.equal(sql(`select count(*)||','||count(*) filter (where result->>'send'='true')||','||count(distinct result->>'request_id') from qa.meta_race;`),'10,1,1');
  const report={at:new Date().toISOString(),tenants:10,checks,negativeControlDetected:true,testedBusinessTables:names,policyRows:rows.filter(r=>r.kind==='policy').length,isolatedPostgresImage:image,network:'none',publishedPorts:0,realCustomerData:false,productionWrites:false,liveJwtValidation:false,fullSchemaRestore:false,queueBenchmark:{...stats,concurrentClients:10,transactions:1000,failedTransactions:0,latencyMs:{p50:latency[499],p95:latency[949],p99:latency[989],max:latency.at(-1)},sameEventContention:{callers:10,acquired:1},syntheticDatabaseOnly:true,externalApiCalls:0,productionCapacityCertified:false},policyInventoryHash:crypto.createHash('sha256').update(inventory).digest('hex'),columnInventoryHash:crypto.createHash('sha256').update(details).digest('hex')};
+ report.marketing = { concurrentCalls:10, authorizedProviderDispatches:1, distinctRequestIds:1, regressionPassed:true, externalApiCalls:0 };
  fs.writeFileSync(reportFile,JSON.stringify(report,null,2),{flag:'wx'});console.log(JSON.stringify(report));
 })().catch(error=>{console.error(JSON.stringify({status:'TENANT_LAB_NOT_VERIFIED',error:error.code||error.message,detail:Buffer.isBuffer(error.stderr)?error.stderr.toString().slice(-1500):undefined}));process.exitCode=1}).finally(()=>{if(owned){try{const c=JSON.parse(docker(['inspect',owned]))[0];assert.equal(c.Id,owned);assert.equal(c.Config.Labels?.['velodrive.qa'],label);docker(['rm','-f',owned]);console.log('OWNED_LAB_REMOVED');}catch{console.error('LAB_CLEANUP_NOT_VERIFIED');process.exitCode=1}}});

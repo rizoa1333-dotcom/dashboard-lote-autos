@@ -5,13 +5,14 @@ const workflow=JSON.parse(fs.readFileSync(file,'utf8'));
 const node=workflow.nodes.find(n=>n.name==='Publicar Upload-Post (Fotos)1');
 if(!node)throw Error('PUBLICATION_TRANSPORT_MISSING');
 const validated="$('Validar Datos de Publicación').item.json";
+const claimed=workflow.nodes.some(n=>n.name==='¿Envío Nuevo?')?"$('Comprobar Unidad del Lote').item.json":validated;
 const expr=source=>'={{ '+source+' }}';
 const field=(name,value)=>({parameterType:'formData',name,value});
 const parameters=[
   field('user',expr("$('Normalizar Verificación Token2').item.json.loteId")),
   field('title',expr(validated+'.copy')),
   field('async_upload','true'),
-  field('request_id',expr(validated+'.requestId')),
+  field('request_id',expr(claimed+'.requestId')),
 ];
 // Keep the collection schema static: n8n editors cannot reliably render expression-valued collections.
 for(let i=0;i<2;i++)parameters.push(field(expr(validated+'.platforms['+i+'] ? \'platform[]\' : \'velodrive_unused_platform_'+i+'\''),expr(validated+'.platforms['+i+'] || \'\'')));

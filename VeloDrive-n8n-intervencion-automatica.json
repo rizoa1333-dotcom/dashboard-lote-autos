@@ -270,7 +270,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id&plan_status=eq.active",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/resolve_tenant_webhook",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -281,10 +281,18 @@
             {
               "name": "Authorization",
               "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_token:(/^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || ''))?.[1] || null)}) }}"
       },
       "id": "6eb56d50-8c46-4aa1-b7dc-139532e7ce62",
       "name": "Verificar Token de Tenant7",
@@ -294,7 +302,8 @@
         35328,
         19376
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -354,7 +363,7 @@
             },
             {
               "name": "Idempotency-Key",
-              "value": "={{ $('Normalizar Verificación Token2').item.json.loteId + ':' + $('Validar Datos de Publicación').item.json.requestId }}"
+              "value": "={{ $('Normalizar Verificación Token2').item.json.loteId + ':' + $('Comprobar Unidad del Lote').item.json.requestId }}"
             }
           ]
         },
@@ -390,7 +399,7 @@
             {
               "parameterType": "formData",
               "name": "request_id",
-              "value": "={{ $('Validar Datos de Publicación').item.json.requestId }}"
+              "value": "={{ $('Comprobar Unidad del Lote').item.json.requestId }}"
             },
             {
               "parameterType": "formData",
@@ -463,12 +472,13 @@
         36000,
         19280
       ],
-      "continueOnFail": true
+      "continueOnFail": true,
+      "retryOnFail": false
     },
     {
       "parameters": {
-        "method": "PATCH",
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/cars?id=eq.{{ $('Validar Datos de Publicación').item.json.carId }}&lote_id=eq.{{ $('Normalizar Verificación Token2').item.json.loteId }}",
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/finish_meta_publication",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -483,16 +493,12 @@
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({publicado_meta:false,upload_post_request_id_meta:$('Validar Datos de Publicación').item.json.requestId}) }}",
+        "jsonBody": "={{ JSON.stringify({p_lote_id:$('Normalizar Verificación Token2').item.json.loteId,p_car_id:$('Validar Datos de Publicación').item.json.carId,p_request_id:$('Comprobar Unidad del Lote').item.json.requestId,p_result:$json.accepted ? 'accepted' : [400,401,403,404,429].includes($json.providerHttpStatus) ? 'rejected' : 'pending'}) }}",
         "options": {}
       },
       "id": "631b3d7d-976e-432f-9680-1053d413e21f",
@@ -503,12 +509,13 @@
         36224,
         19280
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": false,
+      "retryOnFail": false
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { success:true,status:'processing',request_id:$('Validar Datos de Publicación').item.json.requestId } }}",
+        "responseBody": "={{ {success:true,status:$('Comprobar Unidad del Lote').item.json.send ? 'processing' : 'existing',request_id:$('Comprobar Unidad del Lote').item.json.requestId} }}",
         "options": {}
       },
       "id": "bf3b4c52-58e9-4710-bdbf-a4be9b23f373",
@@ -541,7 +548,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id&plan_status=eq.active",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/resolve_tenant_webhook",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -552,10 +559,18 @@
             {
               "name": "Authorization",
               "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_token:(/^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || ''))?.[1] || null)}) }}"
       },
       "id": "1eedabc3-056c-4444-91f9-cb9ffe9fa8e6",
       "name": "Verificar Token de Tenant8",
@@ -565,7 +580,8 @@
         35328,
         18960
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -651,8 +667,8 @@
     },
     {
       "parameters": {
-        "method": "PATCH",
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/cars?id=eq.{{ $json.car_id }}&lote_id=eq.{{ $json.lote_id }}&upload_post_request_id_meta=eq.{{ $('Validar Consulta de Publicación').item.json.requestId }}",
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/record_meta_publication_status",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -667,16 +683,12 @@
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({publicado_meta:$json.publicado}) }}",
+        "jsonBody": "={{ JSON.stringify({p_lote_id:$json.lote_id,p_car_id:$json.car_id,p_request_id:$('Validar Consulta de Publicación').item.json.requestId,p_published:$json.publicado,p_observed:$('Consultar Status Upload-Post1').item.json.request_id === $('Validar Consulta de Publicación').item.json.requestId && ['pending','queued','processing','in_progress','completed','failed'].includes($('Consultar Status Upload-Post1').item.json.status)}) }}",
         "options": {}
       },
       "id": "4581babd-1277-484b-8bc7-4976aa4473de",
@@ -687,13 +699,16 @@
         36448,
         18864
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": false,
+      "retryOnFail": false
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ $('Evaluar Resultado1').item.json }}",
-        "options": {}
+        "responseBody": "={{ $json.saved === true ? $('Evaluar Resultado1').item.json : {fallo:true,mensaje:'No se pudo confirmar el estado de este envío.'} }}",
+        "options": {
+          "responseCode": "={{ $json.saved === true ? 200 : 502 }}"
+        }
       },
       "id": "51279c66-9d02-47a9-9fbb-00a23d272386",
       "name": "Responder Estado1",
@@ -763,7 +778,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id&plan_status=eq.active",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/resolve_tenant_webhook",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -774,10 +789,18 @@
             {
               "name": "Authorization",
               "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_token:(/^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || ''))?.[1] || null)}) }}"
       },
       "id": "c02ad4eb-7020-4e0b-85b0-1eaee0020651",
       "name": "Verificar Token de Tenant9",
@@ -787,7 +810,8 @@
         35328,
         21024
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -1053,7 +1077,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?webhook_token=eq.{{ (() => { const m = /^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || \"\")); return m ? m[1] : \"00000000-0000-0000-0000-000000000000\"; })() }}&webhook_token=neq.00000000-0000-0000-0000-000000000000&select=id&plan_status=eq.active",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/resolve_tenant_webhook",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1064,10 +1088,18 @@
             {
               "name": "Authorization",
               "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_token:(/^Bearer\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String($json.headers?.authorization || ''))?.[1] || null)}) }}"
       },
       "id": "bf3538ff-6ab9-44ea-9f9d-f6418861d87a",
       "name": "Verificar Token de Tenant10",
@@ -1077,7 +1109,8 @@
         35120,
         21584
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -3417,8 +3450,8 @@
     },
     {
       "parameters": {
-        "method": "PATCH",
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/lotes?id=eq.{{ $json.lote_id }}&webhook_token=eq.{{ $json.token_anterior }}&select=id,webhook_token",
+        "method": "POST",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/rotate_tenant_webhook",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -3433,16 +3466,12 @@
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=representation"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ webhook_token: $json.token_nuevo, token_rotado_at: new Date().toISOString() }) }}",
+        "jsonBody": "={{ JSON.stringify({p_lote_id:$json.lote_id,p_previous:$json.token_anterior,p_replacement:$json.token_nuevo}) }}",
         "options": {}
       },
       "id": "47e40e00-8347-49f2-96af-84265512b78c",
@@ -3452,7 +3481,9 @@
       "position": [
         35792,
         22768
-      ]
+      ],
+      "alwaysOutputData": false,
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -4126,7 +4157,7 @@
     },
     {
       "parameters": {
-        "url": "=https://deljncdcddfghfihuumd.supabase.co/rest/v1/cars?id=eq.{{ $('Validar Datos de Publicación').item.json.carId }}&lote_id=eq.{{ $('Normalizar Verificación Token2').item.json.loteId }}&select=id,upload_post_request_id_meta",
+        "url": "https://deljncdcddfghfihuumd.supabase.co/rest/v1/rpc/claim_meta_publication",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -4137,10 +4168,18 @@
             {
               "name": "Authorization",
               "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_lote_id:$('Normalizar Verificación Token2').item.json.loteId,p_car_id:$('Validar Datos de Publicación').item.json.carId,p_platforms:$('Validar Datos de Publicación').item.json.platforms,p_urls:$('Validar Datos de Publicación').item.json.urls,p_copy:$('Validar Datos de Publicación').item.json.copy}) }}"
       },
       "id": "889160a9-b14f-4cf9-8dc5-ab993c688296",
       "name": "Consultar Unidad para Publicar",
@@ -4150,7 +4189,8 @@
         36300,
         19280
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": false,
+      "retryOnFail": false
     },
     {
       "id": "52f6447c-2fa8-45ef-8b99-777c2c3064c1",
@@ -4162,7 +4202,7 @@
         19280
       ],
       "parameters": {
-        "jsCode": "return [{json:{unitValid:!!$json.id,httpStatus:404,error:'La unidad no pertenece a este lote o ya fue eliminada.'}}];"
+        "jsCode": "const valid = typeof $json.send === 'boolean' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String($json.request_id || ''));\nconst superseded = $json.code === 'PUBLICATION_SUPERSEDED';\nconst busy = $json.code === 'PUBLICATION_IN_PROGRESS';\nconst invalid = $json.code === 'INVALID_PUBLICATION';\nreturn [{json:{unitValid:valid,send:valid && $json.send,requestId:valid ? $json.request_id : null,\n  httpStatus:superseded || busy ? 409 : invalid ? 400 : 404,code:$json.code,\n  error:superseded ? 'Este contenido ya se envió. Consulta el estado de la publicación más reciente.' :\n    busy ? 'Hay un intento pendiente para esta unidad. Consulta Verificar Meta antes de enviar otro contenido.' :\n    invalid ? 'Revisa las fotos y el texto de la publicación.' : 'La unidad no pertenece a este lote o ya fue eliminada.'}}];"
       }
     },
     {
@@ -4201,9 +4241,9 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ {success:false,error:$json.error || 'No se pudo completar la publicación. Revisa el estado antes de reintentar.',code:$json.code || 'PUBLICATION_FAILED'} }}",
+        "responseBody": "={{ (() => { const failure = $json.saved === true ? $('Evaluar Envío de Publicación').item.json : $json; return {success:false,error:failure.error || 'No se pudo confirmar el envío. Verifica el estado antes de reintentar.',code:failure.code || 'PUBLICATION_FAILED'}; })() }}",
         "options": {
-          "responseCode": "={{ $json.httpStatus || 502 }}"
+          "responseCode": "={{ ($json.saved === true ? $('Evaluar Envío de Publicación').item.json.httpStatus : $json.httpStatus) || 502 }}"
         }
       },
       "id": "eeaa3562-cab7-4629-b0cc-3b4b5aa9866a",
@@ -4225,7 +4265,7 @@
         19280
       ],
       "parameters": {
-        "jsCode": "function evaluatePublicationResponse(response, requestId) {\n  const envelope = response && typeof response === 'object' ? response : {};\n  const rawStatus = Number(envelope.statusCode ?? 200);\n  const status = Number.isInteger(rawStatus) && rawStatus >= 100 && rawStatus <= 599 ? rawStatus : 0;\n  const result = envelope.body ?? envelope;\n  const accepted = status >= 200 && status < 300 && result?.success === true && result.request_id === requestId;\n  const failures = {\n    400: ['UPLOAD_POST_INVALID_REQUEST', 'Upload-Post rechazó los datos de la publicación. Revisa las fotos, el texto y las cuentas seleccionadas.'],\n    401: ['UPLOAD_POST_AUTH_FAILED', 'La integración de publicaciones no pudo autenticarse. Contacta a soporte para revisar la credencial de Upload-Post.'],\n    403: ['UPLOAD_POST_PLAN_RESTRICTED', 'Upload-Post no permite esta operación con los permisos o el plan actuales. Contacta a soporte.'],\n    404: ['UPLOAD_POST_PROFILE_NOT_FOUND', 'Upload-Post no encontró el perfil del lote. Revisa la conexión de Facebook e Instagram.'],\n    429: ['UPLOAD_POST_LIMIT_REACHED', 'Upload-Post alcanzó un límite de publicaciones. Revisa la cuota disponible antes de reintentar.'],\n  };\n  const [code, error] = accepted ? ['UPLOAD_POST_ACCEPTED', ''] : failures[status] || [\n    'UPLOAD_POST_UNCONFIRMED',\n    'No se confirmó el envío. Verifica el estado antes de reintentar; se conservará el identificador para evitar duplicados.',\n  ];\n  return {accepted,request_id:requestId,httpStatus:accepted ? 200 : 502,providerHttpStatus:status,code,error};\n}\nreturn [{json:evaluatePublicationResponse($json, $('Validar Datos de Publicación').item.json.requestId)}];"
+        "jsCode": "function evaluatePublicationResponse(response, requestId) {\n  const envelope = response && typeof response === 'object' ? response : {};\n  const rawStatus = Number(envelope.statusCode ?? 200);\n  const status = Number.isInteger(rawStatus) && rawStatus >= 100 && rawStatus <= 599 ? rawStatus : 0;\n  const result = envelope.body ?? envelope;\n  const accepted = status >= 200 && status < 300 && result?.success === true && result.request_id === requestId;\n  const failures = {\n    400: ['UPLOAD_POST_INVALID_REQUEST', 'Upload-Post rechazó los datos de la publicación. Revisa las fotos, el texto y las cuentas seleccionadas.'],\n    401: ['UPLOAD_POST_AUTH_FAILED', 'La integración de publicaciones no pudo autenticarse. Contacta a soporte para revisar la credencial de Upload-Post.'],\n    403: ['UPLOAD_POST_PLAN_RESTRICTED', 'Upload-Post no permite esta operación con los permisos o el plan actuales. Contacta a soporte.'],\n    404: ['UPLOAD_POST_PROFILE_NOT_FOUND', 'Upload-Post no encontró el perfil del lote. Revisa la conexión de Facebook e Instagram.'],\n    429: ['UPLOAD_POST_LIMIT_REACHED', 'Upload-Post alcanzó un límite de publicaciones. Revisa la cuota disponible antes de reintentar.'],\n  };\n  const [code, error] = accepted ? ['UPLOAD_POST_ACCEPTED', ''] : failures[status] || [\n    'UPLOAD_POST_UNCONFIRMED',\n    'No se confirmó el envío. Verifica el estado antes de reintentar; se conservará el identificador para evitar duplicados.',\n  ];\n  return {accepted,request_id:requestId,httpStatus:accepted ? 200 : 502,providerHttpStatus:status,code,error};\n}\nreturn [{json:evaluatePublicationResponse($json, $('Comprobar Unidad del Lote').item.json.requestId)}];"
       }
     },
     {
@@ -4239,7 +4279,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.accepted }}",
+              "leftValue": "={{ $json.saved === true && $('Evaluar Envío de Publicación').item.json.accepted === true }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -5703,6 +5743,39 @@
           "timeout": 15000
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.send === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "id": "bb92a197-9c56-41d3-9644-72b08ea9042d"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9c445eb0-c95f-4d65-a6b4-c08ff6b4b44d",
+      "name": "¿Envío Nuevo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        36890,
+        19280
+      ]
     }
   ],
   "connections": {
@@ -5772,7 +5845,7 @@
       "main": [
         [
           {
-            "node": "Responder Publicación1",
+            "node": "¿Envío Aceptado?",
             "type": "main",
             "index": 0
           }
@@ -7109,7 +7182,7 @@
       "main": [
         [
           {
-            "node": "Publicar Upload-Post (Fotos)1",
+            "node": "¿Envío Nuevo?",
             "type": "main",
             "index": 0
           }
@@ -7127,7 +7200,7 @@
       "main": [
         [
           {
-            "node": "¿Envío Aceptado?",
+            "node": "Guardar Estado Meta1",
             "type": "main",
             "index": 0
           }
@@ -7138,7 +7211,7 @@
       "main": [
         [
           {
-            "node": "Guardar Estado Meta1",
+            "node": "Responder Publicación1",
             "type": "main",
             "index": 0
           }
@@ -7873,6 +7946,24 @@
         [
           {
             "node": "Responder OK Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Envío Nuevo?": {
+      "main": [
+        [
+          {
+            "node": "Publicar Upload-Post (Fotos)1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Publicación1",
             "type": "main",
             "index": 0
           }

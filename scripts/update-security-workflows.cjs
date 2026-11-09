@@ -30,7 +30,9 @@ for (const name of ['Stripe Trigger1','Es Activación Inicial1','Activar Lote In
 for (const name of ['consultar_inventario_autos1', 'buscar_inventario_autos1']) node(name).parameters.tableId = 'agent_inventory';
 for (const number of [7, 8, 9, 10]) {
   const n = node('Verificar Token de Tenant' + number);
-  n.parameters.url = n.parameters.url.replace(/&plan_status=eq\.active/g, '') + '&plan_status=eq.active';
+  if (n.parameters.url.includes('/lotes?')) {
+    n.parameters.url = n.parameters.url.replace(/&plan_status=eq\.active/g, '') + '&plan_status=eq.active';
+  }
 }
 for (const name of ['Buscar Citas Próximas', 'Buscar Leads Sin Agendar']) {
   const n = node(name);

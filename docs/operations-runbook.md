@@ -24,13 +24,45 @@ Credencial HTTP: permiso de envío en Resend y dominio permitido `api.resend.com
 ```powershell
 npm test
 npm run test:e2e
-node tests/integration/tenant-isolation.mjs --live-qa
+node tests/integration/tenant-isolation.mjs --live-qa --qa-config RUTA-PRIVADA-QA.json
 node tests/integration/whatsapp-reliability.mjs --live-qa
 node tests/integration/incident-notifications.mjs --live-qa
 node tests/integration/whatsapp-webhook.mjs --live-qa
 ```
 
 El replay de una conversación real requiere el ID del mensaje QA reciente y verifica que su contenido sea la frase de prueba autorizada. No usar mensajes de clientes.
+
+La prueba de aislamiento con sesiones de Auth requiere un proyecto Supabase de QA
+con los disparadores externos desconectados. El JSON privado contiene
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` de ese proyecto.
+La prueba rechaza el host configurado en el panel y crea dos lotes sintéticos
+activos para comprobar las escrituras cruzadas sin que un plan inactivo las oculte.
+
+## Correcciones de aislamiento y marketing del 9 de noviembre
+
+`supabase_tenant_policy_baseline.sql` conserva en Git las políticas de lote y
+Storage que antes se obtenían del inventario del proyecto. Requiere el esquema
+base restaurado, las migraciones de permisos y el bucket privado `documentos-leads`.
+El laboratorio usa esta migración y comprueba el aislamiento con diez lotes.
+
+Para desplegar marketing, primero aplicar `supabase_marketing_security.sql`,
+verificar los permisos de sus funciones y luego importar el JSON del workflow.
+Conservar el flujo anterior para reversión y revisar los envíos pendientes
+anteriores al corte. El cambio pasa los tokens a cuerpos POST y conserva la
+rotación con comparación del valor anterior. Los cuerpos siguen siendo sensibles.
+Mantener apagado el guardado de datos de ejecución y revisar la configuración
+de registros del despliegue.
+
+La reclamación persistente usa lote, auto, plataformas, fotos en su orden y texto.
+Procesar el contenido cuesta `O(B)` para `B` bytes y el índice mantiene una fila
+por contenido distinto. La misma carga reutiliza el identificador mientras
+el resultado sea aceptado o incierto. Una respuesta de rechazo HTTP prevista
+permite otro intento. Si la red falla o el proveedor devuelve un resultado
+ambiguo, consultar el estado con el identificador registrado antes de intervenir.
+Una unidad con un intento pendiente espera confirmación antes de aceptar otro
+contenido. Verificar Meta confirma ese intento cuando el proveedor devuelve el
+mismo identificador y un estado conocido.
+La aceptación de la solicitud todavía requiere verificar el resultado por red.
 
 ## Recuperación
 

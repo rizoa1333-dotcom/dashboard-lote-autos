@@ -19,12 +19,13 @@ test('el flujo se puede importar sin identificadores de nodos duplicados', () =>
 test('tokens inválidos nunca llegan a PostgreSQL como valores UUID mal formados', () => {
   for (const name of ['Verificar Token de Tenant7', 'Verificar Token de Tenant8', 'Verificar Token de Tenant9', 'Verificar Token de Tenant10']) {
     const node = workflow.nodes.find(n => n.name === name);
-    for (const authorization of ['', 'Bearer ' + 'x'.repeat(64), 'Bearer 00000000-0000-0000-0000-000000000000']) {
-      const url = node.parameters.url.slice(1).replace(/{{([\s\S]*?)}}/g, (_, expression) =>
-        vm.runInNewContext(expression, { $json: { headers: { authorization } } }));
-      const filters = new URL(url).searchParams.getAll('webhook_token');
-      assert.deepEqual(filters, ['eq.00000000-0000-0000-0000-000000000000', 'neq.00000000-0000-0000-0000-000000000000']);
+    for (const authorization of ['', 'Bearer ' + 'x'.repeat(64)]) {
+      const body = JSON.parse(vm.runInNewContext(node.parameters.jsonBody.slice(3,-3), { $json: { headers: { authorization } } }));
+      assert.deepEqual(body, { p_token: null });
     }
+    const token = '10000000-0000-4000-8000-000000000001';
+    const body = JSON.parse(vm.runInNewContext(node.parameters.jsonBody.slice(3,-3), { $json: { headers: { authorization: 'Bearer '+token } } }));
+    assert.deepEqual(body, { p_token: token });
   }
 });
 
@@ -114,7 +115,7 @@ test('multipart envía dos fotos separadas y solamente Facebook', async () => {
   assert.equal(node.parameters.contentType, 'multipart-form-data');
   assert.equal(node.parameters.options.response.response.responseFormat, 'autodetect');
   const form = new FormData();
-  const refs={'Validar Datos de Publicación':result,'Normalizar Verificación Token2':{loteId:'tenant-a'}};
+  const refs={'Validar Datos de Publicación':result,'Comprobar Unidad del Lote':{requestId:publication.request_id},'Normalizar Verificación Token2':{loteId:'tenant-a'}};
   const resolve=value=>typeof value==='string' && value.startsWith('={{') ? vm.runInNewContext(value.slice(3,-2),{$:key=>({item:{json:refs[key]}})}) : value;
   for(const field of node.parameters.bodyParameters.parameters)form.append(resolve(field.name),resolve(field.value));
   assert.deepEqual(form.getAll('platform[]'), ['facebook']);
@@ -156,13 +157,11 @@ test('la renovación procesa cada lote y actualiza solo el token que leyó',()=>
   for (const id of ['lot-a','lot-b']) {
     const source={id,webhook_token:'previous-'+id};
     const generated=vm.runInNewContext('(function(){'+node('Generar Nuevo Token1').parameters.jsCode+'})()',{require,$json:source}).json;
-    const url=new URL(patch.parameters.url.slice(1).replace(/{{([\s\S]*?)}}/g,(_,expr)=>vm.runInNewContext(expr,{$json:generated})));
-    assert.equal(url.searchParams.get('id'),'eq.'+id);
-    assert.equal(url.searchParams.get('webhook_token'),'eq.previous-'+id);
+    assert.equal(new URL(patch.parameters.url).search,'');
     const body=JSON.parse(vm.runInNewContext(patch.parameters.jsonBody.slice(3,-3),{$json:generated}));
-    assert.equal(body.webhook_token,generated.token_nuevo);
+    assert.deepEqual(body,{p_lote_id:id,p_previous:'previous-'+id,p_replacement:generated.token_nuevo});
   }
-  assert.equal(patch.parameters.headerParameters.parameters.find(h=>h.name==='Prefer').value,'return=representation');
+  assert.equal(patch.alwaysOutputData,false);
   assert.notEqual(patch.onError,'continueRegularOutput');
   const url=node('Notificar Token Rotado1').parameters.url.slice(1).replace(/{{([\s\S]*?)}}/g,(_,expr)=>vm.runInNewContext(expr,{$json:{instance_name:'instance-a'}}));
   assert.equal(new URL(url).pathname,'/message/sendText/instance-a');
@@ -171,13 +170,13 @@ test('la renovación procesa cada lote y actualiza solo el token que leyó',()=>
 
 test('publicacion distingue cuota, credenciales y datos rechazados sin filtrar errores del proveedor', () => {
   for (const [status, code] of [[401,'UPLOAD_POST_AUTH_FAILED'],[403,'UPLOAD_POST_PLAN_RESTRICTED'],[429,'UPLOAD_POST_LIMIT_REACHED'],[400,'UPLOAD_POST_INVALID_REQUEST'],[404,'UPLOAD_POST_PROFILE_NOT_FOUND']]) {
-    const result = runNode('Evaluar Envío de Publicación', {statusCode:status,body:{success:false,message:'private-token-example'}}, {'Validar Datos de Publicación':{requestId:publication.request_id}});
+    const result = runNode('Evaluar Envío de Publicación', {statusCode:status,body:{success:false,message:'private-token-example'}}, {'Comprobar Unidad del Lote':{requestId:publication.request_id}});
     assert.equal(result.accepted,false); assert.equal(result.code,code); assert.ok(!result.error.includes('private-token-example'));
   }
 });
 
 test('publicacion aceptada exige el identificador esperado y conserva una respuesta incierta para consultar antes de reintentar', () => {
-  const refs={'Validar Datos de Publicación':{requestId:publication.request_id}};
+  const refs={'Comprobar Unidad del Lote':{requestId:publication.request_id}};
   const accepted=runNode('Evaluar Envío de Publicación',{statusCode:200,body:{success:true,request_id:publication.request_id}},refs);
   assert.equal(accepted.accepted,true);
   for (const body of [{success:true,request_id:'different-request'},{success:false},'unexpected html']) {
@@ -190,7 +189,7 @@ test('publicacion aceptada exige el identificador esperado y conserva una respue
 test('el formulario nativo conserva diez fotos, unicode y una sola plataforma sin serializar arrays',()=>{
   const node=workflow.nodes.find(n=>n.name==='Publicar Upload-Post (Fotos)1');
   const urls=Array.from({length:10},(_,i)=>'https://storage.test/'+i+'.jpg');
-  const refs={'Validar Datos de Publicación':{urls,platforms:['instagram'],copy:'🚗 Automóvil en Colima',requestId:publication.request_id},'Normalizar Verificación Token2':{loteId:'tenant-a'}};
+  const refs={'Validar Datos de Publicación':{urls,platforms:['instagram'],copy:'🚗 Automóvil en Colima'},'Comprobar Unidad del Lote':{requestId:publication.request_id},'Normalizar Verificación Token2':{loteId:'tenant-a'}};
   const resolve=value=>typeof value==='string' && value.startsWith('={{') ? vm.runInNewContext(value.slice(3,-2),{$:key=>({item:{json:refs[key]}})}) : value;
   const form=new FormData();
   for(const field of node.parameters.bodyParameters?.parameters||[])form.append(resolve(field.name),resolve(field.value));

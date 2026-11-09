@@ -1470,6 +1470,12 @@ function initMarketingModule() {
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || data.success !== true || !data.request_id) throw new Error(data.error || 'No se confirmó el envío. Revisa el estado antes de reintentar.');
+      if (data.status === 'existing') {
+        statusText.textContent = 'Ya hay un intento registrado. Consulta “Verificar Meta” en Inventario.';
+        statusText.style.color = 'var(--text-dim)';
+        await fetchCars();
+        return;
+      }
       car.upload_post_request_id_meta = data.request_id;
       car.publicado_meta = false;
       const updatePayload = { copy_meta: copyText.value.trim(), image_url: urls[0], image_urls: urls };
@@ -2929,22 +2935,27 @@ const CATALOG_REDACTED = '•••• Protegido';
 async function crearUrlDocumentoPrivado(valor) {
   if (!valor || !currentLote?.id) return '';
   let objectPath = String(valor).trim();
+  let segments;
   try {
     if (/^https?:\/\//i.test(objectPath)) {
       const parsed = new URL(objectPath);
       if (parsed.origin !== new URL(SUPABASE_URL).origin) return '';
       const prefix = '/storage/v1/object/public/documentos-leads/';
-      if (!parsed.pathname.startsWith(prefix)) return '';
-      objectPath = parsed.pathname.slice(prefix.length);
+      // URL normaliza los segmentos de navegación antes de exponer pathname.
+      const rawPath = /^https?:\/\/[^/?#\\]+(\/[^?#]*)/i.exec(objectPath)?.[1];
+      if (!rawPath?.startsWith(prefix)) return '';
+      objectPath = rawPath.slice(prefix.length);
     }
-    objectPath = objectPath.split('/').map(segment => decodeURIComponent(segment)).join('/');
+    segments = objectPath.split('/').map(segment => decodeURIComponent(segment));
   } catch (_) {
     return '';
   }
-  if (!objectPath.startsWith(`${currentLote.id}/`)) return '';
+  if (segments.length < 2 || segments[0] !== String(currentLote.id)) return '';
+  if (segments.some(segment => !segment || segment === '.' || segment === '..'
+    || /[/\\\u0000-\u001f\u007f]/.test(segment) || /%[0-9a-f]{2}/i.test(segment))) return '';
   const { data, error } = await supabaseClient.storage
     .from('documentos-leads')
-    .createSignedUrl(objectPath, 300);
+    .createSignedUrl(segments.join('/'), 300);
   if (error) {
     console.warn('[Documentos] No fue posible abrir el documento privado.');
     return '';

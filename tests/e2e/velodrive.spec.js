@@ -52,6 +52,24 @@ test.describe('redes sociales', () => {
     await expect(page.locator('#btnConectarRedes')).toBeEnabled();
   });
 
+  test('un envío existente se muestra sin sobrescribir el inventario', async ({ page }) => {
+    await page.route('**/webhook/publicar-redes', route => route.fulfill({ json: {
+      success: true, status: 'existing', request_id: 'existing-qa-request-1234',
+    } }));
+    await setupPage(page, session);
+    await page.evaluate(() => {
+      carsCache = window.__fakeState.cars;
+      marketingSelectedCarId = 21;
+      marketingImageUrls = ['https://storage.test/a.jpg'];
+      document.getElementById('section-marketing').classList.remove('hidden');
+    });
+    await page.locator('#marketingCopyText').fill('Unidad disponible');
+    await page.locator('#btnPublicarRedes').click({ force: true });
+    await expect(page.locator('#marketingStatusText')).toContainText('Ya hay un intento registrado');
+    await expect(page.locator('#btnPublicarRedes')).toBeEnabled();
+    expect(await page.evaluate(() => window.__fakeState.updates.cars)).toBe(0);
+  });
+
   test('verificar una publicacion parcial identifica la Pagina faltante y no reenvia fotos', async ({page}) => {
     let publications = 0;
     await page.route('**/webhook/publicar-redes', route => { publications++; return route.fulfill({json:{}}); });

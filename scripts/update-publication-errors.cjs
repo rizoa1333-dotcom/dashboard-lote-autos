@@ -5,5 +5,6 @@ const file=process.argv[2] || path.join(__dirname,'../VeloDrive-n8n-intervencion
 const workflow=JSON.parse(fs.readFileSync(file,'utf8'));
 const node=workflow.nodes.find(n=>n.name==='Evaluar Envío de Publicación');
 if(!node)throw Error('PUBLICATION_EVALUATOR_MISSING');
-node.parameters.jsCode=evaluatePublicationResponse.toString()+"\nreturn [{json:evaluatePublicationResponse($json, $('Validar Datos de Publicación').item.json.requestId)}];";
+const requestNode=workflow.nodes.some(n=>n.name==='¿Envío Nuevo?')?'Comprobar Unidad del Lote':'Validar Datos de Publicación';
+node.parameters.jsCode=evaluatePublicationResponse.toString()+"\nreturn [{json:evaluatePublicationResponse($json, $('"+requestNode+"').item.json.requestId)}];";
 fs.writeFileSync(file,JSON.stringify(workflow,null,2)+'\n');
