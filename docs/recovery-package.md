@@ -151,3 +151,40 @@ La versión endurecida mantiene `/evolution/instances` con modo 0700 y propietar
 esa identidad. No se deben ampliar sus permisos para facilitar una copia por
 SSH: el observador root de Railway carece de algunos privilegios habituales de
 root y puede recibir `EACCES` sobre ese directorio privado.
+
+## Recuperación de archivos de Supabase y pruebas locales del 9 de noviembre
+
+La copia cifrada del 3 de noviembre contiene 19 objetos de dos buckets. El
+ensayo del 9 de noviembre recuperó 1,997,142 bytes en memoria y verificó los
+19 hashes. El manifiesto cifrado conserva los nombres originales y la
+configuración de los buckets, incluido el acceso privado de `documentos-leads`.
+El verificador admite hasta 256 archivos, 64 MiB por archivo y 1 GiB por pase.
+Comprueba el tamaño al abrir cada archivo antes de reservar memoria y rechaza
+cambios durante la lectura. Para `B` bytes y `N` archivos, el tiempo es
+`O(B + N)` y la memoria `O(L + N)`, donde `L` es el mayor archivo admitido.
+
+La copia sigue protegida por el perfil de Windows. Quedan pendientes una
+credencial válida de PostgreSQL, la copia y restauración de PostgreSQL/Auth,
+la restauración de Storage como servicio y la custodia portable de las claves.
+
+El laboratorio reprodujo las 27 políticas capturadas el 3 de noviembre con
+datos sintéticos. Pasaron 546 comprobaciones en 10 lotes. Una política abierta
+intencionalmente en el laboratorio provocó el fallo esperado. En la cola local,
+10 clientes ejecutaron 1,000 operaciones. Hubo 500 mensajes únicos completados,
+500 duplicados descartados, cero cruces y cero fallos. Diez solicitudes
+simultáneas por el mismo mensaje obtuvieron una sola reclamación. El p95 de
+77.802 ms corresponde a la base local con almacenamiento en memoria. Quedan
+pendientes la prueba con sesiones reales y la medición del flujo integrado.
+
+Las consultas de metadatos están en `tests/database/tenant-policy-inventory.sql`
+y `tests/database/tenant-policy-details.sql`. Sus exportaciones JSON se guardan
+fuera de Git con el formato `{ "at": "<fecha ISO>", "rows": [...] }`.
+El operador requiere la imagen de PostgreSQL indicada en el código, ya disponible
+en Docker local bajo WSL. Crea un contenedor temporal sin red ni puertos.
+
+```powershell
+node scripts/test-tenant-policy-lab.cjs --execute-local-only INVENTARIO.json DETALLES.json INFORME-NUEVO.json
+```
+
+Los resultados detallados están en `.qa/evidence/tenant-policy-lab-20261109.json`,
+`.qa/evidence/unit-recovery-20261109.log` y `.qa/evidence/linux-recovery-20261109.log`.

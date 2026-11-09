@@ -35,8 +35,21 @@ test('Evolution body budget rejects excess concurrent parsing while health and s
 
 test('Evolution rejects oversized JSON before body parsing and preserves normal metadata', async t => {
   const f = await fixture(t);
-  const oversized = await fetch(f.url + '/echo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ media: 'x'.repeat(1024 * 1024) }) });
-  assert.equal(oversized.status, 413);
+  // The server must reject the declared length before the client sends a body.
+  const oversized = await new Promise((resolve, reject) => {
+    const request = http.request(f.url + '/echo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': String(1024 * 1024 + 1) },
+      signal: AbortSignal.timeout(3000),
+    }, response => {
+      response.resume();
+      response.once('end', () => resolve(response.statusCode));
+      response.once('error', reject);
+    });
+    request.once('error', reject);
+    request.end();
+  });
+  assert.equal(oversized, 413);
   const accepted = await fetch(f.url + '/echo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: { key: 'fake', mediaUrl: 'https://example.com/fake.jpg' } }) });
   assert.equal(accepted.status, 200);
   assert.deepEqual(await accepted.json(), { accepted: true, fields: 1 });
