@@ -273,18 +273,24 @@ async function fetchAndRenderAll() {
 async function fetchLeads() {
   if (!currentLote || catalogModeActive) return;
   const context = captureTenantContext();
-  const { data, error } = await supabaseClient
-    .from('leads')
-    .select('*')
-    .eq('lote_id', currentLote.id)
-    .order('created_at', { ascending: false });
-
-  if (!isCurrentTenantContext(context)) return;
-  if (error) {
-    console.error('[Leads Engine] Error de consulta:', error);
-    return false;
+  const pageSize = 400;
+  const leads = [];
+  let lastId = null;
+  for (;;) {
+    let query = supabaseClient.from('lead_activity').select('*')
+      .eq('lote_id', context.loteId).order('id', { ascending: true }).limit(pageSize);
+    if (lastId !== null) query = query.gt('id', lastId);
+    const { data, error } = await query;
+    if (!isCurrentTenantContext(context)) return;
+    if (error) {
+      console.error('[Leads Engine] Error de consulta:', error);
+      return false;
+    }
+    leads.push(...data);
+    if (data.length < pageSize) break;
+    lastId = data.at(-1).id;
   }
-  leadsCache = data || [];
+  leadsCache = leads.reverse();
   renderLeadsTable();
   renderCounters();
   procesarMetricasBI();
@@ -354,7 +360,6 @@ async function fetchCitasReal() {
   }
   renderCitasCalendario();
   renderCounters();
-  renderPipelineKanban();
   return true;
 }
 
@@ -379,31 +384,48 @@ function renderCounters() {
   }
 }
 
+const LEAD_DAY_MS = 86400000;
+
+function leadActivityTime(lead) {
+  for (const value of [lead.last_activity_at, lead.created_at]) {
+    if (!value) continue;
+    const time = parseFechaMx(value).getTime();
+    if (Number.isFinite(time)) return time;
+  }
+  return null;
+}
+
 function renderLeadsTable() {
   const container = document.getElementById('leadsGroupedContainer');
   if (!container) return;
 
-  if (leadsCache.length === 0) {
-    container.innerHTML = '<div class="card p-8 text-center text-xs text-[#9CA3AF]">Sin prospectos calificados registrados en este lote.</div>';
+  const all = document.getElementById('leadActivityPeriod')?.value === 'all';
+  const now = Date.now();
+  const recentCutoff = now - 30 * LEAD_DAY_MS;
+  const visible = leadsCache.map(lead => ({ lead, activity: leadActivityTime(lead) }))
+    .filter(({ activity }) => all || (activity !== null && activity >= recentCutoff))
+    .sort((a, b) => (b.activity ?? -Infinity) - (a.activity ?? -Infinity));
+
+  if (visible.length === 0) {
+    const message = leadsCache.length
+      ? 'Sin prospectos con actividad en los últimos 30 días.'
+      : 'Sin prospectos calificados registrados en este lote.';
+    container.innerHTML = `<div class="card p-8 text-center text-xs text-[#9CA3AF]">${message}</div>`;
     return;
   }
 
-  const hoyClave   = claveDiaMx(new Date());
-  const ayerClave  = claveDiaMx(new Date(Date.now() - 86400000));
+  const hoyClave = claveDiaMx(new Date(now));
+  const ayerClave = claveDiaMx(new Date(now - LEAD_DAY_MS));
 
-  const diasMap = {};
-  const leadsOrdenados = [...leadsCache].sort((a, b) =>
-    new Date(b.created_at || 0) - new Date(a.created_at || 0)
-  );
-
-  leadsOrdenados.forEach(lead => {
-    const fecha = lead.created_at ? parseFechaMx(lead.created_at) : new Date();
-    const clave = claveDiaMx(fecha);
-    if (!diasMap[clave]) diasMap[clave] = [];
-    diasMap[clave].push(lead);
+  const diasMap = new Map();
+  visible.forEach(({ lead, activity }) => {
+    const clave = activity === null ? '' : claveDiaMx(new Date(activity));
+    if (!diasMap.has(clave)) diasMap.set(clave, []);
+    diasMap.get(clave).push(lead);
   });
 
   function labelDia(clave) {
+    if (!clave) return 'Sin fecha de actividad';
     if (clave === hoyClave)  return '🟢 Hoy';
     if (clave === ayerClave) return '🕐 Ayer';
     const [y, m, d] = clave.split('-').map(Number);
@@ -411,10 +433,7 @@ function renderLeadsTable() {
       .toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   }
 
-  const diasOrdenados = Object.keys(diasMap).sort((a, b) => b.localeCompare(a));
-
-  container.innerHTML = diasOrdenados.map(clave => {
-    const leadsDelDia = diasMap[clave];
+  container.innerHTML = [...diasMap].map(([clave, leadsDelDia]) => {
     const label = labelDia(clave);
     const esHoy = clave === hoyClave;
 
@@ -511,9 +530,7 @@ function getLeadTemperature(lead) {
 
   if (lead.status === 'Completado') return 'caliente';
 
-  const telefonoLead = String(lead.phone_number || lead.telefono || '');
-  const tieneCitaActiva = citasCache.some(c => String(c.telefono) === telefonoLead && c.estado_lead !== 'Cancelada');
-  if (tieneCitaActiva) return 'caliente';
+  if (lead.has_upcoming_appointment) return 'caliente';
 
   if (['Esperando_INE', 'Esperando_Domicilio', 'Esperando_Ingresos'].includes(lead.status)) return 'templado';
   if (lead.status === 'Calificado' && lead.enganche) return 'templado';
@@ -526,30 +543,38 @@ function renderPipelineKanban() {
   const contCaliente = document.getElementById('kanbanCaliente');
   const contTemplado = document.getElementById('kanbanTemplado');
   const contFrio = document.getElementById('kanbanFrio');
-  if (!contCaliente || !contTemplado || !contFrio) return;
+  const contArchivados = document.getElementById('kanbanArchivados');
+  const btnArchivados = document.getElementById('btnKanbanArchivados');
+  if (!contCaliente || !contTemplado || !contFrio || !contArchivados || !btnArchivados) return;
 
-  const grupos = { caliente: [], templado: [], frio: [] };
-  leadsCache.forEach(lead => grupos[getLeadTemperature(lead)].push(lead));
+  const grupos = { caliente: [], templado: [], frio: [], archivados: [] };
+  const archiveCutoff = Date.now() - 60 * LEAD_DAY_MS;
+  for (const lead of leadsCache) {
+    const temperatura = getLeadTemperature(lead);
+    const activity = leadActivityTime(lead);
+    const archived = temperatura === 'frio' && activity !== null && activity <= archiveCutoff
+      && !lead.has_upcoming_appointment && !lead.has_pending_followup;
+    grupos[archived ? 'archivados' : temperatura].push(lead);
+  }
 
   document.getElementById('kanbanCalienteCount').textContent = grupos.caliente.length;
   document.getElementById('kanbanTempladoCount').textContent = grupos.templado.length;
   document.getElementById('kanbanFrioCount').textContent = grupos.frio.length;
+  btnArchivados.textContent = `Archivados (${grupos.archivados.length})`;
 
   const renderCard = (lead, tempClass) => {
     const iniciales = (lead.nombre || 'P W').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
     return `
-      <div data-lead-id="${escapeHtml(lead.id)}" class="btn-kanban-card kanban-card ${tempClass} p-3 cursor-pointer">
-        <div class="flex items-start justify-between gap-2">
-          <div class="flex items-center gap-2 min-w-0">
-            <div class="w-7 h-7 rounded-lg bg-[#20242F] flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0">${escapeHtml(iniciales)}</div>
-            <div class="min-w-0">
-              <p class="text-xs font-semibold truncate">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</p>
-              <p class="text-[10px] text-[#9CA3AF] font-mono truncate privacy-sensitive">${catalogModeActive ? CATALOG_REDACTED : escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</p>
-            </div>
-          </div>
-        </div>
-        <p class="text-[11px] mt-2 truncate" style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</p>
-      </div>
+      <button type="button" data-lead-id="${escapeHtml(lead.id)}" class="btn-kanban-card kanban-card ${tempClass} block w-full text-left p-3 cursor-pointer">
+        <span class="flex items-center gap-2 min-w-0">
+          <span aria-hidden="true" class="w-7 h-7 rounded-lg bg-[#20242F] flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0">${escapeHtml(iniciales)}</span>
+          <span class="min-w-0">
+            <span class="block text-xs font-semibold truncate">${escapeHtml(lead.nombre || 'Prospecto WhatsApp')}</span>
+            <span class="block text-[10px] text-[#9CA3AF] font-mono truncate privacy-sensitive">${catalogModeActive ? CATALOG_REDACTED : escapeHtml(lead.phone_number || lead.telefono || 'Sin número')}</span>
+          </span>
+        </span>
+        <span class="block text-[11px] mt-2 truncate" style="color: var(--cold);">${escapeHtml(lead.auto_interes || 'General')}</span>
+      </button>
     `;
   };
 
@@ -558,6 +583,8 @@ function renderPipelineKanban() {
   contCaliente.innerHTML = grupos.caliente.length ? grupos.caliente.map(l => renderCard(l, 'temp-caliente')).join('') : emptyMsg;
   contTemplado.innerHTML = grupos.templado.length ? grupos.templado.map(l => renderCard(l, 'temp-templado')).join('') : emptyMsg;
   contFrio.innerHTML = grupos.frio.length ? grupos.frio.map(l => renderCard(l, 'temp-frio')).join('') : emptyMsg;
+  contArchivados.innerHTML = grupos.archivados.length ? grupos.archivados.map(l => renderCard(l, 'temp-frio')).join('')
+    : '<p class="empty-state-mini">Sin prospectos archivados.</p>';
 
   document.querySelectorAll('.btn-kanban-card').forEach(card => {
     card.addEventListener('click', () => openDrawer(card.getAttribute('data-lead-id')));
@@ -2734,6 +2761,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   const modalVenta=document.getElementById('modalVentaOverlay');
+  on('leadActivityPeriod', 'change', renderLeadsTable);
+  on('btnKanbanArchivados', 'click', event => {
+    const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+    event.currentTarget.setAttribute('aria-expanded', String(!expanded));
+    document.getElementById('kanbanArchivados').classList.toggle('hidden', expanded);
+  });
   on('ventasYear','change',renderVentasMensuales);
   on('btnActualizarVentas','click',async()=>{
     if(!currentLote||catalogModeActive)return;

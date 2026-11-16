@@ -136,7 +136,7 @@ test.describe('redes sociales', () => {
 const supabaseMock = String.raw`(() => {
   const state = window.__fakeState = {
     lote: { id: 'lote-qa-001', profile_id: 'user-qa-001', nombre: 'Lote QA', stripe_customer_id: 'cus_qa', plan_activo: true },
-    cars: (window.__testSession?.seedCars || []).map((car) => ({ ...car })), expenses: [], queries: [],
+    cars: (window.__testSession?.seedCars || []).map((car) => ({ ...car })), expenses: [], leads: [], queries: [],
     inserts: { cars: 0, car_expenses: 0 },
     updates: { cars: 0 }, deletes: { cars: 0 }
   };
@@ -146,8 +146,9 @@ const supabaseMock = String.raw`(() => {
     select(columns = '*') { this.columns = columns; return this; }
     eq(key, value) { this.filters.push([key, String(value)]); return this; }
     gte() { return this; }
+    gt(field, value) { this.after = [field, value]; return this; }
     order() { return this; }
-    limit() { return this; }
+    limit(count) { this.maxRows = count; return this; }
     single() { this.one = true; return this; }
     maybeSingle() { this.one = true; return this; }
     insert(payload) { this.op = 'insert'; this.payload = payload; return this; }
@@ -169,7 +170,7 @@ const supabaseMock = String.raw`(() => {
       if (state.holdReads && this.op === 'select' && this.table === 'cars') await new Promise(resolve => { state.releaseRead = resolve; });
       if (this.op !== 'select' && !navigator.onLine) return { data: null, error: { message: 'Failed to fetch: offline' } };
       if (this.op === 'insert' || this.op === 'update') await delay(450);
-      const key = this.table === 'cars' ? 'cars' : this.table === 'car_expenses' ? 'expenses' : null;
+      const key = { cars: 'cars', car_expenses: 'expenses', lead_activity: 'leads' }[this.table];
       const rows = key ? state[key] : this.table === 'lotes' ? [state.lote] : this.table === 'chat_history' ? (state.chatMessages || []) : [];
       const matches = rows.filter((row) => this.filters.every(([field, value]) => String(row[field]) === value));
       if (this.op === 'insert') {
@@ -192,7 +193,9 @@ const supabaseMock = String.raw`(() => {
         if (state.deletes[key] !== undefined) state.deletes[key] += matches.length;
         return { data: null, error: null };
       }
-      const selected = ['lotes','chat_history'].includes(this.table) ? matches : rows;
+      const selected = this.table === 'lead_activity'
+        ? matches.filter(row => !this.after || row[this.after[0]] > this.after[1]).slice(0, this.maxRows)
+        : ['lotes','chat_history'].includes(this.table) ? matches : rows;
       const data = this.columns && this.columns !== '*' ? selected.map(row => Object.fromEntries(this.columns.split(',').map(column => [column, row[column]]))) : selected;
       return { data: this.one ? (data[0] || null) : data, error: null };
     }
@@ -247,6 +250,64 @@ async function setupPage(page, session = null, registerResponse = null, search =
     });
   });
 }
+
+test('el monitor filtra por actividad y el pipeline recupera una ficha archivada cuando regresa', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const server = require('../../server').listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  try {
+    await setupPage(page, { user: { id: 'user-qa-001' }, access_token: 'mock' }, null, '', 'http://127.0.0.1:' + server.address().port);
+    await page.evaluate(async () => {
+      stopSync();
+      currentLote.plan_status = 'active';
+      renderSubscriptionStatus();
+      const daysAgo = days => new Date(Date.now() - days * 86400000).toISOString();
+      window.__fakeState.leads = [
+        { id: 1, nombre: 'Reciente', created_at: daysAgo(15) },
+        { id: 2, nombre: 'Frío de 45 días', created_at: daysAgo(45) },
+        { id: 3, nombre: 'Inactivo', created_at: daysAgo(65) },
+        { id: 4, nombre: 'Con cita', created_at: daysAgo(65), has_upcoming_appointment: true },
+        { id: 5, nombre: 'Con seguimiento', created_at: daysAgo(65), has_pending_followup: true },
+        { id: 6, nombre: 'Templado antiguo', created_at: daysAgo(65), temperatura: 'warm' },
+        { id: 7, nombre: 'Contacto que volvió', created_at: daysAgo(85), last_activity_at: daysAgo(1) },
+      ].map(lead => ({ lote_id: currentLote.id, temperatura: 'cold', ...lead }));
+      await fetchLeads();
+    });
+
+    const monitor = page.locator('#leadsGroupedContainer');
+    await expect(monitor.getByText('Reciente', { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(monitor.getByText('Contacto que volvió', { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(monitor.getByText('Frío de 45 días', { exact: true })).toHaveCount(0);
+    await page.getByLabel('Periodo de actividad').selectOption('all');
+    await expect(monitor.getByText('Inactivo', { exact: true }).filter({ visible: true })).toBeVisible();
+
+    await page.locator('#openSidebar').click();
+    await page.locator('[data-section="section-pipeline"]').click();
+    const cold = page.locator('#kanbanFrio');
+    await expect(cold.getByRole('button', { name: /Con cita/ })).toBeVisible();
+    await expect(cold.getByRole('button', { name: /Con seguimiento/ })).toBeVisible();
+    await expect(cold.getByRole('button', { name: /Frío de 45 días/ })).toBeVisible();
+    await expect(page.locator('#kanbanTemplado').getByRole('button', { name: /Templado antiguo/ })).toBeVisible();
+    await expect(cold.getByRole('button', { name: /Inactivo/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Archivados (1)' }).click();
+    const archivedCard = page.locator('#kanbanArchivados').getByRole('button', { name: /Inactivo/ });
+    await archivedCard.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#drawerNombre')).toHaveText('Inactivo');
+    await page.locator('#closeDrawerBtn').click();
+
+    await page.evaluate(async () => {
+      window.__fakeState.leads.find(lead => lead.id === 3).last_activity_at = new Date().toISOString();
+      await fetchLeads();
+    });
+    await expect(page.getByRole('button', { name: 'Archivados (0)' })).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('#kanbanArchivados')).toContainText('Sin prospectos archivados.');
+    await expect(cold.getByRole('button', { name: /Inactivo/ })).toHaveAttribute('data-lead-id', '3');
+  } finally {
+    server.closeAllConnections();
+    server.close();
+  }
+});
 
 async function completeRegistrationWizard(page) {
   if (await page.locator('#to-registro-btn').isVisible()) {
@@ -760,7 +821,7 @@ test.describe('interaccion tactil del perfil',()=>{
   await setupPage(page,{user:{id:'user-qa-001'},access_token:'mock'},null,'',origin);
   await page.evaluate(()=>{
    stopSync();currentLote.plan_status='active';renderSubscriptionStatus();
-   leadsCache=[{id:'touch-lead',nombre:'Prospecto de prueba',phone_number:'523121110001',notes:'Notas extensas del expediente. '.repeat(150),ultimo_mensaje:'Mensaje extenso del prospecto. '.repeat(150),status:'Calificado'}];
+   leadsCache=[{id:'touch-lead',nombre:'Prospecto de prueba',phone_number:'523121110001',notes:'Notas extensas del expediente. '.repeat(150),ultimo_mensaje:'Mensaje extenso del prospecto. '.repeat(150),status:'Calificado',created_at:new Date().toISOString()}];
    window.__fakeState.chatMessages=Array.from({length:40},(_,i)=>({lote_id:currentLote.id,phone_number:'3121110001',role:i%2?'assistant':'user',message:'Mensaje '+i+' de la conversación de prueba. '.repeat(4)}));renderLeadsTable();
   });
   await page.locator('.btn-ver-perfil:visible').first().tap();

@@ -563,9 +563,18 @@
             </div>
           </div>
 
-          <div class="mb-4">
-            <h3 class="font-bold text-[#F5F5F4] uppercase tracking-wider text-xs">Monitor General de Leads Calificados por IA</h3>
-            <p class="text-xs text-[#9CA3AF]">Listado cronológico organizado por bloques mensuales de registro y telemetría en tiempo real</p>
+          <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div>
+              <h3 class="font-bold text-[#F5F5F4] uppercase tracking-wider text-xs">Monitor General de Leads Calificados por IA</h3>
+              <p class="text-xs text-[#9CA3AF]">Prospectos agrupados por su última actividad.</p>
+            </div>
+            <div>
+              <label for="leadActivityPeriod" class="block text-xs text-[#9CA3AF] mb-1">Periodo de actividad</label>
+              <select id="leadActivityPeriod" class="px-3 py-2 rounded-lg border text-sm">
+                <option value="recent">Últimos 30 días</option>
+                <option value="all">Todo el historial</option>
+              </select>
+            </div>
           </div>
 
           <div id="leadsGroupedContainer" class="space-y-6"></div>
@@ -646,6 +655,10 @@
               <p class="text-[10px] text-[#9CA3AF] px-2">Contacto inicial sin avance o descartado</p>
               <div id="kanbanFrio" class="space-y-2 min-h-[80px]"></div>
             </div>
+          </div>
+          <div class="card p-4">
+            <button id="btnKanbanArchivados" type="button" class="btn-ghost px-3 py-2 rounded-lg text-sm" aria-expanded="false" aria-controls="kanbanArchivados">Archivados (0)</button>
+            <div id="kanbanArchivados" class="hidden mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
           </div>
         </section>
 
